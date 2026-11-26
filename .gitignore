@@ -1,0 +1,8 @@
+# Built output
+build/
+tools/bin/
+__pycache__/
+*.pyc
+
+# Downloaded binaries (fetch per third_party/README.md; ready-built tools are in GitHub Releases)
+third_party/libusb-*/

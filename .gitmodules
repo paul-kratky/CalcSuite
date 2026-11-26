@@ -1,0 +1,6 @@
+[submodule "third_party/libnspire"]
+	path = third_party/libnspire
+	url = https://github.com/Vogtinator/libnspire
+[submodule "third_party/luna"]
+	path = third_party/luna
+	url = https://github.com/ndless-nspire/Luna
