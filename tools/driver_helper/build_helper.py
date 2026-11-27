@@ -48,7 +48,9 @@ def build(tc, force, run, bin_dir, kit):
     run([gcc, "-O2"] + defs + ['-DSOLUTIONDIR="%s"' % fwd(obj), "-I", wdi,
         os.path.join(wdi, "embedder.c"), "-o", embedder], tc)
     # The embedder finds the .inf templates relative to its working directory
-    p = subprocess.run([embedder, os.path.join(obj, "embedded.h")], cwd=wdi,
+    # The toolchain on PATH too, in case the embedder needs its runtime DLLs
+    env = dict(os.environ, PATH=tc + os.pathsep + os.environ.get("PATH", ""))
+    p = subprocess.run([embedder, os.path.join(obj, "embedded.h")], cwd=wdi, env=env,
                        capture_output=True, text=True)
     if p.returncode:
         print(p.stdout + p.stderr)

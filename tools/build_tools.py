@@ -11,7 +11,8 @@
     python -I tools/build_tools.py --force    rebuild everything
 
 Needs a MinGW-w64 gcc/g++. It uses MSYS2's UCRT64 toolchain (C:/msys64/ucrt64/bin)
-with its zlib package, or a gcc found on PATH. No admin rights, nothing is installed:
+with its zlib package, or a gcc found on PATH; the environment variable CALCSUITE_MINGW
+(a bin folder with gcc.exe) overrides both. No admin rights, nothing is installed:
 only files in tools/bin/ are written. The prebuilt .exe files are normally already
 there, so you only need this after updating third_party/.
 """
@@ -40,6 +41,13 @@ def find_libusb():
 
 
 def find_toolchain():
+    # CALCSUITE_MINGW: a folder with gcc.exe/g++.exe, used first when set (CI: setup-msys2
+    # installs MSYS2 elsewhere, see .github/workflows/release.yml)
+    override = os.environ.get("CALCSUITE_MINGW")
+    if override:
+        if os.path.isfile(os.path.join(override, "gcc.exe")):
+            return override
+        sys.exit("ERROR: CALCSUITE_MINGW=%s has no gcc.exe" % override)
     candidates = [r"C:\msys64\ucrt64\bin", r"C:\msys64\mingw64\bin"]
     for d in candidates:
         if os.path.isfile(os.path.join(d, "gcc.exe")) and os.path.isfile(os.path.join(d, "g++.exe")):
