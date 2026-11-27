@@ -11,12 +11,13 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   F11 STAT, F12 QUIT, Esc CLEAR), screenshots and recordings. It needs the WinUSB driver once
   (README, with Zadig). Tested on a TI-84 Plus CE: screenshot, typing `1+2` Enter.
 - **`ti84-cli`:** our own small link for TI's DUSB protocol on libusb (info, shot, key, serve).
-- **TI-89 Titanium in the mirror app (untested on hardware):** its own window with the
+- **TI-89 Titanium in the mirror app:** its own window with the
   160 x 100 screen shown x4, the PC keyboard as its keys (F1-F8 its F1-F8, Home HOME, Esc ESC,
   F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR), screenshots and recordings. `ti84-cli` speaks to
   it too (`--model 89t`; its copy `ti89-cli.exe` picks the 89 by itself), and `ti84-cli
   devices` lists the TI calculators on USB. Likely needs WinUSB once with Zadig (USB ID
-  `0451 E004`). Written from TILP's libticalcs; nothing was tried on a TI-89 yet.
+  `0451 E004`). Tested on a TI-89 Titanium, OS 3.10: info, screenshot (0.06 s, so the window
+  runs fast), typing `1+2` Enter. Needs WinUSB once with Zadig, like the 84 Plus CE.
 - **Record:** a button in each window. Saves a GIF (built in), and an MP4 too when ffmpeg is
   installed. Up to 3 minutes; a still screen costs nothing.
 - **One window per calculator,** opened when it is plugged in, several at once. Tested with a

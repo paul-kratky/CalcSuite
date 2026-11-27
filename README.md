@@ -21,24 +21,27 @@ What's new: [CHANGELOG.md](CHANGELOG.md).
 The mirror app also opens a window for a TI-84 Plus CE: live screen (about 1 frame a second),
 your keyboard as its keys, screenshots and recordings. Sending programs to it isn't built yet.
 
-**TI-89 Titanium (not yet tried on a calculator).** It gets its own window the same way: its
-160 x 100 screen shown four times as big, typing (lower case as typed), Enter, Esc, Backspace,
-the arrows, Home, F1-F8 as its F1-F8, F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR. It most likely
-needs the same WinUSB step below: in Zadig pick the **TI-89 Titanium** (USB ID `0451 E004`).
+**TI-89 Titanium.** It gets its own window the same way: its 160 x 100 screen shown four times
+as big, typing (lower case as typed), Enter, Esc, Backspace, the arrows, Home, F1-F8 as its
+F1-F8, F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR.
 
-**One-time driver step (Windows).** The 84 Plus CE doesn't tell Windows which driver to use,
-so it shows up with no driver. Give it the WinUSB driver with [Zadig](https://zadig.akeo.ie/):
+**One-time driver step (Windows), TI-84 Plus CE and TI-89 Titanium.** Neither tells Windows
+which driver to use, so each shows up with no driver. Give it the WinUSB driver with
+[Zadig](https://zadig.akeo.ie/), once per calculator:
 
 1. Plug the calculator in and switch it on.
 2. Run Zadig. Options > **List All Devices**.
-3. Pick **TI-84 Plus CE** (USB ID `0451 E008`).
-4. Choose **WinUSB** and press **Install Driver**.
+3. Pick the calculator: **TI-84 Plus CE** (USB ID `0451 E008`) or **TI-89 Titanium** (USB ID
+   `0451 E004`). The Driver box says `(NONE)` until it has one.
+4. Choose **WinUSB** and press **Install Driver**. It takes a minute or two.
 
 ![Zadig with the TI-84 Plus CE selected and WinUSB chosen](docs/img/zadig-ti84ce.png)
 
-With WinUSB attached, TI Connect CE may no longer see the calculator. To undo it: Device
-Manager > the calculator > Uninstall device, with "delete the driver" ticked. The TI-Nspire
-CX II needs no driver step.
+![Zadig with the TI-89 Titanium selected, driver (NONE), WinUSB chosen](docs/img/zadig-ti89t.png)
+
+With WinUSB attached, TI Connect CE / TI Connect may no longer see the calculator. To undo it:
+Device Manager > the calculator > Uninstall device, with "delete the driver" ticked. The
+TI-Nspire CX II needs no driver step.
 
 **Licence:** MIT (`LICENSE`), except `tools/nspire_cli/` and the `nspire-cli.exe` built from it,
 which are GPL-3.0-or-later because they link libnspire; `third_party/` projects keep their own
