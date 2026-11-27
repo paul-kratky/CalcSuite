@@ -5,6 +5,64 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 ## [Unreleased]
 
 ### Added
+- **Back up... and Restore...** in **Files...** (and `python -I tools/calc_backup.py backup|show|restore`).
+  A backup is a folder, `Documents\CalcSuite\backups\<model>-<date>\`, with a `manifest.json`
+  (the calculator, every file with its name, type, size, archived flag and SHA-256, what was
+  skipped and why, what failed). TI-Nspire: every file in every folder the link shows, folder
+  tree kept, empty folders too. TI-84 Plus CE: every variable as its TI file, and all of them
+  in one TI Connect CE bundle (`.b84`: a ZIP with METADATA and _CHECKSUM, the layout tivars
+  reads and writes; not tried in TI Connect CE). TI-89 Titanium: every variable as its TI file
+  in a folder per calculator folder, and one `.89g` group. Apps and the OS can't be read over
+  the link: they're listed as skipped. Restore shows what's in a backup and what's already on
+  the calculator, sends the picked items one by one (Nspire folders made when missing), asks
+  before replacing any name (replace / send only the others / cancel), and never wipes the
+  calculator. Tested on all three: backups of the TI-Nspire CX II CAS (OS 6.40, 15 files,
+  0.85 MB, 12 s), the TI-84 Plus CE (OS 5.4.0, 69 variables, 222 KB, 5 s; 18 apps skipped;
+  two backups byte for byte the same; every file and the .b84 read by tivars) and the TI-89
+  Titanium (OS 3.10, 6 variables; 8 apps skipped; the .89g matches the single files). Restore
+  on each with a test item only (`zztest`, made for the test and deleted after): skipped while
+  it was there, sent back after deleting it, the calculator's copy byte for byte the backup's;
+  on the Nspire into a folder the restore had to make again. The Files window's buttons, the
+  restore list and the replace question were driven by a script on all three calculators.
+- **The calculator's clock** in **About this calculator**: its date and time against the
+  PC's, and **Set the clock to the PC's time** (TI-84 Plus CE, TI-89 Titanium). Only the date
+  and time change, not the calculator's date or time format. `ti84-cli clock`, `setclock now`
+  or `setclock YYYY MM DD hh mm ss`. Tested: the TI-84 Plus CE (was 2015-01-01) and the TI-89
+  Titanium (was 1997-10-20) set to the PC's time and read back within a second, also across a
+  date change on the 84. The 84 Plus CE takes the time field by field and drops a field sent
+  before the last one has landed, so each one is read back first (about 3 s). The TI-Nspire's
+  clock can't be read or set over USB (libnspire and TILP have no command for it); About says
+  so.
+- **Exit Press-to-Test...** in **About this calculator**, TI's own way only (CalcSuite sends no
+  test-mode command): for the TI-Nspire CX II, CalcSuite lets go of the handheld (until
+  Reconnect) and opens TI-Nspire CX II Connect; for the TI-84 Plus CE, TI's steps from
+  "Getting Started with the TI-84 Plus CE" (p. 60) with a link to TI's page. The TI-89
+  Titanium has no Press-to-Test (its guidebook has none), and the button says so. Tested: the
+  Nspire window lets go and reconnects; nothing was tried on a calculator in Press-to-Test.
+- **Exact TI-84 TI-Basic:** the 84's tokenizer and detokenizer use TI-Toolkit's token sheet
+  through `tivars` 1.1.1 (MIT, in `tools/third_party_py/`, nothing installed): all 808 tokens of
+  the TI-84 Plus CE's current OS by the names it shows (TI-Toolkit's typing names work too),
+  where our own table had 563 and some CE names wrong (MATHPRINT, CLASSIC, AUTO, DEC, Thick).
+  Our table stays as the fallback. Inside strings a word stays letters unless it stands alone
+  ("REDUCE" is letters), and a function at a word's start stays its token (`"sin(X)"→Y₁`).
+  The viewer reads each line back and, where a plain name would come back as another token
+  (`X^2` typed as `^` `2`, a minus after `(`), writes it so it does. Checked on the 84's own
+  TI-Basic programs (about 4,400 lines): all but 15 lines read back byte for byte, and those
+  have tokens typed inside a sentence in a string, which text can't tell from letters (one
+  notes program also keeps spaces outside strings, which CalcSuite drops). Compiled (assembly)
+  programs now say so instead of showing their bytes as tokens.
+- **Warnings for misspelt 84 commands:** a word outside a string with lower case letters that
+  isn't a command (`textcolor(`, `GridOn`) is reported before sending, with the command meant
+  (`TextColor(`): the calculator would stop there with ERR:SYNTAX. Send program asks whether to
+  send anyway; `send_ti.py` prints a WARNING.
+- **TI-89 symbols from the PC:** `@>` (or ►) for the conversion operator (`10@>Bin`,
+  `3_m@>_ft`), `@int(` ∫(, `@d(` d(, `@sum(` Σ(, `@angle` ∠, `@i` 𝑖. Tested on a TI-89
+  Titanium, OS 3.10: a test program showed 0b1010, 0hFF, 1250/127·_ft and the right
+  derivative, integral and sum.
+- **TI-89 Titanium keep-alive: none.** Key code 0 (the do-nothing key on the Nspire and the
+  84) makes a TI-89 Titanium (OS 3.10) stop answering the link about a second later, for 6 to
+  8 minutes, then it answers again by itself with its screen as before (tested twice). The
+  window's own screenshots kept it on for 7 minutes with no key, so its window sends none.
 - **TI-84 Plus CE in the mirror app:** its own window with the live screen (about 1 frame a
   second: the calculator sends 150 KB a picture over full-speed USB), the PC keyboard as its
   keys (F1-F5 are Y= WINDOW ZOOM TRACE GRAPH, F6 MODE, F7 MATH, F8 APPS, F9 PRGM, F10 VARS,

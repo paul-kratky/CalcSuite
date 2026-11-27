@@ -47,6 +47,9 @@ program can talk to a calculator at a time.
 | **Send program** | TI-Nspire: a `.py` (checked and converted first) or a `.tns`. TI-84 Plus CE and TI-89 Titanium: TI-Basic typed on the PC (a `.txt`, `.tib` or `.bas`) or a ready TI file (`.8xp`, `.89p`, ...). It asks before replacing anything on the calculator. [How to write the text](#ti-basic-from-the-pc). |
 | **Mouse** | TI-Nspire: wheel up/down (Shift: left/right), click, double click Enter, right click the context menu. |
 | **Files** | The **Files...** button: what's on the calculator, saved to the PC, sent to it, deleted. Calculator info, and whether TI has a newer OS. |
+| **Backup** | **Back up...** in **Files...** copies everything the link can read to `Documents\CalcSuite\backups\<model>-<date>` (Nspire: every file, folders kept; 84: TI files and a `.b84` bundle; 89: TI files and a `.89g` group; a `manifest.json`). Apps and the OS can't be read: they're listed as skipped. **Restore...** shows what's in a backup, sends what you pick, and asks before replacing anything. It never wipes the calculator. |
+| **Clock** | In **About this calculator**: the calculator's clock against the PC's, and **Set the clock to the PC's time** (TI-84 Plus CE, TI-89 Titanium). The Nspire's clock can't be read or set over USB: set it on the handheld. |
+| **Exit Press-to-Test** | In **About this calculator**, TI's own way only: for the Nspire, CalcSuite lets go of the handheld and opens TI-Nspire CX II Connect; for the 84, TI's steps. The TI-89 Titanium has no Press-to-Test. |
 
 ## Files and updates
 
@@ -73,6 +76,9 @@ Write the program in any text editor and send it with **Send program...** (or **
   start of a number for the negative sign. The symbols work too (`→ ≤ ≥ ≠ √ π θ ² ⁻¹`). A `:`
   at the start of a line is fine. Spaces only count inside strings. The program is named after
   the file (`HELLO.txt` is `HELLO`; up to 8 capitals), or the app asks. Run it with PRGM.
+  Every TI-84 Plus CE command works under the name the calculator shows (TI-Toolkit's token
+  list). A word outside a string with lower case letters that isn't a command (`textcolor(`)
+  gets a warning before sending: the calculator would stop there.
 - **TI-89 Titanium:** the program goes over as text, the way the 89's own Program Editor keeps
   it, and the 89 turns it into its tokens the first time it runs. Start with the program's
   line and `Prgm` / `EndPrgm` (`Func` / `EndFunc` makes a function), as the 89 shows it:
@@ -86,7 +92,9 @@ Write the program in any text editor and send it with **Send program...** (or **
   ```
 
   or write only the body (a program with no arguments, named after the file). The same PC
-  spellings work (`->`, `<=`, `>=`, `!=`, `sqrt(`, `pi`, `theta`). Run it by typing `hello()`.
+  spellings work (`->`, `<=`, `>=`, `!=`, `sqrt(`, `pi`, `theta`), and `@>` for ► (`10@>Bin`,
+  `3_m@>_ft`), `@int(` for ∫(, `@d(` for d(, `@sum(` for Σ(, `@angle` for ∠, `@i` for 𝑖.
+  Run it by typing `hello()`.
   A mistake in the program shows up as the 89's own error when it first runs.
 
 **About this calculator** shows the model, OS version and free memory, and checks TI's website
@@ -127,4 +135,4 @@ What's new: [CHANGELOG.md](CHANGELOG.md).
 
 **Licence:** MIT (`LICENSE`), except `tools/nspire_cli/` and `tools/ti84_cli/` and the
 programs built from them, which are GPL-3.0-or-later (they link libnspire / follow TILP);
-`third_party/` projects keep their own licences. Not affiliated with Texas Instruments.
+`third_party/` projects and `tools/third_party_py/tivars` (MIT) keep their own licences. Not affiliated with Texas Instruments.

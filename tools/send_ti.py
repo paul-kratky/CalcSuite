@@ -96,10 +96,11 @@ def variables(blob, slug):
     return out
 
 
-def prepare(path, slug, name=None, out_dir=None):
+def prepare(path, slug, name=None, out_dir=None, warnings=None):
     """A text or TI file -> (the TI file to send, [(folder, name, type)]). A text file is
     turned into a .8xp / .89p in out_dir (a temporary folder by default). Raises NeedName when
-    a text file has no usable name, ValueError (or OSError) for anything else."""
+    a text file has no usable name, ValueError (or OSError) for anything else. A list as
+    `warnings` gets the 84 tokenizer's notes on words that look like misspelt commands."""
     stem, ext = os.path.splitext(os.path.basename(path))
     if is_ti_file(path):
         with open(path, "rb") as f:
@@ -114,7 +115,7 @@ def prepare(path, slug, name=None, out_dir=None):
         if not name:
             raise NeedName("%s: what should the program be called? (up to 8 capitals or "
                            "digits, a letter first)" % os.path.basename(path))
-        blob = cf.program_8xp(text, name)
+        blob = cf.program_8xp(text, name, warnings=warnings)
         out = os.path.join(out_dir, name.replace("θ", "theta") + ".8xp")
     else:
         try:
@@ -207,7 +208,18 @@ def prepare_asking(path, slug, parent, out_dir, say, simpledialog):
     name = None
     for _ in range(3):
         try:
-            return prepare(path, slug, name, out_dir)
+            warnings = []
+            ti, wanted = prepare(path, slug, name, out_dir, warnings)
+            if warnings:
+                from tkinter import messagebox
+                more = "\n... and %d more" % (len(warnings) - 8) if len(warnings) > 8 else ""
+                if not messagebox.askyesno(
+                        "Check the program", "%s: these look like mistakes:\n\n%s%s\n\nSend it "
+                        "anyway?" % (os.path.basename(path), "\n\n".join(warnings[:8]), more),
+                        icon="warning", parent=parent):
+                    say("Not sent: %s" % warnings[0])
+                    return None, None
+            return ti, wanted
         except NeedName as e:
             name = simpledialog.askstring("Program name", str(e), parent=parent)
             if not name:
@@ -247,7 +259,10 @@ def main(argv):
         if not os.path.isfile(a.file):
             print("ERROR: no such file: %s" % a.file)
             return 6
-        ti, wanted = prepare(a.file, slug, a.name)  # Made in a temporary folder
+        warnings = []
+        ti, wanted = prepare(a.file, slug, a.name, warnings=warnings)  # Made in a temp folder
+        for w in warnings:
+            print("WARNING: " + w)
     except (ValueError, OSError) as e:
         print("ERROR: %s" % e)
         return 1

@@ -6,12 +6,18 @@
   programs shown as text, upload TI files or TI-Basic text (send_ti.py), delete.
 - TI-89 Titanium: its variables by folder; download as TI files (.89p etc.), text, strings and
   not-yet-run programs shown as text, upload TI files or TI-Basic text, delete.
-- About this calculator: model, OS, free space, and whether TI has a newer OS.
+- Back up... (everything the link can read, into Documents\CalcSuite\backups\<model>-<date>\)
+  and Restore... (pick a backup, choose what goes back; asks before replacing a name), in
+  calc_backup.py.
+- About this calculator: model, OS, free space, whether TI has a newer OS, the calculator's
+  clock against the PC's (84 and 89: "Set the clock to the PC's time"), and Exit Press-to-Test
+  (TI's own way only: TI-Nspire CX II Connect for the Nspire, TI's steps for the 84).
 
 Every command goes through the Mirror's link thread (Mirror.queue), so the live picture keeps
 running between them; nothing here talks to USB itself.
 """
 
+import datetime
 import locale
 import os
 import tempfile
@@ -21,12 +27,16 @@ import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+import calc_backup as cb
 import calc_files as cf
 
 BG, FG, DIM, BTN, BTN_ACTIVE, ACCENT = "#000000", "#ece9e2", "#9a968d", "#111113", "#1c1c1f", "#7fb4ff"
 BUTTON = dict(bg=BTN, fg=FG, activebackground=BTN_ACTIVE, activeforeground="#ffffff",
               relief="flat", padx=10, pady=6, bd=0, disabledforeground="#55534e")
 ENCODING = locale.getpreferredencoding(False)  # What nspire_link's pipes use
+NSPIRE_CONNECT = "https://nspireconnect.ti.com"  # TI-Nspire CX II Connect (TI's web app)
+TI84_TEST_MODE = ("https://education.ti.com/html/webhelp/eg_ti84plusce/en/content/eg_gsguide/"
+                  "m_exams/exm_out_of_test_mode.HTML")
 
 
 def shown(name):
@@ -106,6 +116,11 @@ class Manager(object):
         tk.Label(top, textvariable=self.where, bg=BG, fg=FG, anchor="w").pack(
             side="left", fill="x", expand=True, padx=8)
         tk.Button(top, text="About this calculator", command=self.about, **BUTTON).pack(side="right")
+        self.restore_btn = tk.Button(top, text="Restore...", command=self.restore, **BUTTON)
+        self.restore_btn.pack(side="right", padx=(0, 6))
+        self.backup_btn = tk.Button(top, text="Back up...", command=self.backup, **BUTTON)
+        self.backup_btn.pack(side="right", padx=(0, 6))
+        self.busy = None  # "backup" / "restore" while one runs
 
         mid = tk.Frame(win, bg=BG)
         mid.pack(fill="both", expand=True, padx=12)
@@ -208,6 +223,26 @@ class Manager(object):
                 self.say("%s: %d%% (%s of %s)" % (what, min(pct, 100), cf.human_size(n),
                                                    cf.human_size(total)))
         self.m.queue(line, None, finished, progress)
+
+    def run_batch(self, cmds, timeout=900):
+        """Runs [(line, progress)] on the link thread and waits for all of them: [(code,
+        lines)]. For a worker thread only (never Tk's): the live picture goes on between
+        batches."""
+        results = [None] * len(cmds)
+        left = [len(cmds)]
+        ev = threading.Event()
+        for k, (line, progress) in enumerate(cmds):
+            def done(code, lines, k=k):
+                results[k] = (code, lines)
+                left[0] -= 1
+                if left[0] == 0:
+                    ev.set()
+            self.m.queue(line, None, done, progress)
+        t0 = time.time()
+        while cmds and not ev.wait(0.5):
+            if not self.m.running or time.time() - t0 > timeout:
+                break
+        return [r or (4, ["ERR no answer (the window closed, or the cable?)"]) for r in results]
 
     def selected(self):
         return [self.items[int(i)] for i in self.tree.selection()]
@@ -427,6 +462,10 @@ class Manager(object):
                     return
             elif self.slug == "ti89":
                 text = cf.ti89_text(i["type"], raw) or ""
+            elif cf.is_compiled_84(raw):
+                self.status.set("%s is a compiled (assembly or C) program: it has no TI-Basic text"
+                                % i["text"])
+                return
             else:
                 text = cf.detokenize_84(raw)
             self.show_text(i, text)
@@ -592,6 +631,83 @@ class Manager(object):
             self.refresh()
         self.job("mv %s|%s" % (self.remote(old), self.remote(new_raw)), done)
 
+    # ---- Backup and restore (calc_backup.py) ----
+    def set_busy(self, what):
+        self.busy = what
+        state = "disabled" if what else "normal"
+        for b in (self.backup_btn, self.restore_btn):
+            try:
+                b.configure(state=state)
+            except tk.TclError:
+                pass
+
+    def connected(self):
+        if self.m.session is None:
+            self.status.set("The %s isn't connected: switch it on (its window connects by itself)"
+                            % self.calc.title)
+            return False
+        return True
+
+    def backup(self):
+        if self.busy or not self.connected():
+            return
+        folder = cb.new_backup_folder(self.slug)
+        self.set_busy("backup")
+        self.status.set("Backing up to %s..." % folder)
+
+        def work():
+            try:
+                code, lines = self.run_batch([("info", None)])[0]
+                import nspire_link
+                info = nspire_link.info_dict(lines) if code == 0 else dict(self.m.info)
+                man = cb.backup(self.slug, self.run_batch, info, folder, self.say)
+                self.ui(self.backed_up, folder, man, None)
+            except Exception as e:  # A backup must never take the window down
+                self.ui(self.backed_up, folder, None, e)
+        threading.Thread(target=work, daemon=True).start()
+
+    def backed_up(self, folder, man, error):
+        self.set_busy(None)
+        if man is None:
+            try:
+                os.rmdir(folder)  # Only when nothing was saved in it
+                where = ""
+            except OSError:
+                where = " (what was saved so far is in %s)" % folder
+            self.status.set("Backup stopped: %s%s" % (error, where))
+            return
+        lines = cb.summary(man)
+        self.status.set("Backed up %d item(s) to %s" % (len(man["items"]), folder))
+        if messagebox.askyesno("Backup finished", "\n".join(lines) + "\n\nIn %s\n\nOpen the folder?"
+                               % folder, parent=self.win):
+            try:
+                os.startfile(folder)
+            except (AttributeError, OSError):
+                pass
+
+    def restore(self):
+        if self.busy or not self.connected():
+            return
+        root = cb.backups_root()
+        os.makedirs(root, exist_ok=True)
+        folder = filedialog.askdirectory(parent=self.win, title="Restore which backup? (its folder)",
+                                         initialdir=root, mustexist=True)
+        if not folder:
+            return
+        try:
+            man = cb.load(folder)
+        except ValueError as e:
+            self.status.set(str(e))
+            return
+        if man["calculator"]["slug"] != self.slug:
+            self.status.set("That backup is of a %s, not this %s" % (man["calculator"]["model"],
+                                                                     self.calc.title))
+            return
+        if not man["items"]:
+            self.status.set("That backup has nothing in it to send")
+            return
+        RestoreDialog(self, folder, man)
+
     # ---- About this calculator ----
     def about(self):
         if self.about_win is not None:
@@ -611,6 +727,103 @@ class Manager(object):
         tk.Label(self.about_rows, text="Asking the calculator...", bg=BG, fg=DIM).pack(anchor="w")
         w.protocol("WM_DELETE_WINDOW", self.close_about)
         self.job("info", self.got_info)
+        self.about_extras()
+
+    # ---- The clock and Exit Press-to-Test (in About) ----
+    def about_extras(self):
+        """The clock row and the Exit Press-to-Test button, under the OS line"""
+        w = self.about_win
+        self.clock_line = tk.Frame(w, bg=BG)
+        self.clock_line.pack(fill="x", padx=16, pady=(0, 8))
+        bar = tk.Frame(w, bg=BG)
+        bar.pack(fill="x", padx=16, pady=(0, 16))
+        if self.nspire:
+            tk.Label(self.clock_line, text="Clock: the handheld's clock can't be read or set over USB "
+                     "(no known command for it); set it on the handheld (its Settings).", bg=BG,
+                     fg=DIM, justify="left", wraplength=460).pack(anchor="w")
+        else:
+            self.clock_text = tk.StringVar(master=w, value="Clock: reading...")
+            tk.Label(self.clock_line, textvariable=self.clock_text, bg=BG, fg=FG, justify="left",
+                     wraplength=460).pack(anchor="w")
+            self.clock_btn = tk.Button(bar, text="Set the clock to the PC's time", command=self.set_clock,
+                                       **BUTTON)
+            self.clock_btn.pack(side="left", padx=(0, 6))
+            self.job("clock", self.got_clock)
+        tk.Button(bar, text="Exit Press-to-Test...", command=self.exit_test_mode, **BUTTON).pack(side="left")
+
+    def got_clock(self, code, lines):
+        if self.about_win is None:
+            return
+        import nspire_link
+        pc = datetime.datetime.now().replace(microsecond=0)
+        d = nspire_link.info_dict(lines)
+        if code or "clock_date" not in d:
+            self.clock_text.set("Clock: couldn't read it (%s)" % why(lines))
+            return
+        try:
+            calc = datetime.datetime.strptime(d["clock_date"] + " " + d["clock_time"], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            self.clock_text.set("Clock: it reads %s %s" % (d["clock_date"], d["clock_time"]))
+            return
+        diff = int((calc - pc).total_seconds())
+        if abs(diff) <= 2:
+            how = "the same as the PC's"
+        else:
+            a = abs(diff)
+            parts = [(a // 86400, "day"), (a % 86400 // 3600, "h"), (a % 3600 // 60, "min"), (a % 60, "s")]
+            text = " ".join("%d %s%s" % (n, u, "s" if u == "day" and n > 1 else "") for n, u in parts if n)
+            how = "%s %s the PC's (%s)" % (text, "ahead of" if diff > 0 else "behind",
+                                           pc.strftime("%Y-%m-%d %H:%M:%S"))
+        off = "" if d.get("on") != "0" else " (the calculator's clock display is off)"
+        self.clock_text.set("Clock: %s, %s%s" % (calc.strftime("%Y-%m-%d %H:%M:%S"), how, off))
+
+    def set_clock(self):
+        self.clock_btn.configure(state="disabled")
+        self.clock_text.set("Setting the clock...")
+
+        def done(code, lines):
+            try:
+                self.clock_btn.configure(state="normal")
+            except tk.TclError:
+                return
+            if code:
+                self.clock_text.set("Clock: not set (%s)" % why(lines))
+                return
+            self.job("clock", self.got_clock)
+        # "now": the PC's time when the link gets to it (a picture may be on its way first)
+        self.job("setclock now", done)
+
+    def exit_test_mode(self):
+        """TI's own ways out of Press-to-Test: CalcSuite sends no test-mode command"""
+        title = "Exit Press-to-Test"
+        if self.nspire:
+            if not messagebox.askokcancel(
+                    title, "TI's TI-Nspire CX II Connect (a web page, in Chrome or Edge) takes the "
+                    "handheld out of Press-to-Test.\n\nOnly one program can use the handheld, so "
+                    "CalcSuite lets go of it now and opens TI's page: connect the handheld there and "
+                    "choose Exit Press-to-Test. When you're done, close TI's page and press Reconnect "
+                    "in the %s window." % self.calc.title, parent=self.about_win or self.win):
+                return
+            self.m.release()
+            webbrowser.open(NSPIRE_CONNECT)
+            self.status.set("Let go of the handheld for TI-Nspire CX II Connect: press Reconnect in "
+                            "the mirror window afterwards")
+            return
+        if self.slug == "ti84":
+            if messagebox.askyesno(
+                    title, "TI's ways to bring a TI-84 Plus CE out of Press-to-Test (TI's \"Getting "
+                    "Started with the TI-84 Plus CE\", Bringing a Calculator Out of Test Mode, p. 60):"
+                    "\n\n- Link it to another TI-84 Plus CE with a unit-to-unit USB cable and send it a "
+                    "file (2nd LINK, SEND RECEIVE).\n- In TI Connect CE: Actions > Quit Exam Mode on "
+                    "Connected CE Calculators.\n- Send it a calculator file with TI Connect CE.\n\n"
+                    "TI Connect CE needs TI's own driver, not WinUSB, and CalcSuite must be closed "
+                    "while it runs.\n\nOpen TI's page with these steps?", parent=self.about_win or self.win):
+                webbrowser.open(TI84_TEST_MODE)
+            return
+        messagebox.showinfo(
+            title, "The TI-89 Titanium has no Press-to-Test mode: TI's TI-89 Titanium guidebook has "
+            "none (TI's Press-to-Test is on the TI-84 Plus family and the TI-Nspire), so there is "
+            "nothing to exit.", parent=self.about_win or self.win)
 
     def close_about(self):
         try:
@@ -689,3 +902,126 @@ class Manager(object):
         if self.slug == "ti84" and have and new and have < (5, 5, 0) <= new:
             tk.Label(self.os_line, text="Note: OS 5.5 and later don't run assembly (ASM) programs.",
                      bg=BG, fg=DIM).pack(anchor="w", pady=(4, 0))
+
+
+class RestoreDialog(object):
+    """Shows what's in a backup and what's on the calculator already; sends what's picked"""
+
+    def __init__(self, mgr, folder, man):
+        self.mgr, self.man, self.slug = mgr, man, mgr.slug
+        w = self.win = tk.Toplevel(mgr.win)
+        w.title("Restore to the %s" % mgr.calc.title)
+        w.configure(bg=BG)
+        w.geometry("640x480")
+        tk.Label(w, text="\n".join(cb.summary(man)), bg=BG, fg=FG, justify="left", anchor="w",
+                 wraplength=600).pack(fill="x", padx=12, pady=(12, 4))
+        tk.Label(w, text="Picked rows are sent (Ctrl+click or Shift+click to change). Nothing else "
+                 "on the calculator is touched.", bg=BG, fg=DIM, anchor="w", justify="left",
+                 wraplength=600).pack(fill="x", padx=12)
+        mid = tk.Frame(w, bg=BG)
+        mid.pack(fill="both", expand=True, padx=12, pady=6)
+        tree = self.tree = ttk.Treeview(mid, columns=("kind", "size", "there"), style="Calc.Treeview",
+                                        selectmode="extended")
+        for col, text, width, anchor in (("#0", "Name", 260, "w"), ("kind", "Kind", 120, "w"),
+                                         ("size", "Size", 80, "e"), ("there", "On the calculator", 130, "w")):
+            tree.heading(col, text=text, anchor=anchor)
+            tree.column(col, width=width, anchor=anchor)
+        sb = ttk.Scrollbar(mid, orient="vertical", command=tree.yview, style="Calc.Vertical.TScrollbar")
+        tree.configure(yscrollcommand=sb.set)
+        tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        self.items = man["items"]
+        for k, i in enumerate(self.items):
+            tree.insert("", "end", iid=str(k), text=cb.item_label(self.slug, i),
+                        values=(i.get("kind", mgr.kind_nspire(i["path"]) if self.slug == "nspire" else ""),
+                                cf.human_size(i["size"]), "checking..."))
+        tree.selection_set(tree.get_children())
+        bar = tk.Frame(w, bg=BG)
+        bar.pack(fill="x", padx=12, pady=(0, 6))
+        self.send_btn = tk.Button(bar, text="Send picked", command=self.send, state="disabled", **BUTTON)
+        self.send_btn.pack(side="left")
+        tk.Button(bar, text="Close", command=w.destroy, **BUTTON).pack(side="right")
+        self.note = tk.StringVar(master=w, value="Reading what's on the calculator...")
+        tk.Label(w, textvariable=self.note, bg=BG, fg=DIM, anchor="w", justify="left",
+                 wraplength=600).pack(fill="x", padx=12, pady=(0, 12))
+        self.there = []  # For each row: is that name on the calculator now?
+
+        def work():
+            try:
+                there = cb.on_calculator(self.slug, mgr.run_batch, man)
+                mgr.ui(self.checked, there, None)
+            except Exception as e:
+                mgr.ui(self.checked, None, e)
+        threading.Thread(target=work, daemon=True).start()
+
+    def alive(self):
+        try:
+            return bool(self.win.winfo_exists())
+        except tk.TclError:
+            return False
+
+    def checked(self, there, error):
+        if not self.alive():
+            return
+        if there is None:
+            self.note.set("Couldn't read what's on the calculator: %s" % error)
+            return
+        self.there = there
+        for k, t in enumerate(there):
+            self.tree.set(str(k), "there", "already there" if t else "")
+        n = sum(1 for t in there if t)
+        self.note.set("%d of %d already on the calculator (you'll be asked before any is replaced)"
+                      % (n, len(self.items)) if n else "None of these is on the calculator now")
+        self.send_btn.configure(state="normal")
+
+    def send(self):
+        rows = [int(k) for k in self.tree.selection()]
+        if not rows:
+            self.note.set("Pick what to send first")
+            return
+        if len(self.there) != len(self.items):
+            self.note.set("Still reading what's on the calculator")
+            return
+        picked = [self.items[k] for k in rows]
+        same = ["%s (%s)" % (cb.item_label(self.slug, self.items[k]), self.items[k].get("kind", "file"))
+                for k in rows if self.there[k]]
+        if same:
+            listing = "\n".join(same[:12]) + ("\n... and %d more" % (len(same) - 12) if len(same) > 12 else "")
+            ans = messagebox.askyesnocancel(
+                "Replace?", "%d of these %s already on the %s:\n\n%s\n\nYes: replace them with the "
+                "backup's. No: send only the others. Cancel: send nothing."
+                % (len(same), "is" if len(same) == 1 else "are", self.mgr.calc.title, listing),
+                icon="warning", parent=self.win)
+            if ans is None:
+                return
+            if not ans:
+                picked = [self.items[k] for k in rows if not self.there[k]]
+                if not picked:
+                    self.note.set("Nothing sent: everything picked is already there")
+                    return
+        mgr = self.mgr
+        if mgr.busy:
+            self.note.set("Wait for the %s to finish" % mgr.busy)
+            return
+        mgr.set_busy("restore")
+        self.send_btn.configure(state="disabled")
+        say = lambda t: (mgr.say(t), mgr.ui(lambda: self.alive() and self.note.set(t)))
+
+        def work():
+            try:
+                sent, failed = cb.restore(self.slug, mgr.run_batch, self.man, cb.with_safe_paths(picked), say)
+                mgr.ui(self.done, sent, failed, None)
+            except Exception as e:
+                mgr.ui(self.done, [], [], e)
+        threading.Thread(target=work, daemon=True).start()
+
+    def done(self, sent, failed, error):
+        self.mgr.set_busy(None)
+        text = ("Restore stopped: %s" % error if error else
+                "Sent %d item(s)%s" % (len(sent), ". Not sent: " + "; ".join("%s (%s)" % f for f in failed[:4])
+                                       if failed else ""))
+        self.mgr.status.set(text)
+        if self.alive():
+            self.note.set(text)
+            self.send_btn.configure(state="normal")
+        self.mgr.refresh()

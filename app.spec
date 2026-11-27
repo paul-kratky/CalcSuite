@@ -5,12 +5,17 @@
 
 a = Analysis(
     ['tools/mirror.py'],
-    pathex=['tools', 'tools/nspire_cli', 'tools/ti84_cli'],
+    pathex=['tools', 'tools/nspire_cli', 'tools/ti84_cli', 'tools/third_party_py'],
     binaries=[('tools/bin/nspire-cli.exe', 'bin'), ('tools/bin/ti84-cli.exe', 'bin'),
               ('tools/bin/ti89-cli.exe', 'bin'), ('tools/bin/luna.exe', 'bin'),
               ('tools/bin/libusb-1.0.dll', 'bin')],
-    datas=[('assets/app.png', 'assets')],
-    hiddenimports=[],
+    # tivars (TI-Toolkit, MIT): TI-Basic tokens for the 84 come from its token sheet
+    datas=[('assets/app.png', 'assets'),
+           ('tools/third_party_py/tivars/tokens/8X.xml', 'tivars/tokens'),
+           ('tools/third_party_py/tivars/types/json', 'tivars/types/json'),
+           ('tools/third_party_py/tivars/types/schema', 'tivars/types/schema'),
+           ('tools/third_party_py/tivars/LICENSE', 'tivars')],
+    hiddenimports=['tivars', 'calc_backup'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

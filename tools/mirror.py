@@ -184,6 +184,9 @@ class Ti89(object):
     key_fmt = "%x"
     shot_holdoff = 0.6
     zoom = 2  # Its 160 x 100 screen: x 2 here, x SCALE in the window = x 4
+    # No keepalive_key: key code 0 makes the 89 stop answering the link (tested twice, OS 3.10),
+    # and the window's screenshots alone kept it on for 7 minutes (its auto power-off is
+    # "several minutes" of no use, TI's guidebook p. 5)
     tk_keys = {
         "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["esc"],
         "BackSpace": ["backspace"], "Delete": ["del"], "Insert": ["ins"],
@@ -237,6 +240,7 @@ class Mirror(object):
         self.last_keepalive = time.time()
         self.running = True
         self.want_reconnect = False
+        self.released = False   # Let go of the calculator for another program (until Reconnect)
         self.keys_on = tk.BooleanVar(master=win, value=True)
         self.status = tk.StringVar(master=win, value="Connecting...")
         self.photo = None
@@ -286,6 +290,12 @@ class Mirror(object):
     # ---- The link thread: the only one that talks to the calculator ----
     def link_loop(self):
         while self.running:
+            if self.released:  # Another program (TI's) has the calculator: wait for Reconnect
+                if self.session is not None:
+                    self.session.close()
+                    self.session = None
+                time.sleep(0.2)
+                continue
             if self.session is None:
                 try:
                     self.session = nspire_link.Session(cli=self.calc.cli)
@@ -370,11 +380,18 @@ class Mirror(object):
             time.sleep(0.1)
 
     def reconnect(self):
+        self.released = False
         if self.session is not None:
             self.session.close()
             self.session = None
         self.want_reconnect = True
         self.set_status("Connecting...")
+
+    def release(self):
+        """Lets go of the calculator so another program (TI's) can open it, until Reconnect"""
+        self.released = True
+        self.set_status("CalcSuite has let go of the %s so TI's software can use it. Close that, "
+                        "then press Reconnect." % self.calc.title)
 
     def queue(self, line, note=None, done=None, progress=None):
         """A command for the link thread. done(code, lines) is called on the link thread when it
@@ -651,6 +668,29 @@ def set_app_icon(root):
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("CalcMirror.App")
     except (AttributeError, OSError):
+        pass
+    # Every window (the calculators', Files, About, dialogs) gets a dark title bar when it appears
+    root.bind_class("Toplevel", "<Map>", lambda e: dark_title_bar(e.widget), add="+")
+    root.bind_class("Tk", "<Map>", lambda e: dark_title_bar(e.widget), add="+")
+
+
+def dark_title_bar(win):
+    """Windows 10 (2004+) and 11: the window's title bar in dark mode. Does nothing elsewhere."""
+    if getattr(win, "_dark_done", False) or win.winfo_toplevel() is not win:
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+        hwnd = ctypes.windll.user32.GetParent(win.winfo_id())
+        on = ctypes.c_int(1)
+        for attr in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE, and its number before Windows 10 2004
+            if ctypes.windll.dwmapi.DwmSetWindowAttribute(wintypes.HWND(hwnd), attr, ctypes.byref(on),
+                                                          ctypes.sizeof(on)) == 0:
+                break
+        # Repaint the frame now (SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0020)
+        win._dark_done = True
+    except (AttributeError, OSError, tk.TclError):
         pass
 
 

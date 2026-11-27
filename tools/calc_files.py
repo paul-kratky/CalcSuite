@@ -4,15 +4,22 @@ TI-Basic as text, the parsing of the link tools' listings, and TI's newest OS ve
 
 The file layouts follow TILP's libtifiles (files8x.cc, files9x.cc) and the name rules its
 libticonv (tokens.cc); this file is our own code for them. The TI-Basic token names are the
-ones the calculator shows.
+ones the calculator shows: TI-Toolkit's token sheet for the TI-84 Plus CE (every token, as the
+latest OS names it) through `tivars` (MIT, vendored in tools/third_party_py/), else the smaller
+table below (set_token_source("builtin") picks it on purpose).
 """
 
 import json
 import os
 import re
 import struct
+import sys
 import time
 import urllib.request
+
+_TP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "third_party_py")
+if os.path.isdir(_TP) and _TP not in sys.path:
+    sys.path.append(_TP)  # tivars (the packaged app has it inside)
 
 # ---- Listings from the link tools ----
 
@@ -302,8 +309,8 @@ _STAT = ["", "RegEQ", "n", "x̄", "Σx", "Σx²", "Sx", "σx", "minX", "maxX",
 _WINDOW = {0x0A: "Xmin", 0x0B: "Xmax", 0x0C: "Ymin", 0x0D: "Ymax", 0x0E: "Tmin", 0x0F: "Tmax",
            0x10: "θmin", 0x11: "θmax", 0x1A: "TblStart", 0x21: "ΔTbl",
            0x22: "Tstep", 0x23: "θstep", 0x02: "Xscl", 0x03: "Yscl"}
-_FORMAT = ["Sequential", "Simul", "PolarGC", "RectGC", "CoordOn", "CoordOff", "Connected", "Dot",
-           "AxesOn", "AxesOff", "GridOn", "GridOff", "LabelOn", "LabelOff", "Web", "Time",
+_FORMAT = ["Sequential", "Simul", "PolarGC", "RectGC", "CoordOn", "CoordOff", "Thick", "Dot-Thick",
+           "AxesOn ", "AxesOff", "GridDot ", "GridOff", "LabelOn", "LabelOff", "Web", "Time",
            "uvAxes", "vwAxes", "uwAxes"]
 _BB = ["npv(", "irr(", "bal(", "ΣPrn(", "ΣInt(", "►Nom(", "►Eff(", "dbd(",
        "lcm(", "gcd(", "randInt(", "randBin(", "sub(", "stdDev(", "variance(", "inString(",
@@ -333,7 +340,8 @@ _EF = {0x00: "setDate(", 0x01: "setTime(", 0x02: "checkTmr(", 0x03: "setDtFmt(",
        0x16: "Manual-Fit ", 0x17: "ZQuadrant1", 0x18: "ZFrac1/2", 0x19: "ZFrac1/3",
        0x1A: "ZFrac1/4", 0x1B: "ZFrac1/5", 0x1C: "ZFrac1/8", 0x1D: "ZFrac1/10",
        0x32: "remainder(", 0x33: "Σ(", 0x34: "logBASE(", 0x35: "randIntNoRep(",
-       0x36: "MATHPRINT", 0x37: "CLASSIC", 0x3A: "AUTO", 0x3B: "DEC", 0x3C: "FRAC",
+       0x37: "MATHPRINT", 0x38: "CLASSIC", 0x39: "n/d", 0x3A: "Un/d", 0x3B: "AUTO", 0x3C: "DEC",
+       0x3D: "FRAC-APPROX",
        0x41: "BLUE", 0x42: "RED", 0x43: "BLACK", 0x44: "MAGENTA", 0x45: "GREEN", 0x46: "ORANGE",
        0x47: "BROWN", 0x48: "NAVY", 0x49: "LTBLUE", 0x4A: "YELLOW", 0x4B: "WHITE",
        0x4C: "LTGRAY", 0x4D: "MEDGRAY", 0x4E: "GRAY", 0x4F: "DARKGRAY", 0x96: "Wait ",
@@ -374,25 +382,177 @@ def _two(a, b):
 TWO_BYTE = (0x5C, 0x5D, 0x5E, 0x60, 0x61, 0x62, 0x63, 0x7E, 0xAA, 0xBB, 0xEF)
 
 
+# ---- Where the token names come from: tivars (TI-Toolkit's sheet) or the table above ----
+
+_SOURCE = ["tivars"]  # "tivars" (when it can be loaded) or "builtin"
+_TIVARS = [None]      # The tivars token map, False when it can't be loaded
+
+
+def set_token_source(source):
+    """"tivars" (the default: TI-Toolkit's complete token sheet, when tools/third_party_py has
+    it) or "builtin" (this file's own table). For tests."""
+    global _TOK84, _DETOK84
+    if source not in ("tivars", "builtin"):
+        raise ValueError(source)
+    _SOURCE[0] = source
+    _TOK84 = _DETOK84 = None
+
+
+def token_source():
+    """What tokenize_84 / detokenize_84 use now: "tivars 1.1.1" or "builtin"."""
+    if _SOURCE[0] == "tivars" and _tivars_tokens() is not None:
+        import tivars
+        return "tivars " + getattr(tivars, "__version__", "1.1.1")
+    return "builtin"
+
+
+def _tivars_tokens():
+    """{token bytes: (display, accessible, variants)} for the TI-84 Plus CE's latest OS, from
+    tivars; None when tivars can't be loaded (then the table above does the job)"""
+    if _TIVARS[0] is None:
+        try:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                from tivars.models import TI_84PCE
+                _TIVARS[0] = {b: (t.display, t.accessible, list(t.translation.variants))
+                              for b, t in TI_84PCE.tokens.bytes.items()}
+        except Exception:  # Missing, or a Python too old for it: the builtin table
+            _TIVARS[0] = False
+    return _TIVARS[0] or None
+
+
+def _names_84():
+    """[(token bytes, [names, the one to show first])] from the chosen source"""
+    tv = _tivars_tokens() if _SOURCE[0] == "tivars" else None
+    if tv:
+        return [(b, [d, a] + v) for b, (d, a, v) in tv.items()]
+    out = [(bytes((b,)), [n]) for b, n in _ONE.items()]
+    for a in TWO_BYTE:
+        for b in range(256):
+            n = _two(a, b)
+            if n:
+                out.append((bytes((a, b)), [n]))
+    return out
+
+
+_DETOK84 = None
+_ALTS84 = None  # {token bytes: every name it has}, for the detokenizer's second choices
+# Tokens the text form handles itself: the line break, ':', a space, the quote
+_FIXED_TEXT = {b"\x3f": "\n", b"\x3e": ":", b"\x29": " ", b"\x2a": '"'}
+
+
+def _detokens_84():
+    """{token bytes: text}: each token's name as the calculator shows it, unless that name
+    reads back as another token (the statistics' n, a, b... and the lower case letters share
+    names): then a name that reads back as this one (TI-Toolkit's typing names: [n], [|a])"""
+    global _DETOK84, _ALTS84
+    if _DETOK84 is not None:
+        return _DETOK84
+    table = _tokens_84()
+    d, alts, rev = dict(_FIXED_TEXT), {}, {}
+    for name, tb in table.items():  # Our own spellings too ("−" for a minus)
+        rev.setdefault(tb, []).append(name)
+    for b, names in _names_84():
+        if b in d:
+            continue
+        good = [n for n in names if n and "\\" not in n and table.get(n) == b and
+                ASCII_84.get(n, b) == b]  # Not a PC spelling of another ("~" is the (-) key)
+        d[b] = good[0] if good else names[0]
+        alts[b] = [n for n in dict.fromkeys(good + names + rev.get(b, [])) if n and "\n" not in n]
+    _DETOK84, _ALTS84 = d, alts
+    return d
+
+
+def _split_tokens_84(data):
+    """Token bytes -> [token bytes], each one or two bytes"""
+    out, i = [], 0
+    while i < len(data):
+        k = 2 if data[i] in TWO_BYTE and i + 1 < len(data) else 1
+        out.append(data[i:i + k])
+        i += k
+    return out
+
+
+def is_compiled_84(data):
+    """A program's variable data (2-byte length, then the bytes) holds machine code, not
+    TI-Basic: it starts with the AsmPrgm tokens (EF 7B on the CE, BB 6C / BB 6D before)"""
+    body = data[2:] if len(data) >= 2 and struct.unpack_from("<H", data)[0] <= len(data) - 2 else data
+    return body[:2] in (b"\xef\x7b", b"\xbb\x6c", b"\xbb\x6d")
+
+
 def detokenize_84(data):
     """A TI-84 Plus program, string or equation (its variable data: a 2-byte length, then the
-    tokens) as text. A token this table doesn't know shows as [hex]."""
+    tokens) as text. A token the table doesn't know shows as [hex]. Each line is read back
+    through tokenize_84: where the plain names would come back as other tokens (X^2 typed as
+    ^ and 2 would read as X²; a minus after "(" as a negative), a space between them or the
+    token's other name makes the text say exactly what the calculator has."""
     if len(data) >= 2:
         n = struct.unpack_from("<H", data)[0]
         if n <= len(data) - 2:
             data = data[2:2 + n]
-    out, i = [], 0
-    while i < len(data):
-        a = data[i]
-        if a in TWO_BYTE and i + 1 < len(data):
-            t = _two(a, data[i + 1])
-            out.append(t if t is not None else "[%02X%02X]" % (a, data[i + 1]))
-            i += 2
-            continue
-        t = _ONE.get(a)
-        out.append(t if t is not None else "[%02X]" % a)
-        i += 1
-    return "".join(out)
+    names = _detokens_84()
+    lines, cur = [], []
+    for t in _split_tokens_84(data):
+        if t == b"\x3f":
+            lines.append(cur)
+            cur = []
+        else:
+            cur.append(t)
+    lines.append(cur)
+    return "\n".join(_fit_line_84(toks, names) for toks in lines)
+
+
+def _fit_line_84(toks, names):
+    texts = [names.get(t) for t in toks]
+    if any(x is None for x in texts):  # Unknown tokens: shown as hex, can't be read back anyway
+        return "".join(x if x is not None else "[%s]" % t.hex().upper() for x, t in zip(texts, toks))
+    want = b"".join(toks)
+    if texts and texts[0] == ":":
+        texts[0] = " :"  # A ':' starting a line is dropped when read; one after a space isn't
+
+    def first_diff(txts):
+        try:
+            got = _line_84("".join(txts), 1)
+        except ValueError:
+            return 0
+        if got == want:
+            return None
+        return next((k for k in range(min(len(got), len(want))) if got[k] != want[k]),
+                    min(len(got), len(want)))
+
+    pos = first_diff(texts)
+    for _ in range(4 * len(toks) + 4):
+        if pos is None:
+            break
+        # The token at the first wrong byte, and the one before it: try a space before it, or
+        # its other names, until the first wrong byte moves on
+        at, k = 0, 0
+        while k < len(toks) and at + len(toks[k]) <= pos:
+            at += len(toks[k])
+            k += 1
+        ends = [sum(len(t) for t in toks[:j + 1]) for j in range(len(toks))]
+        tries = []
+        for j in (k, k - 1, k + 1):
+            if 0 <= j < len(toks):
+                if not texts[j].startswith(" "):
+                    tries.append((j, " " + texts[j]))
+                for alt in _ALTS84.get(toks[j], []):
+                    if alt != texts[j]:
+                        tries.append((j, alt))
+                        tries.append((j, " " + alt))
+        best = None
+        for j, alt in tries:
+            cand = texts[:j] + [alt] + texts[j + 1:]
+            p = first_diff(cand)
+            # Right at least through the token changed and the one that was wrong
+            if p is None or p >= ends[min(max(j, k), len(toks) - 1)]:
+                best = (cand, p)
+                break
+        if best is None:
+            break
+        texts, pos = best
+    return "".join(texts)
 
 
 # ---- TI-Basic text -> a TI-84 Plus program (.8xp) ----
@@ -403,7 +563,7 @@ ASCII_84 = {
     "cbrt(": b"\xBD", "pi": b"\xAC", "theta": b"\x5B", "^2": b"\x0D", "^3": b"\x0F",
     "^-1": b"\x0C", "~": b"\xB0", "10^(": b"\xC1", "sin^-1(": b"\xC3", "cos^-1(": b"\xC5",
     "tan^-1(": b"\xC7", "sinh^-1(": b"\xC9", "cosh^-1(": b"\xCB", "tanh^-1(": b"\xCD",
-    "|L": b"\xEB", "@": b"\x2C",
+    "|L": b"\xEB", "@": b"\x2C", "e^(": b"\xBF",
 }
 for _d in range(1, 7):
     ASCII_84["L%d" % _d] = bytes((0x5D, _d - 1))           # L1 = L₁
@@ -412,29 +572,39 @@ for _d in range(10):
 # After these a "-" is a negative sign (the 84's (-) key), not a minus
 _UNARY_AFTER = set("(,{[→=<>≤≥≠+-*/^:\n⁻ᴇ") | {"·", "﹢"}
 _TOK84 = None
+_TOK84_INFO = None  # (longest name, names that start with a space)
 
 
 def _tokens_84():
-    """{text: token bytes}, built from the detokenizer's tables (so the two agree)"""
-    global _TOK84
+    """{text: token bytes}: every name of every token (the shown name first; with tivars also
+    TI-Toolkit's typing names and variants), lower case letters as letters, the constant e as
+    e, and "Disp" without its space (at a line's end)"""
+    global _TOK84, _TOK84_INFO
     if _TOK84 is not None:
         return _TOK84
     t = {}
-    for b, s in _ONE.items():
-        t.setdefault(s, bytes((b,)))
-    for a in TWO_BYTE:
-        for b in range(256):
-            s = _two(a, b)
-            if s:
-                t.setdefault(s, bytes((a, b)))
+    ordered = sorted(_names_84(), key=lambda bn: (len(bn[0]), bn[0]))  # 1-byte tokens win
+    for b, names in ordered:  # Shown names first: they win over another token's typing name
+        if names[0]:
+            t.setdefault(names[0], b)
+    for b, names in ordered:
+        for n in names[1:]:
+            if n:
+                t.setdefault(n, b)
     for i in range(26):  # Lower case letters are their own tokens (not the statistics' a, b, n)
         if chr(97 + i) != "e":  # e is the constant e (its letter: in strings)
             t[chr(97 + i)] = _lower_84(chr(97 + i))
+    t["e"] = b"\xBB\x31"
+    t.setdefault("−", b"\x71")  # U+2212: a minus where "-" would read as the (-) key ("(−X")
     for s, tok in list(t.items()):  # "Disp" without its space (at a line's end)
         if s.endswith(" ") and s.strip() and s.rstrip() not in t:
             t[s.rstrip()] = tok
+    for k in [k for k in t if "\n" in k or "\r" in k]:
+        del t[k]  # Lines are split before tokens are looked up
     t.pop(" ", None)  # Spaces outside strings are dropped
     _TOK84 = t
+    _TOK84_INFO = (max(len(k) for k in list(t) + list(ASCII_84)),
+                   tuple(k for k in t if k.startswith(" ")))  # " or ", " and ", " nPr ", ...
     return t
 
 
@@ -443,68 +613,127 @@ def _lower_84(c):
     return bytes((0xBB, 0xB0 + i if i < 11 else 0xBC + i - 11))
 
 
-def tokenize_84(text):
+def tokenize_84(text, warnings=None):
     """TI-Basic as text (the calculator's own names: Disp, →, ≤, √(, π, ...; or the PC
     spellings ->, <=, >=, !=, sqrt(, pi, theta, ^2, ^-1, L1, Y1; E in a number for the EE;
     a leading ':' on a line is dropped) -> the program's tokens. Raises ValueError naming
-    the line of anything it can't turn into a token."""
-    table = _tokens_84()
-    longest = max(len(k) for k in list(table) + list(ASCII_84))
+    the line of anything it can't turn into a token. A list as `warnings` gets a line for each
+    word outside a string that isn't a command but has lower case letters in it ("textcolor(",
+    "GridOn"): those become lower case letters, which the calculator stops at (ERR:SYNTAX)."""
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    lines = [l[1:] if l.startswith(":") else l for l in (x.rstrip() for x in lines)]
-    while lines and not lines[-1]:
+    while lines and not lines[-1].strip():
         lines.pop()
+    out = []
+    for n, l in enumerate(lines, 1):
+        line = l[1:] if l.startswith(":") else l
+        found = [] if warnings is not None else None
+        out.append(_line_84(line, n, found))
+        if found:
+            warnings.extend(_misspelt_84(line, n, found))
+    return b"\x3f".join(out)
+
+
+def _misspelt_84(line, n, positions):
+    """Messages for the words around `positions` (lower case letters left as letters, outside
+    strings), with the command meant when one is spelt the same but for the case"""
+    table = _tokens_84()
+    by_lower = {}
+    for name in table:
+        key = name.strip().lower()
+        if len(key) > 1 and key[:-1].replace(" ", "").isalnum() or key.endswith("("):
+            by_lower.setdefault(key, name.strip())
+    out, done = [], set()
+    for p in positions:
+        a = b = p
+        while a > 0 and line[a - 1].isalpha():
+            a -= 1
+        while b < len(line) and line[b].isalpha():
+            b += 1
+        if a in done:
+            continue
+        done.add(a)
+        word = line[a:b] + ("(" if line[b:b + 1] == "(" else "")
+        hint = by_lower.get(word.lower())
+        if not hint:
+            stem = word.rstrip("(").lower()[:4]
+            close = sorted({v for k, v in by_lower.items() if len(stem) >= 3 and k.startswith(stem)})
+            hint = " or ".join(close[:4]) if close else None
+        out.append("line %d: %r isn't a TI-84 command; outside a string its lower case letters stay "
+                   "letters and the calculator will stop there (ERR:SYNTAX)%s" % (
+                       n, word, ". Did you mean %s?" % hint if hint else ""))
+    return out
+
+
+def _line_84(line, n, lower=None):
+    """One line of TI-Basic -> its tokens. Outside strings spaces are dropped (but for the
+    tokens that start with one: " or ", " and "...); inside them they count, trailing ones too.
+    After a → that ends a string without its closing quote, spaces count too (some programs
+    keep → inside a string they show), unless only spaces are left."""
+    table = _tokens_84()
+    longest, spaced = _TOK84_INFO
     out = bytearray()
-    for n, line in enumerate(lines, 1):
-        if n > 1:
-            out.append(0x3F)
-        in_str, prev, i = False, None, 0
-        while i < len(line):
-            c = line[i]
-            if in_str and c == '"':
-                out.append(0x2A)
-                in_str, prev, i = False, '"', i + 1
-                continue
-            if in_str and ("a" <= c <= "z" or c == " "):  # A string keeps its letters and spaces
+    mode, prev, i = 0, None, 0  # mode 0: code, 1: in a string, 2: after a → that ended one
+    while i < len(line):
+        c = line[i]
+        in_str = mode == 1
+        if c == '"' and mode == 1:  # After a → that ended a string, a quote starts one
+            out.append(0x2A)
+            mode, prev, i = 0, '"', i + 1
+            continue
+        if in_str and ("a" <= c <= "z" or c == " "):  # A string keeps its letters and spaces,
+            # but a function at a word's start stays its token: "sin(X)" for expr( or Y=
+            fn = c != " " and not (i and line[i - 1].isalnum()) and any(
+                line[i + k - 1] == "(" and line[i:i + k] in table
+                for k in range(2, min(longest, len(line) - i) + 1))
+            if not fn:
                 out += _lower_84(c) if c != " " else b"\x29"
                 i += 1
                 continue
-            if not in_str:
-                if c == " " and not any(line.startswith(k, i) for k in (" or ", " and ", " xor ",
-                                                                       " nPr ", " nCr ")):
-                    i += 1
+        if not in_str:
+            if c == " " and not any(line.startswith(k, i) for k in spaced):
+                if mode == 2 and line[i:].strip():
+                    out.append(0x29)
+                i += 1
+                continue
+            # 1E5, 2.5E-3: the EE key
+            if c == "E" and prev and (prev[-1].isdigit() or prev[-1] == ".") and i + 1 < len(line) \
+                    and (line[i + 1].isdigit() or line[i + 1] in "-⁻"):
+                out.append(0x3B)
+                prev, i = "ᴇ", i + 1
+                continue
+            if c == "-" and (prev is None or prev[-1] in _UNARY_AFTER or prev.endswith(" ")):
+                out.append(0xB0)  # A negative number, not a subtraction
+                prev, i = "⁻", i + 1
+                continue
+        tok, size = None, 0
+        for k in range(min(longest, len(line) - i), 0, -1):
+            piece = line[i:i + k]
+            if not in_str and piece in ASCII_84:
+                if piece in ("pi", "theta") and (line[i + k:i + k + 1].isalpha() or
+                                                 (i and line[i - 1].isalpha())):
+                    continue  # Part of a longer word
+                tok, size = ASCII_84[piece], k
+                break
+            if piece in table:
+                # In a string, a word of several letters stays letters when it is part of a
+                # longer word ("REDUCE" is letters, "RED WINS" the colour token), so text
+                # reads as typed; a function at a word's start ("sin(") stays its token
+                if in_str and k > 1 and ((piece[0].isalnum() and i and line[i - 1].isalnum()) or
+                                         (piece[-1].isalnum() and line[i + k:i + k + 1].isalnum())):
                     continue
-                # 1E5, 2.5E-3: the EE key
-                if c == "E" and prev and (prev[-1].isdigit() or prev[-1] == ".") and i + 1 < len(line) \
-                        and (line[i + 1].isdigit() or line[i + 1] in "-⁻"):
-                    out.append(0x3B)
-                    prev, i = "ᴇ", i + 1
-                    continue
-                if c == "-" and (prev is None or prev[-1] in _UNARY_AFTER or prev.endswith(" ")):
-                    out.append(0xB0)  # A negative number, not a subtraction
-                    prev, i = "⁻", i + 1
-                    continue
-            tok, size = None, 0
-            for k in range(min(longest, len(line) - i), 0, -1):
-                piece = line[i:i + k]
-                if not in_str and piece in ASCII_84:
-                    if piece in ("pi", "theta") and (line[i + k:i + k + 1].isalpha() or
-                                                     (i and line[i - 1].isalpha())):
-                        continue  # Part of a longer word
-                    tok, size = ASCII_84[piece], k
-                    break
-                if piece in table:
-                    tok, size = table[piece], k
-                    break
-            if tok is None:
-                raise ValueError("line %d: %r isn't a TI-84 Plus token or character" % (n, c))
-            out += tok
-            piece = line[i:i + size]
-            if tok == b"\x2A":
-                in_str = True
-            elif tok == b"\x04":
-                in_str = False  # → ends a string too
-            prev, i = piece, i + size
+                tok, size = table[piece], k
+                break
+        if tok is None:
+            raise ValueError("line %d: %r isn't a TI-84 Plus token or character" % (n, c))
+        if lower is not None and not in_str and size == 1 and "a" <= c <= "z" and c != "e":
+            lower.append(i)  # A lower case letter in code: a misspelt command, most likely
+        out += tok
+        piece = line[i:i + size]
+        if tok == b"\x2A":
+            mode = 1
+        elif tok == b"\x04":
+            mode = 2 if mode == 1 else 0  # → ends a string too
+        prev, i = piece, i + size
     return bytes(out)
 
 
@@ -518,13 +747,14 @@ def name_84_from(stem):
     return s if NAME_84.match(s) else None
 
 
-def program_8xp(text, name, comment="Made by CalcSuite"):
-    """TI-Basic text -> the bytes of a .8xp file (TI's header, the name, the checksum)"""
+def program_8xp(text, name, comment="Made by CalcSuite", warnings=None):
+    """TI-Basic text -> the bytes of a .8xp file (TI's header, the name, the checksum).
+    `warnings`: see tokenize_84."""
     name = name.upper()
     if not NAME_84.match(name):
         raise ValueError("%r can't be a TI-84 program name: up to 8 capitals A-Z, digits or θ, "
                          "a letter first" % name)
-    tokens = tokenize_84(text)
+    tokens = tokenize_84(text, warnings)
     if len(tokens) > 65000:
         raise ValueError("the program is too big (%d bytes)" % len(tokens))
     data = struct.pack("<H", len(tokens)) + tokens
@@ -545,10 +775,15 @@ CHARS_89 = {  # Unicode -> the 89's character set (libticonv: ti9x_charset)
     "σ": 0x8F, "τ": 0x90, "φ": 0x91, "ψ": 0x92, "Ω": 0x93, "ω": 0x94, "ᴇ": 0x95, "ℯ": 0x96,
     "𝑖": 0x97, "ʳ": 0x98, "≤": 0x9C, "≠": 0x9D, "≥": 0x9E, "∠": 0x9F, "…": 0xA0, "√": 0xA8,
     "−": 0xAD, "⁻": 0xAD, "²": 0xB2, "³": 0xB3, "⁻¹": 0xB4, "∂": 0xBC, "∫": 0xBD, "∞": 0xBE,
-    "°": 0xB0,
+    "°": 0xB0, "▸": 0x12, "►": 0x12,  # The conversion operator (libticonv: 0x12, U+25B8)
 }
-ASCII_89 = {"->": 0x16, "<=": 0x9C, ">=": 0x9E, "!=": 0x9D, "/=": 0x9D}
-_WORDS_89 = {"sqrt(": b"\xA8(", "pi": b"\x8C", "theta": b"\x88", "e^(": b"\x96^("}
+# PC spellings. "@>" is the conversion operator (►: 10@>Bin, 3_m@>_ft): '@' only starts the
+# 89's own constants (@1, @n1), never followed by '>'
+ASCII_89 = {"->": 0x16, "<=": 0x9C, ">=": 0x9E, "!=": 0x9D, "/=": 0x9D, "@>": 0x12}
+# Longest first: "@int(" before "@i"
+_WORDS_89 = {"sqrt(": b"\xA8(", "pi": b"\x8C", "theta": b"\x88", "e^(": b"\x96^(",
+             "@int(": b"\xBD(", "@sum(": b"\x8E(", "@angle": b"\x9F", "@d(": b"\xBC(",
+             "@i": b"\x97"}
 NAME_89 = re.compile(r"^[a-z][a-z0-9_]{0,7}$")
 _HEAD_89 = re.compile(r"^\s*(?:define\s+)?([A-Za-z][A-Za-z0-9_]{0,7})\s*\(([^)]*)\)\s*(?:=\s*(prgm|func))?\s*$",
                       re.I)
@@ -568,8 +803,9 @@ def _line_89(line, n):
                 out.append(ASCII_89[hit])
                 i += len(hit)
                 continue
-            hit = next((k for k in _WORDS_89 if line.startswith(k, i) and not word(i - 1) and
-                        (k.endswith("(") or not word(i + len(k)))), None)
+            hit = next((k for k in _WORDS_89 if line.startswith(k, i) and
+                        (k[0] == "@" or not word(i - 1)) and  # 5@angle30, 3@i
+                        (k.endswith("(") or k == "@angle" or not word(i + len(k)))), None)
             if hit:
                 out += _WORDS_89[hit]
                 i += len(hit)

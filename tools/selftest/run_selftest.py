@@ -173,6 +173,90 @@ def ti_basic_checks():
     (folder, vname, t, _a, d2), = cf.read_ti89(blob)
     failures += check((folder, vname, t) == (b"main", b"zztest", 0x12) and
                       cf.program_89_text(d2) == "()\nPrgm\nDisp 1\nEndPrgm", ".89p read back")
+    _n, _t, data = cf.program_89_data("Disp 10@>Bin,2►Hex\nDisp @int(x^2,x),@d(x^3,x)\n"
+                                      "Disp @sum(k,k,1,3),3*@i,5@angle30", "abc")
+    failures += check(b"Disp 10\x12Bin,2\x12Hex\rDisp \xbd(x^2,x),\xbc(x^3,x)\rDisp \x8e(k,k,1,3),"
+                      b"3*\x97,5\x9f30" in data, ".89 characters: @> and ►, @int( @d( @sum( @i @angle")
+    failures += tokenizer_checks(cf)
+    failures += bundle_checks(cf)
+    return failures
+
+
+def tokenizer_checks(cf):
+    """The 84 tokenizer with TI-Toolkit's token sheet (tivars) and with the builtin table"""
+    failures = 0
+
+    def check(ok, what):
+        print("%-4s %s" % ("PASS" if ok else "FAIL", what))
+        return 0 if ok else 1
+
+    source = cf.token_source()
+    failures += check(source.startswith("tivars"), "84 tokens come from tivars (%s)" % source)
+    cases = [  # text, the tokens it must give
+        ('Disp "REDUCE"', "de2a5245445543452a"),          # A word in a string stays letters
+        ('Disp "RED WINS"', "de2aef422957494e532a"),      # ...unless it stands alone
+        ('"sin(X)"->Y1', "2ac258112a045e10"),             # A function in a string: its token
+        ("MATHPRINT:Thick", "ef373e7e06"),                 # Names from the CE's token sheet
+        ("Wait 1:toString(5", "ef96313eef9735"),
+        ("e^(1)+e", "bf311170bb31"),
+    ]
+    for text, hexed in cases:
+        failures += check(cf.tokenize_84(text).hex() == hexed, "84 tokens: %s" % text)
+    # Tokens a plain name would read back as others: X ^ 2 isn't X², a minus after "(", a ':'
+    # starting a line, a → inside a string followed by a space
+    for hexed in ("58f032", "10715811", "3ede31", "2a3132042a29bbb0"):
+        toks = bytes.fromhex(hexed)
+        text = cf.detokenize_84(bytes((len(toks), 0)) + toks)
+        failures += check(cf.tokenize_84(text) == toks, "84 round trip of %s as %r" % (hexed, text))
+    bad = [b for b, _n in cf._names_84() if b not in (b"\x3f", b"\x3e", b"\x29", b"\x2a") and
+           cf.tokenize_84("A" + cf.detokenize_84(b) + "A") != b"A" + b + b"A"]
+    failures += check(len(bad) <= 3, "84 round trip of every token on its own (%d of %d don't: "
+                      "lower case e, @ and ` share names)" % (len(bad), len(cf._names_84())))
+    warnings = []
+    cf.tokenize_84("ClrHome\ntextcolor(1,2)\nDisp \"textcolor\",e\nGridOn", warnings)
+    failures += check(len(warnings) == 2 and "TextColor(" in warnings[0] and "GridOff" in warnings[1],
+                      "84 warns of misspelt commands (textcolor(, GridOn), not of strings or e")
+    failures += check(cf.is_compiled_84(b"\x04\x00\xef\x7b\x00\x00") and
+                      not cf.is_compiled_84(b"\x02\x00\xde\x31"), "84 compiled programs recognised")
+    cf.set_token_source("builtin")
+    try:
+        tok = cf.tokenize_84(TI84_SOURCE)
+        failures += check(cf.tokenize_84(cf.detokenize_84(tok)) == tok and
+                          cf.token_source() == "builtin", "84 builtin table (no tivars): round trip")
+    finally:
+        cf.set_token_source("tivars")
+    return failures
+
+
+def bundle_checks(cf):
+    """The backup's group files: a .b84 bundle and a .89g group, read back"""
+    import calc_backup as cb
+    failures = 0
+
+    def check(ok, what):
+        print("%-4s %s" % ("PASS" if ok else "FAIL", what))
+        return 0 if ok else 1
+
+    p1 = cf.program_8xp("Disp 1", "ZZTEST")
+    p2 = cf.ti8x_bytes([(0x04, b"\xaa\x00", 0, False, b"\x01\x00\x31")])
+    blob = cb.b84_bytes([("ZZTEST.8xp", p1), ("Str1.8xs", p2)])
+    failures += check(cb.read_b84(blob) == [("ZZTEST.8xp", p1), ("Str1.8xs", p2)],
+                      ".b84 bundle: the files and the checksum read back")
+    try:
+        sys.path.insert(0, os.path.join(KIT, "tools", "third_party_py"))
+        from tivars.bundle import TIBundle
+        b = TIBundle()
+        b.load_bytes(blob)
+        failures += check(b.metadata["bundle_target_device"] == "84CE" and len(b.unbundle()) == 2,
+                          ".b84 bundle read by tivars")
+    except ImportError:
+        print("SKIP .b84 bundle read by tivars (not found)")
+    _n, t1, d1 = cf.program_89_data("Disp 1", "zza")
+    _n, t2, d2 = cf.program_89_data("Disp 2", "zzb")
+    g = cb.ti89_group_bytes([(b"main", b"zza", t1, False, d1), (b"zzdir", b"zzb", t2, True, d2)])
+    got = cf.read_ti89(g)
+    failures += check([(f, n, d) for f, n, _t, _a, d in got] == [(b"main", b"zza", d1), (b"zzdir", b"zzb", d2)]
+                      and got[1][3], ".89g group: two folders, the data and the archive flag read back")
     return failures
 
 

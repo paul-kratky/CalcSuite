@@ -1,0 +1,202 @@
+"""
+Model and feature definitions
+"""
+
+
+import os
+
+from enum import auto, Flag
+from functools import total_ordering
+
+from tivars.tokens.scripts.parse import MODEL_ORDER, OsVersion, Tokens
+from tivars.trie import *
+
+
+@total_ordering
+class TIModel:
+    """
+    Data type for all model constants
+
+    Every 83-series model is included in this module as a constant to use in code.
+    Each model holds its (abbreviated) name, features, file magic, product ID, and native language.
+
+    Models can also be used to obtain token maps and tries for tokenization and OS versions for compatibility checks.
+    """
+
+    MODELS: list['TIModel'] = []
+    """
+    A list of all models
+    """
+
+    def __init__(self, name: str, fullname: str, features: 'TIFeature', magic: str, product_id: int, lang: str):
+        self.name = name
+        self.fullname = fullname
+        self.features = TIFeature(features)
+        self.magic = magic
+        self.product_id = product_id
+        self.lang = lang
+
+        with open(os.path.join(os.path.dirname(__file__), "../tokens/8X.xml"), encoding="UTF-8") as file:
+            self.tokens = TITokens(Tokens.from_xml_string(file.read(), self.OS("latest")))
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __ge__(self, other):
+        return self.order >= other.order
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def from_name(cls, name: str) -> 'TIModel':
+        """
+        Gets a `TIModel` by name, fuzzily-matching non-alphanumeric characters
+
+        :param name: The name of the model to find
+        :return: The `TIModel` instance corresponding to ``name``
+        """
+
+        table = str.maketrans({"+": "P", "-": "_", ".": "_", ":": "_"})
+        name = "".join(name.translate(table).split())
+
+        for model in cls.MODELS:
+            if model.name.translate(table) == name:
+                return model
+
+        raise KeyError(f"could not identify model '{name}'")
+
+    @property
+    def order(self) -> int:
+        """
+        :return: This model's order within the chronology used by the token sheets
+        """
+
+        return MODEL_ORDER[self.name]
+
+    def has(self, feature: 'TIFeature'):
+        """
+        Whether this model has a given feature
+
+        :param feature: The feature to check
+        :return: Whether this model has ``feature``
+        """
+
+        return feature in self.features
+
+    def OS(self, version: str = "") -> OsVersion:
+        """
+        An `OsVersion` with this model as its model and a supplied version
+
+        :param version: An OS version number (defaults to the model's earliest OS)
+        :return: An `OsVersion` for this model and ``version``
+        """
+
+        return OsVersion(self.name, version)
+
+
+class TIFeature(Flag):
+    """
+    Flags representing all calculator features
+    """
+
+    Complex = auto()
+    """
+    Whether the model supports complex numbers
+    """
+
+    Flash = auto()
+    """
+    Whether the model has a flash chip
+    """
+
+    Apps = auto()
+    """
+    Whether the model supports apps
+    """
+
+    Clock = auto()
+    """
+    Whether the model has a real-time clock
+    """
+
+    Color = auto()
+    """
+    Whether the model has a color display
+    """
+
+    eZ80 = auto()
+    """
+    Whether the model has an eZ80 chip
+    """
+
+    ExactMath = auto()
+    """
+    Whether the model supports exact math for fractions and radicals
+    """
+
+    Python = auto()
+    """
+    Whether the model supports Python
+    """
+
+
+features82 = TIFeature(0)
+features83 = features82 | TIFeature.Complex
+features82a = features83 | TIFeature.Flash
+features83p = features82a | TIFeature.Apps
+features84p = features83p | TIFeature.Clock
+features84pcse = features84p | TIFeature.Color
+features84pce = features84pcse | TIFeature.eZ80
+features83pce = features84pce | TIFeature.ExactMath
+features83pceep = features83pce | TIFeature.Python
+features84pcepy = features84pce | TIFeature.Python
+features82aep = features83pceep & ~TIFeature.Apps
+
+it = iter(MODEL_ORDER)
+next(it)
+
+TIModel.MODELS = [
+    TI_82 := TIModel(next(it), "TI-82", features82, "**TI82**", 0x00, "en"),
+
+    TI_83 := TIModel(next(it), "TI-83", features83, "**TI83**", 0x00, "en"),
+    TI_82ST := TIModel(next(it), "TI-82 STATS", features83, "**TI83**", 0x00, "en"),
+    TI_82ST_fr := TIModel(next(it), "TI-82 Stats.fr", features83, "**TI83**", 0x00, "fr"),
+    TI_76_fr := TIModel(next(it), "TI-76.fr", features83, "**TI83**", 0x00, "fr"),
+
+    TI_83P := TIModel(next(it), "TI-83 Plus", features83p, "**TI83F*", 0x04, "en"),
+    TI_83PSE := TIModel(next(it), "TI-83 Plus Silver Edition", features83p, "**TI83F*", 0x04, "en"),
+    TI_83P_fr := TIModel(next(it), "TI-83 Plus.fr", features83p, "**TI83F*", 0x04, "fr"),
+    TI_82P := TIModel(next(it), "TI-82 Plus", features83p, "**TI83F*", 0x04, "fr"),
+
+    TI_84P := TIModel(next(it), "TI-84 Plus", features84p, "**TI83F*", 0x0A, "en"),
+    TI_84PSE := TIModel(next(it), "TI-84 Plus Silver Edition", features84p, "**TI83F*", 0x0A, "en"),
+    TI_83P_fr_USB := TIModel(next(it), "TI-83 Plus.fr (USB)", features84p, "**TI83F*", 0x0A, "fr"),
+    TI_84P_fr := TIModel(next(it), "TI-84 Pocket.fr", features84p, "**TI83F*", 0x0A, "fr"),
+    TI_84PPSE := TIModel(next(it), "TI-84 Plus Pocket SE", features84p, "**TI83F*", 0x0A, "en"),
+
+    TI_82A := TIModel(next(it), "TI-82 Advanced", features82a, "**TI83F*", 0x0B, "fr"),
+    TI_84PT := TIModel(next(it), "TI-84 Plus T", features84p, "**TI83F*", 0x1B, "en"),
+
+    TI_84PCSE := TIModel(next(it), "TI-84 Plus C Silver Edition", features84pcse, "**TI83F*", 0x0F, "en"),
+
+    TI_84PCE := TIModel(next(it), "TI-84 Plus CE", features84pce, "**TI83F*", 0x13, "en"),
+    TI_84PCET := TIModel(next(it), "TI-84 Plus CE-T", features84pce, "**TI83F*", 0x13, "en"),
+    TI_83PCE := TIModel(next(it), "TI-83 Premium CE", features83pce, "**TI83F*", 0x13, "fr"),
+    TI_83PCEEP := TIModel(next(it), "TI-83 Premium CE Edition Python", features83pceep, "**TI83F*", 0x13, "fr"),
+    TI_84PCEPY := TIModel(next(it), "TI-84 Plus CE Python", features84pcepy, "**TI83F*", 0x13, "en"),
+    TI_84PCETPE := TIModel(next(it), "TI-84 Plus CE-T Python Edition", features84pcepy, "**TI83F*", 0x13, "en"),
+    TI_82AEP := TIModel(next(it), "TI-82 Advanced Edition Python", features82aep, "**TI83F*", 0x00, "fr"),
+]
+
+__all__ = ["TI_82",
+           "TI_83", "TI_82ST", "TI_82ST_fr", "TI_76_fr",
+           "TI_83P", "TI_83PSE", "TI_83P_fr", "TI_82P",
+           "TI_84P", "TI_84PSE", "TI_83P_fr_USB", "TI_84P_fr", "TI_84PPSE",
+           "TI_84PT", "TI_82A",
+           "TI_84PCSE",
+           "TI_84PCE", "TI_84PCET", "TI_83PCE", "TI_83PCEEP", "TI_84PCEPY", "TI_84PCETPE", "TI_82AEP",
+           "TIFeature", "TIModel", "OsVersion"]

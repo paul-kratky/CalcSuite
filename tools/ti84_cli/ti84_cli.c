@@ -6,12 +6,14 @@
  *   ti84-cli [--model M] info           connect and print the model, OS version and free memory
  *   ti84-cli [--model M] shot FILE.ppm  save the screen as a PPM picture
  *   ti84-cli [--model M] key HEXCODE    press one key (see ti84_keys.py / ti89_keys.py)
+ *   ti84-cli [--model M] clock          print the calculator's date and time
  *   ti84-cli [--model M] serve          one connection, commands on stdin, one per line:
  *                                       info | shot FILE | key HEX | keys HEX HEX ... |
  *                                       ls | get TYPE FOLDERHEX NAMEHEX SIZE LOCAL |
  *                                       send FILE (a TI file: .8xp .8xv ... or .89p .89e ...) |
  *                                       put TYPE ARCH VERSION NAMEHEX LOCAL (84 only) |
- *                                       rm TYPE NAMEHEX [FOLDERHEX] (the 89 needs it) | quit
+ *                                       rm TYPE NAMEHEX [FOLDERHEX] (the 89 needs it) |
+ *                                       clock | setclock now|YYYY MM DD hh mm ss | quit
  *                                       each ends with "END <code>" (as nspire-cli serve does);
  *                                       names travel as hex, transfers print PROGRESS lines
  *   ti84-cli [--model M] send FILE      send every variable in a TI file (one that has the
@@ -35,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #ifdef _WIN32
 #include <windows.h>
 #define sleep_ms(x) Sleep(x)
@@ -65,6 +68,16 @@ enum {
     PID_PRODUCT_NAME = 0x0002, PID_OS_VERSION = 0x000B, PID_FREE_RAM = 0x000E,
     PID_FREE_FLASH = 0x0011, PID_SCREENSHOT = 0x0022, PID_BATTERY = 0x002D
 };
+/* The clock (libticalcs: dusb_cmd.h, DUSB_PID_CLK_*). The 89 Titanium and the older 84 Plus
+   models count seconds since 1997-01-01 ("classic"); newer 84 Plus OSes take the date and
+   time field by field ("new"). */
+enum {
+    PID_CLK_CLASSIC = 0x0023, PID_CLK_ON = 0x0024, PID_CLK_SECS_1997 = 0x0025,
+    PID_CLK_DATE_FMT = 0x0027, PID_CLK_TIME_FMT = 0x0028, PID_CLK_NEW = 0x003A,
+    PID_CLK_SECONDS = 0x003B, PID_CLK_MINUTES = 0x003C, PID_CLK_HOURS = 0x003D,
+    PID_CLK_DAY = 0x003E, PID_CLK_MONTH = 0x003F, PID_CLK_YEAR = 0x0040
+};
+#define VPKT_PARM_SET 0x000E
 
 #define RAW_MAX 1023
 #define TIMEOUT_MS 5000
@@ -387,7 +400,8 @@ static void link_close(Link *l) {
 /* Asks for parameters; the answer's data: count(2), then per parameter id(2), ok(1, 0 = ok),
    size(2), data */
 static int param_request(Link *l, const uint16_t *pids, int np, unsigned char **out, uint32_t *n) {
-    unsigned char req[2 + 2 * 8];
+    unsigned char req[2 + 2 * 16];
+    if (np > 16) return 1;
     req[0] = 0;
     req[1] = (unsigned char)np;
     for (int i = 0; i < np; i++) {
@@ -1245,6 +1259,289 @@ static int do_rm(Link *l, char *arg) {
     return 0;
 }
 
+/* ---- The clock (libticalcs: calc_84p.cc and calc_89t.cc, get_clock / set_clock). Only the
+   date and time are read and set: the calculator's date and time formats and whether it shows
+   the clock stay as they are. ---- */
+
+/* One parameter's value in the answer to a parameter request; NULL when the calculator said
+   it hasn't got it */
+static const unsigned char *param_value(const unsigned char *d, uint32_t n, unsigned want,
+                                        unsigned *size) {
+    uint32_t p = 2;
+    while (p + 3 <= n) {
+        unsigned id = (d[p] << 8) | d[p + 1];
+        int ok = d[p + 2] == 0;
+        p += 3;
+        if (!ok) {
+            if (id == want) return NULL;
+            continue;
+        }
+        if (p + 2 > n) return NULL;
+        unsigned sz = (d[p] << 8) | d[p + 1];
+        p += 2;
+        if (p + sz > n) return NULL;
+        if (id == want) {
+            *size = sz;
+            return d + p;
+        }
+        p += sz;
+    }
+    return NULL;
+}
+
+static unsigned long long now_ms(void) {
+#ifdef _WIN32
+    return GetTickCount64();
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (unsigned long long)ts.tv_sec * 1000 + (unsigned long long)ts.tv_nsec / 1000000;
+#endif
+}
+
+static int leap(int y) { return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0; }
+static int month_days(int y, int m) {
+    static const int days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    return m == 2 && leap(y) ? 29 : days[m - 1];
+}
+
+/* The classic clock's count: seconds since 1997-01-01 00:00, in the calculator's own time (it
+   has no time zone), so plain calendar arithmetic, no mktime() and no daylight saving */
+static uint32_t secs_since_1997(int y, int mo, int d, int h, int mi, int s) {
+    uint32_t days = 0;
+    for (int k = 1997; k < y; k++) days += leap(k) ? 366 : 365;
+    for (int k = 1; k < mo; k++) days += (uint32_t)month_days(y, k);
+    days += (uint32_t)(d - 1);
+    return ((days * 24 + (uint32_t)h) * 60 + (uint32_t)mi) * 60 + (uint32_t)s;
+}
+
+static void date_from_1997(uint32_t t, int *y, int *mo, int *d, int *h, int *mi, int *s) {
+    *s = (int)(t % 60);
+    t /= 60;
+    *mi = (int)(t % 60);
+    t /= 60;
+    *h = (int)(t % 24);
+    t /= 24;
+    *y = 1997;
+    while (t >= (uint32_t)(leap(*y) ? 366 : 365)) t -= leap((*y)++) ? 366 : 365;
+    *mo = 1;
+    while (t >= (uint32_t)month_days(*y, *mo)) t -= (uint32_t)month_days(*y, (*mo)++);
+    *d = (int)t + 1;
+}
+
+/* "classic", "new", or NULL (no clock the link knows), from the answer d */
+static const char *clock_kind(Link *l, const unsigned char *d, uint32_t n) {
+    unsigned sz = 0;
+    const unsigned char *c = param_value(d, n, PID_CLK_CLASSIC, &sz);
+    if (l->m->is_89t) return c && sz >= 1 && c[0] ? "classic" : NULL;
+    const unsigned char *nw = param_value(d, n, PID_CLK_NEW, &sz);
+    if (c && !nw) return "classic";
+    if (nw && !c) return "new";
+    return NULL;
+}
+
+/* "clock": INFO clock=classic|new on=0|1 date_fmt=1|2|3 (M/D/Y, D/M/Y, Y/M/D) time_fmt=12|24,
+   then INFO clock_date=YYYY-MM-DD clock_time=hh:mm:ss */
+static int do_clock(Link *l) {
+    static const uint16_t pids84[] = {PID_CLK_CLASSIC, PID_CLK_NEW, PID_CLK_ON, PID_CLK_SECS_1997,
+                                      PID_CLK_DATE_FMT, PID_CLK_TIME_FMT, PID_CLK_SECONDS,
+                                      PID_CLK_MINUTES, PID_CLK_HOURS, PID_CLK_DAY, PID_CLK_MONTH,
+                                      PID_CLK_YEAR};
+    static const uint16_t pids89[] = {PID_CLK_CLASSIC, PID_CLK_ON, PID_CLK_SECS_1997,
+                                      PID_CLK_DATE_FMT, PID_CLK_TIME_FMT};
+    const int t89 = l->m->is_89t;
+    unsigned char *d = NULL;
+    uint32_t n = 0;
+    if (param_request(l, t89 ? pids89 : pids84, t89 ? 5 : 12, &d, &n)) {
+        printf("ERR clock: no answer\n");
+        return 4;
+    }
+    const char *kind = clock_kind(l, d, n);
+    if (!kind) {
+        printf("ERR clock: this calculator has no clock the link can read\n");
+        free(d);
+        return 4;
+    }
+    unsigned sz = 0;
+    const unsigned char *on = param_value(d, n, PID_CLK_ON, &sz);
+    int on_v = on && sz >= 1 ? on[0] != 0 : -1;
+    const unsigned char *df = param_value(d, n, PID_CLK_DATE_FMT, &sz);
+    int df_v = df && sz >= 1 ? (df[0] == 0 ? 3 : df[0]) : 0;
+    const unsigned char *tf = param_value(d, n, PID_CLK_TIME_FMT, &sz);
+    int tf_v = !tf || sz < 1 ? 0 : !strcmp(kind, "new") ? (tf[0] == 0x80 ? 12 : 24) : (tf[0] ? 24 : 12);
+    int y = 0, mo = 0, dd = 0, h = 0, mi = 0, s = 0, ok = 0;
+    if (!strcmp(kind, "classic")) {
+        const unsigned char *v = param_value(d, n, PID_CLK_SECS_1997, &sz);
+        if (v && sz == 4) {
+            date_from_1997(be32(v), &y, &mo, &dd, &h, &mi, &s);
+            ok = 1;
+        }
+    } else {
+        static const uint16_t f[6] = {PID_CLK_YEAR, PID_CLK_MONTH, PID_CLK_DAY, PID_CLK_HOURS,
+                                      PID_CLK_MINUTES, PID_CLK_SECONDS};
+        int *out[6] = {&y, &mo, &dd, &h, &mi, &s};
+        ok = 1;
+        for (int i = 0; i < 6 && ok; i++) {
+            const unsigned char *v = param_value(d, n, f[i], &sz);
+            if (!v || sz != (i == 0 ? 2u : 1u)) ok = 0;
+            else *out[i] = i == 0 ? (v[0] << 8) | v[1] : v[0];
+        }
+    }
+    free(d);
+    printf("INFO clock=%s on=%d date_fmt=%d time_fmt=%d\n", kind, on_v, df_v, tf_v);
+    if (!ok) {
+        printf("ERR clock: the calculator didn't send its time\n");
+        return 4;
+    }
+    printf("INFO clock_date=%04d-%02d-%02d clock_time=%02d:%02d:%02d\n", y, mo, dd, h, mi, s);
+    printf("OK\n");
+    return 0;
+}
+
+static int param_set(Link *l, unsigned id, const unsigned char *v, unsigned size) {
+    unsigned char b[4 + 8];
+    if (size > 8) return 1;
+    b[0] = (unsigned char)(id >> 8);
+    b[1] = (unsigned char)id;
+    b[2] = (unsigned char)(size >> 8);
+    b[3] = (unsigned char)size;
+    memcpy(b + 4, v, size);
+    if (vpkt_send(l, VPKT_PARM_SET, b, 4 + size)) {
+        printf("ERR setclock: no answer\n");
+        return 4;
+    }
+    return expect_ack(l, "setclock");
+}
+
+/* The new clock's six fields (year, month, day, hours, minutes, seconds); -1 for one missing */
+static int read_clock_fields(Link *l, int cur[6]) {
+    static const uint16_t all[6] = {PID_CLK_YEAR, PID_CLK_MONTH, PID_CLK_DAY, PID_CLK_HOURS,
+                                    PID_CLK_MINUTES, PID_CLK_SECONDS};
+    unsigned char *a = NULL;
+    uint32_t n = 0;
+    if (param_request(l, all, 6, &a, &n)) {
+        printf("ERR setclock: no answer\n");
+        return 4;
+    }
+    for (int i = 0; i < 6; i++) {
+        unsigned sz = 0;
+        const unsigned char *v = param_value(a, n, all[i], &sz);
+        cur[i] = !v ? -1 : sz == 2 ? (v[0] << 8) | v[1] : v[0];
+    }
+    free(a);
+    return 0;
+}
+
+/* "setclock YYYY MM DD hh mm ss": the calculator's date and time (its own local time);
+   "setclock now": the PC's local time when the command runs */
+static int do_setclock(Link *l, const char *arg) {
+    int y, mo, d, h, mi, s;
+    if (!strcmp(arg, "now")) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        if (!t) {
+            printf("ERR setclock: the PC's time can't be read\n");
+            return 6;
+        }
+        y = t->tm_year + 1900;
+        mo = t->tm_mon + 1;
+        d = t->tm_mday;
+        h = t->tm_hour;
+        mi = t->tm_min;
+        s = t->tm_sec > 59 ? 59 : t->tm_sec;
+    } else if (sscanf(arg, "%d %d %d %d %d %d", &y, &mo, &d, &h, &mi, &s) != 6) {
+        y = 0;
+    }
+    if (y < 1997 || y > 2100 ||
+        mo < 1 || mo > 12 || d < 1 || d > month_days(y, mo) || h < 0 || h > 23 || mi < 0 ||
+        mi > 59 || s < 0 || s > 59) {
+        printf("ERR usage: setclock now | setclock YYYY MM DD hh mm ss (1997 to 2100)\n");
+        return 1;
+    }
+    static const uint16_t pids[] = {PID_CLK_CLASSIC, PID_CLK_NEW};
+    unsigned char *a = NULL;
+    uint32_t n = 0;
+    if (param_request(l, pids, l->m->is_89t ? 1 : 2, &a, &n)) {
+        printf("ERR setclock: no answer\n");
+        return 4;
+    }
+    const char *kind = clock_kind(l, a, n);
+    free(a);
+    if (!kind) {
+        printf("ERR setclock: this calculator has no clock the link can set\n");
+        return 4;
+    }
+    const uint32_t target = secs_since_1997(y, mo, d, h, mi, s);
+    if (!strcmp(kind, "classic")) { /* One count: set at once */
+        unsigned char v[4] = {(unsigned char)(target >> 24), (unsigned char)(target >> 16),
+                              (unsigned char)(target >> 8), (unsigned char)target};
+        int r = param_set(l, PID_CLK_SECS_1997, v, 4);
+        if (r) return r;
+        printf("OK clock set to %04d-%02d-%02d %02d:%02d:%02d (classic clock)\n", y, mo, d, h, mi, s);
+        return 0;
+    }
+    /* The new clock, field by field. Measured on a TI-84 Plus CE, OS 5.4.0: each field written
+       reaches the clock a moment later, and a field written before the last one has arrived is
+       lost (the clock also stands still meanwhile). So each field is read back until it shows,
+       and the time written moves on with the seconds this takes. */
+    static const uint16_t ids[6] = {PID_CLK_YEAR, PID_CLK_MONTH, PID_CLK_DAY, PID_CLK_HOURS,
+                                    PID_CLK_MINUTES, PID_CLK_SECONDS};
+    const unsigned long long t0 = now_ms();
+    int cur[6];
+    if (read_clock_fields(l, cur)) return 4; /* What already matches (the date, mostly) stays */
+    for (int pass = 0; pass < 2; pass++) {
+        for (int i = 0; i < 6; i++) {
+            /* The seconds go one ahead: the clock stands still until the write arrives */
+            uint32_t t = target + (uint32_t)((now_ms() - t0) / 1000) + (i == 5);
+            int f[6];
+            date_from_1997(t, &f[0], &f[1], &f[2], &f[3], &f[4], &f[5]);
+            if (i < 5 && cur[i] == f[i]) continue; /* Each field written costs about 1 s */
+            unsigned char v[2];
+            unsigned size = 1;
+            if (i == 0) {
+                v[0] = (unsigned char)(f[0] >> 8);
+                v[1] = (unsigned char)f[0];
+                size = 2;
+            } else {
+                v[0] = (unsigned char)f[i];
+            }
+            int r = param_set(l, ids[i], v, size);
+            if (r) return r;
+            /* Until it shows (up to 3 s); the seconds may have moved on by one meanwhile */
+            for (int tries = 0; tries < 30; tries++) {
+                unsigned char *a = NULL;
+                uint32_t n = 0;
+                unsigned sz = 0;
+                if (param_request(l, &ids[i], 1, &a, &n)) {
+                    printf("ERR setclock: no answer\n");
+                    return 4;
+                }
+                const unsigned char *got = param_value(a, n, ids[i], &sz);
+                int g = !got || sz != size ? -1 : size == 2 ? (got[0] << 8) | got[1] : got[0];
+                free(a);
+                if (g == f[i] || (i == 5 && g == (f[i] + 1) % 60)) break;
+                sleep_ms(100);
+            }
+        }
+        /* All six read back together: right unless a minute (or hour...) turned over */
+        if (read_clock_fields(l, cur)) return 4;
+        uint32_t want = target + (uint32_t)((now_ms() - t0) / 1000);
+        if (cur[0] >= 1997 && cur[1] >= 1 && cur[1] <= 12 && cur[2] >= 1 && cur[2] <= 31 &&
+            cur[3] >= 0 && cur[4] >= 0 && cur[5] >= 0) {
+            uint32_t have = secs_since_1997(cur[0], cur[1], cur[2], cur[3], cur[4], cur[5]);
+            long diff = (long)have - (long)want;
+            if (diff >= -2 && diff <= 2) {
+                printf("OK clock set to %04d-%02d-%02d %02d:%02d:%02d (new clock, %ld s off)\n",
+                       cur[0], cur[1], cur[2], cur[3], cur[4], cur[5], diff);
+                return 0;
+            }
+        }
+    }
+    printf("ERR setclock: the calculator's clock didn't take the time (it reads %04d-%02d-%02d "
+           "%02d:%02d:%02d)\n", cur[0], cur[1], cur[2], cur[3], cur[4], cur[5]);
+    return 4;
+}
+
 static int run_line(Link *l, char *line) {
     char *arg = strchr(line, ' ');
     if (arg) *arg++ = 0;
@@ -1255,6 +1552,8 @@ static int run_line(Link *l, char *line) {
     if (!strcmp(line, "put") && arg) return do_put(l, arg);
     if (!strcmp(line, "rm") && arg) return do_rm(l, arg);
     if (!strcmp(line, "send") && arg) return do_send(l, arg);
+    if (!strcmp(line, "clock")) return do_clock(l);
+    if (!strcmp(line, "setclock") && arg) return do_setclock(l, arg);
     if ((!strcmp(line, "key") || !strcmp(line, "keys")) && arg) {
         int n = 0;
         for (char *tok = strtok(arg, " "); tok; tok = strtok(NULL, " ")) {
@@ -1342,8 +1641,8 @@ int main(int argc, char **argv) {
         link_close(&l);
         return 0;
     }
-    if (!strcmp(argv[1], "info") && argc == 2) {
-        strcpy(line, "info");
+    if ((!strcmp(argv[1], "info") || !strcmp(argv[1], "clock")) && argc == 2) {
+        strcpy(line, argv[1]);
     } else if ((!strcmp(argv[1], "shot") || !strcmp(argv[1], "key") || !strcmp(argv[1], "send")) &&
                argc == 3) {
         snprintf(line, sizeof(line), "%s %s", argv[1], argv[2]);
