@@ -80,8 +80,8 @@ guides are [TIBASIC_84.md](TIBASIC_84.md) and [TIBASIC_89.md](TIBASIC_89.md).
 - **Spellings:** `->` `<=` `>=` `!=` `sqrt(` `pi` `theta` `e^(`; `1E-3` for EE. Paste the
   symbols that have no spelling: `𝑖` (imaginary), `∂(` (derivative), `∫(`, `Σ(`, `∠`, `©`
   (comments), `°`.
-- **Never use `►`** (`►Hex`, `►Rect`, `3_m►_ft`): it can't be sent. Use `v*_m/_ft` for units,
-  a routine or `setMode("Base","Hex")` for bases, `setMode("Complex Format","Polar")` for polar.
+- **The conversion arrow:** write `@>` or paste `►` (`10@>Bin`, `z@>Polar`, `3_m@>_ft`). `>`
+  alone is greater-than.
 - **Input:** `Request` and `InputStr` give strings: convert with `expr(` inside `Try` ...
   `Else` / `ClrErr` ... `EndTry`, and check `ok` after a `Dialog`. Request prompts are at
   most 20 characters. Show results with `Disp` (then `Pause` and `DispHome`) or `Text`.

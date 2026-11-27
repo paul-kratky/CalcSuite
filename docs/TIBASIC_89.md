@@ -121,9 +121,8 @@ These have no PC spelling yet: type or paste the symbol.
 | `°` | U+00B0 | degrees, and in `_°C` |
 | `∞` | U+221E | infinity |
 
-**Not possible from the PC yet:** the conversion arrow `►` (as in `►Hex`, `►Rect`,
-`3_m►_ft`). CalcSuite refuses it, and `>` is greater-than on the 89. The cookbook shows the
-ways around it.
+**The conversion arrow `►`** (as in `►Hex`, `►Rect`, `3_m►_ft`): paste `►` or write `@>`
+(`10@>Bin`, `3_m@>_ft`). `>` alone is greater-than on the 89.
 
 ## Traps in the text
 
@@ -379,8 +378,8 @@ Units are names that start with `_`: `_m`, `_ft`, `_s`, `_N`, `_ohm`, `_F`, `_V`
 (100*_m)/(2*_s)
 ```
 
-- **To convert without `►`:** multiply by the unit you have and divide by the one you want.
-  The units cancel and leave the number: `3*_m/_ft` is 9.84.
+- **To convert:** `3_m@>_ft` shows `9.84...·_ft`. For a plain number, multiply by the unit
+  you have and divide by the one you want: `3*_m/_ft` is 9.84.
 - Put a value with units in brackets when you divide: `(100*_m)/(2*_s)`.
 - A result with units shows in the default unit of its kind (SI unless you change it).
 - Temperature: `tmpCnv(100*_°C,_°F)` (not checked with a variable), or `9*c/5+32`.
@@ -403,8 +402,8 @@ cSolve(x^2+2*x+5=0,x)
 - Type the imaginary unit as `𝑖`. A complex result in Real mode gives "Non-real result"
   (except `cSolve(` and `cZeros(`, which always allow them).
 - `(r∠θ)` is polar entry, angle in the current angle mode.
-- **Polar or rectangular display without `►`:** `setMode("Complex Format","Polar")` or
-  `"Rectangular"`, then show the value.
+- **Polar or rectangular display:** `z@>Polar` / `z@>Rect`, or for every result
+  `setMode("Complex Format","Polar")` (or `"Rectangular"`).
 - A variable ending in `_` (`z_`) is treated as complex in `cSolve(`.
 
 ## Cookbook: number bases and bits
@@ -425,9 +424,9 @@ mod(17,5)
 - Type hex with `0h` and binary with `0b` (zero, then the letter).
 - `and`, `or`, `xor`, `not` work bit by bit on integers, as 32-bit signed numbers.
 - `shift(` and `rotate(` move bits: positive to the left, negative to the right.
-- **Hex or binary output without `►`:** `setMode("Base","Hex")` shows integer results on the
-  Home screen in hex (`"Dec"`, `"Bin"` the others), or use the `tobase` function from the
-  examples: `tobase(255,2)` is "11111111".
+- **Hex or binary output:** `255@>Hex` shows `0hFF`, `10@>Bin` shows `0b1010`.
+  `setMode("Base","Hex")` shows every integer result in hex (`"Dec"`, `"Bin"` the others),
+  and the `tobase` function from the examples gives a string: `tobase(255,2)` is "11111111".
 - Example: `baseconv`.
 
 ## Cookbook: exact and decimal
@@ -464,7 +463,7 @@ mod(17,5)
 | Reserved name or system variable | Naming something like `xmin` or `ok` | Pick another name |
 | Break | ON was pressed | ESC |
 
-Errors from CalcSuite before sending: "isn't a TI-89 character" (a tab, `►`, a long dash or a
+Errors from CalcSuite before sending: "isn't a TI-89 character" (a tab, a long dash or a
 curly quote pasted from the web), "has no EndPrgm at its end", "can't be a TI-89 name".
 
 ## Command reference
@@ -938,7 +937,7 @@ Checked 2026-11-27:
   `rotate(`, `0h`/`0b`, `►` for units, `tmpCnv(`, unit names, the rules for names, what a
   function may not do, the comment character and the error messages.
 - CalcSuite's text converter, `tools/calc_files.py` (`program_89_data`): which spellings
-  become the 89's characters, and that `►` is refused. Every example and code block in this
+  become the 89's characters (`@>` and `►` the conversion arrow). Every example and code block in this
   guide goes through it.
 
 Not checked on a calculator yet: the example programs (their structure is checked, and the 89

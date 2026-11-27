@@ -12,7 +12,7 @@ their keys, symbols and text pasted in, screenshots and recordings, programs sen
 files on them, and a guide for writing programs. For the **TI-Nspire CX II** (CAS too), the
 **TI-84 Plus CE** and the **TI-89 Titanium**, several at once.
 
-<!-- screenshot: all-screens -->
+![CalcSuite showing a TI-Nspire CX II CAS on All screens](docs/img/all-screens.png)
 
 ## Get started
 
@@ -65,7 +65,7 @@ under the screen; **Show keys in recordings** puts that strip into your GIF and 
 closing that window puts it back as a tab. A calculator that's unplugged greys out ("not
 plugged in") and comes back when you plug it in again.
 
-<!-- screenshot: calculator-tab -->
+![A calculator tab with the Files panel](docs/img/calculator-tab.png)
 
 The panel on the right of a tab:
 
@@ -78,7 +78,7 @@ The panel on the right of a tab:
 | **Get programs** | Programs picked for engineering work (unit converters, circuit tools, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists everything CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
 | **Info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
 
-<!-- screenshot: symbols-and-guide -->
+<img src="docs/img/symbols-panel.png" width="49%" alt="The Symbols panel"> <img src="docs/img/guide-panel.png" width="49%" alt="The Guide panel">
 
 ## Keys and mouse
 

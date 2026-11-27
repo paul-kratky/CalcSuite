@@ -2,7 +2,7 @@
 
 What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40, Windows 11.
 
-## [Unreleased]
+## [1.0.0] - 2026-11-27
 
 ### Added
 - **The program editor** (`tools/editor.py`, checks in `tools/code_check.py`, both MIT): TI-84
