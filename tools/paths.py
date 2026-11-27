@@ -45,7 +45,13 @@ def inside_zip():
         return False
     here = os.path.normcase(app_dir())
     tmp = os.path.normcase(os.path.abspath(tempfile.gettempdir()))
-    return here.startswith(tmp + os.sep) or here == tmp
+    if not here.startswith(tmp + os.sep):
+        return False
+    # The folders zip tools unpack into when an exe is opened without extracting: Explorer's
+    # Temp1_<name>.zip, 7-Zip's 7zO..., WinRAR's Rar$EX... (a folder unzipped into Temp is fine)
+    import re
+    return any(re.match(r"^(temp\d+_.*\.zip|7zo|rar\$)", part)
+               for part in here[len(tmp) + 1:].split(os.sep))
 
 
 def _writable(folder):

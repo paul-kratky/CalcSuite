@@ -49,14 +49,18 @@ def paths_checks():
     failures = 0
     saved = (getattr(sys, "frozen", None), sys.executable)
     try:
-        for case in ("unzipped", "inside zip"):
-            base = tempfile.mkdtemp(dir=None if case == "inside zip" else os.path.join(KIT, "build"))
+        for case in ("unzipped", "inside zip", "unzipped into Temp"):
+            base = tempfile.mkdtemp(dir=os.path.join(KIT, "build"))
+            if case == "inside zip":  # How Explorer opens an exe inside a zip
+                base = os.path.join(tempfile.gettempdir(), "Temp1_CalcSuite-test.zip")
+            elif case == "unzipped into Temp":
+                base = tempfile.mkdtemp()
             sys.frozen = True
             sys.executable = os.path.join(base, "CalcSuite", "CalcSuite.exe")
             os.makedirs(os.path.dirname(sys.executable), exist_ok=True)
             importlib.reload(paths)
             want = os.path.join(base, "CalcSuite", paths.FOLDER_NAME)
-            if case == "unzipped":
+            if case in ("unzipped", "unzipped into Temp"):
                 ok = (paths.files_dir() == want and paths.is_portable() and not paths.inside_zip()
                       and paths.cache_dir("x").startswith(os.path.join(want, "cache")))
             else:
