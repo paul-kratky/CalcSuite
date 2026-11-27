@@ -1,12 +1,17 @@
-# TI-Nspire CX II CAS Python kit
+# CalcSuite
+
+Your TI calculators on the PC: see the screen live, type on it with your keyboard, paste text,
+take screenshots and recordings, and send programs, for the **TI-Nspire CX II**, the
+**TI-84 Plus CE** and the **TI-89 Titanium**, several at once. Plus a kit for writing Python
+programs for the Nspire on the PC (with or without AI), checking them and sending them.
 
 > **Doing it yourself, without AI?** Start with [QUICKSTART.md](QUICKSTART.md): one page, from writing a program to running it on the calculator.
 
 ## Get it (Windows)
 
-1. `git clone --recursive https://github.com/paul-kratky/nspire-python-kit` (or download the ZIP).
+1. `git clone --recursive https://github.com/paul-kratky/CalcSuite` (or download the ZIP).
 2. Get the tools: download `nspire-python-kit-tools-win64.zip` from the
-   [latest release](https://github.com/paul-kratky/nspire-python-kit/releases/latest) and
+   [latest release](https://github.com/paul-kratky/CalcSuite/releases/latest) and
    unzip it into `tools/bin/` (`luna.exe`, `nspire-cli.exe`, `libusb-1.0.dll`). To build them
    yourself instead, see `third_party/README.md` and run `python tools/build_tools.py`.
 3. Python 3.8+ on the PC. Nothing to install with pip.
