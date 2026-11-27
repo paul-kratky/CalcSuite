@@ -107,7 +107,7 @@ def build_cli(tc, force):
         objs.append(o)
     o = os.path.join(objdir, "cx2.o")
     run([os.path.join(tc, "g++.exe"), "-std=gnu++20", "-c"] + common +
-        [os.path.join(LIBNSPIRE, "cx2.cpp"), "-o", o], tc)
+        [os.path.join(HERE, "nspire_cli", "cx2_resume.cpp"), "-o", o], tc)  # Our copy: reconnects
     objs.append(o)
     o = os.path.join(objdir, "nspire_cli.o")
     run([os.path.join(tc, "gcc.exe"), "-std=gnu11", "-Wall", "-Wextra", "-c"] + common +

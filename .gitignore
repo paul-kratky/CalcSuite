@@ -6,3 +6,7 @@ __pycache__/
 
 # Downloaded binaries (fetch per third_party/README.md; ready-built tools are in GitHub Releases)
 third_party/libusb-*/
+
+# The packaged app and screenshots
+dist/
+captures/

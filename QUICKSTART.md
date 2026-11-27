@@ -22,10 +22,10 @@ For the TI-Nspire CX II (CAS), on Windows. You don't need AI for this; the kit a
    python -I tools/run_on_pc.py programs/myprog.py
    ```
 
-4. **Send it:**
-   - Open **TI-Nspire CX II Connect**.
-   - Drag `build/myprog.tns` onto the calculator.
-   - (`flash.py` without `--dry-run` sends it directly, but that doesn't work on OS 6.40 yet.)
+4. **Send it,** any of these:
+   - `python -I tools/flash.py programs/myprog.py` (checks, builds and sends in one go);
+   - the **Send program...** button in Nspire Mirror;
+   - or drag `build/myprog.tns` into TI-Nspire CX II Connect.
 5. **Run it:** on the handheld, home > **My Documents** > `myprog`, then **ctrl+R**.
 
 If the old version still runs, close the document on the handheld and open it again.
@@ -56,6 +56,12 @@ Trapezoid, Simpson and a reference value for an integral.
 Trap:   13.996...   Simp:   12.829...   Exact:  12.778...
 ```
 
+## The app: Nspire Mirror
+
+Double-click `Nspire Mirror.exe` (or `Nspire Mirror.bat` from the source): the handheld's
+screen live, your keyboard and mouse wheel as its keys, **Send program...** and
+**Screenshot** buttons. It connects by itself.
+
 ## When something goes wrong
 
 | Problem | Fix |
@@ -63,4 +69,4 @@ Trap:   13.996...   Simp:   12.829...   Exact:  12.778...
 | The checker reports an ERROR | Change the line it names; it says what TI's Python lacks |
 | "Can't read that" in `numint` | Use `*` for multiplication (`2*x`) and close every bracket |
 | Drag into CX II Connect does nothing | Unplug, wait 3 s, replug; the calculator on the Home screen; no exam (Press-to-Test) mode |
-| `flash.py` times out sending | Known on OS 6.40: use CX II Connect instead |
+| The handheld doesn't answer | Switch it on (Home screen, no dialog), close TI's own software; last resort: unplug, wait 3 s, replug |

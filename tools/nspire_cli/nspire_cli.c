@@ -7,6 +7,16 @@
  *   nspire-cli ls [PATH]          list a folder on the handheld ("/" = My Documents)
  *   nspire-cli mkdir PATH         create a folder (no error if it exists)
  *   nspire-cli put LOCAL REMOTE   upload a file, then read it back and compare
+ *   nspire-cli shot FILE.ppm      save the handheld's screen as a PPM picture
+ *   nspire-cli key HEXCODE        press one key (a 3-byte code, see nspire_keys.py)
+ *   nspire-cli serve              one long connection: commands on stdin, one per line
+ *                                 (info | ls PATH | mkdir PATH | put LOCAL|REMOTE |
+ *                                 shot FILE | key HEX | keys HEX HEX ... | quit); each
+ *                                 ends with "END <code>".
+ *
+ * The CX II does its address handshake once per plug-in and is silent after that. Our copy of
+ * libnspire's cx2.cpp (cx2_resume.cpp) asks it to start over, so a second run connects too.
+ * `serve` is still the fast way to do several things: one handshake for all of them.
  *
  * Exit codes: 0 ok, 1 usage error, 2 no handheld found, 3 driver/open problem,
  *             4 link/protocol error, 5 verify failed, 6 local file error.
@@ -14,7 +24,7 @@
  * Built by tools/build_tools.py against third_party/libnspire and third_party/libusb-*.
  * Because it links libnspire (GPL-3.0-or-later), the resulting nspire-cli.exe is
  * GPL-3.0-or-later too; this file is offered under the same licence.
- * Every line printed starts with a tag (OK/ERR/DEV/INFO/ITEM) so tools/send_to_calc.py
+ * Every line printed starts with a tag (OK/ERR/DEV/INFO/ITEM/END) so the Python tools
  * can parse it.
  */
 #include <stdio.h>
@@ -24,6 +34,11 @@
 #include <libusb.h>
 
 #include "nspire.h"
+#include "screenshot.h"
+/* libnspire internals, for the key-press service it has no API for */
+#include "handle.h"
+#include "service.h"
+#include "data.h"
 
 #define TI_VID 0x0451
 
@@ -104,16 +119,12 @@ static const char *hw_name(int t) {
     }
 }
 
-static int cmd_info(void) {
-    nspire_handle_t *h;
-    int r = open_handle(&h);
-    if (r) return r;
+static int do_info(nspire_handle_t *h) {
     struct nspire_devinfo i;
     memset(&i, 0, sizeof(i));
-    r = nspire_device_info(h, &i);
+    int r = nspire_device_info(h, &i);
     if (r) {
         printf("ERR device info: %s\n", nspire_strerror(r));
-        nspire_free(h);
         return 4;
     }
     printf("INFO name=%.20s\n", i.device_name);
@@ -130,19 +141,14 @@ static int cmd_info(void) {
            (unsigned)i.batt.is_charging);
     printf("INFO file_ext=%.8s\n", i.extensions.file);
     printf("OK\n");
-    nspire_free(h);
     return 0;
 }
 
-static int cmd_ls(const char *path) {
-    nspire_handle_t *h;
-    int r = open_handle(&h);
-    if (r) return r;
+static int do_ls(nspire_handle_t *h, const char *path) {
     struct nspire_dir_info *d = NULL;
-    r = nspire_dirlist(h, path, &d);
+    int r = nspire_dirlist(h, path, &d);
     if (r) {
         printf("ERR ls %s: %s\n", path, nspire_strerror(r));
-        nspire_free(h);
         return 4;
     }
     for (unsigned long k = 0; k < d->num; k++) {
@@ -151,22 +157,16 @@ static int cmd_ls(const char *path) {
     }
     printf("OK %lu item(s)\n", d->num);
     nspire_dirlist_free(d);
-    nspire_free(h);
     return 0;
 }
 
-static int cmd_mkdir(const char *path) {
-    nspire_handle_t *h;
-    int r = open_handle(&h);
-    if (r) return r;
+static int do_mkdir(nspire_handle_t *h, const char *path) {
     struct nspire_dir_item it;
     if (nspire_attr(h, path, &it) == 0 && it.type == NSPIRE_DIR) {
         printf("OK exists %s\n", path);
-        nspire_free(h);
         return 0;
     }
-    r = nspire_dir_create(h, path);
-    nspire_free(h);
+    int r = nspire_dir_create(h, path);
     if (r) {
         printf("ERR mkdir %s: %s\n", path, nspire_strerror(r));
         return 4;
@@ -175,7 +175,7 @@ static int cmd_mkdir(const char *path) {
     return 0;
 }
 
-static int cmd_put(const char *local, const char *remote) {
+static int do_put(nspire_handle_t *h, const char *local, const char *remote) {
     FILE *f = fopen(local, "rb");
     if (!f) {
         printf("ERR cannot open local file %s\n", local);
@@ -198,14 +198,12 @@ static int cmd_put(const char *local, const char *remote) {
     }
     fclose(f);
 
-    nspire_handle_t *h;
-    int r = open_handle(&h);
-    if (r) return r;
-    r = nspire_file_write(h, remote, buf, (size_t)size);
+    int ret = 0;
+    int r = nspire_file_write(h, remote, buf, (size_t)size);
     if (r) {
         printf("ERR upload %s: %s\n", remote, nspire_strerror(r));
-        nspire_free(h);
-        return 4;
+        ret = 4;
+        goto done;
     }
     printf("INFO sent %ld bytes to %s\n", size, remote);
 
@@ -215,34 +213,198 @@ static int cmd_put(const char *local, const char *remote) {
     r = nspire_attr(h, remote, &it);
     if (r) {
         printf("ERR verify: cannot stat %s: %s\n", remote, nspire_strerror(r));
-        nspire_free(h);
-        return 5;
+        ret = 5;
+        goto done;
     }
     if (it.size != (unsigned long)size) {
         printf("ERR verify: handheld has %lu bytes, expected %ld\n", it.size, size);
-        nspire_free(h);
-        return 5;
+        ret = 5;
+        goto done;
     }
     size_t got = 0;
     r = nspire_file_read(h, remote, back, (size_t)size + 16, &got);
-    nspire_free(h);
     if (r) {
         printf("ERR read-back %s: %s\n", remote, nspire_strerror(r));
-        return 5;
+        ret = 5;
+        goto done;
     }
     if (got != (size_t)size || memcmp(buf, back, (size_t)size) != 0) {
         printf("ERR verify: handheld has %lu bytes, expected %ld (or contents differ)\n",
                (unsigned long)got, size);
-        return 5;
+        ret = 5;
+        goto done;
     }
     printf("OK verified %ld bytes at %s\n", size, remote);
+done:
     free(buf);
     free(back);
+    return ret;
+}
+
+/* The screen as a binary PPM (P6, 8-bit RGB): Tk and most viewers read it as it is */
+static int do_shot(nspire_handle_t *h, const char *out) {
+    struct nspire_image *img = NULL;
+    int r = nspire_screenshot(h, &img);
+    if (r || !img) {
+        printf("ERR screenshot: %s\n", nspire_strerror(r));
+        return 4;
+    }
+    const size_t px = (size_t)img->width * img->height;
+    unsigned char *rgb = malloc(px * 3);
+    if (!rgb) {
+        free(img);
+        printf("ERR out of memory\n");
+        return 6;
+    }
+    if (img->bpp == 16) {
+        for (size_t k = 0; k < px; k++) {
+            unsigned v = img->data[2 * k] | ((unsigned)img->data[2 * k + 1] << 8); /* RGB565, low byte first */
+            unsigned r5 = (v >> 11) & 31, g6 = (v >> 5) & 63, b5 = v & 31;
+            rgb[3 * k] = (unsigned char)((r5 << 3) | (r5 >> 2));
+            rgb[3 * k + 1] = (unsigned char)((g6 << 2) | (g6 >> 4));
+            rgb[3 * k + 2] = (unsigned char)((b5 << 3) | (b5 >> 2));
+        }
+    } else if (img->bpp == 8) {
+        for (size_t k = 0; k < px; k++) rgb[3 * k] = rgb[3 * k + 1] = rgb[3 * k + 2] = img->data[k];
+    } else if (img->bpp == 4) { /* The grey models: 2 pixels a byte */
+        for (size_t k = 0; k < px; k++) {
+            unsigned v = (k & 1) ? (img->data[k / 2] & 15u) : (unsigned)(img->data[k / 2] >> 4);
+            rgb[3 * k] = rgb[3 * k + 1] = rgb[3 * k + 2] = (unsigned char)(v * 17);
+        }
+    } else {
+        printf("ERR screenshot: %u bits per pixel is not handled\n", (unsigned)img->bpp);
+        free(rgb);
+        free(img);
+        return 4;
+    }
+    FILE *f = fopen(out, "wb");
+    if (!f) {
+        printf("ERR cannot write %s\n", out);
+        free(rgb);
+        free(img);
+        return 6;
+    }
+    fprintf(f, "P6\n%u %u\n255\n", (unsigned)img->width, (unsigned)img->height);
+    fwrite(rgb, 1, px * 3, f);
+    fclose(f);
+    printf("OK shot %ux%u bpp=%u %s\n", (unsigned)img->width, (unsigned)img->height,
+           (unsigned)img->bpp, out);
+    free(rgb);
+    free(img);
     return 0;
 }
 
+/* One key press through the key service (0x4042). libnspire has no call for it; the two
+   packets are the ones TILP's libticalcs sends (nsp_cmd_s_key). code = 0xAABBCC. */
+static int do_key(nspire_handle_t *h, unsigned long code) {
+    int r = service_connect(h, 0x4042);
+    if (r) {
+        printf("ERR key: %s\n", nspire_strerror(r));
+        return 4;
+    }
+    unsigned char p1[4] = {0x01, 0x00, 0x00, 0x80};
+    unsigned char p2[26];
+    memset(p2, 0, sizeof(p2));
+    p2[1 + 3] = 0x08;
+    p2[1 + 4] = 0x02;
+    p2[1 + 5] = (unsigned char)(code >> 16);
+    p2[1 + 7] = (unsigned char)(code >> 8);
+    p2[1 + 23] = (unsigned char)code;
+    r = data_write(h, p1, sizeof(p1));
+    if (!r) r = data_write(h, p2, sizeof(p2));
+    int r2 = service_disconnect(h);
+    if (r || r2) {
+        printf("ERR key %06lx: %s\n", code, nspire_strerror(r ? r : r2));
+        return 4;
+    }
+    printf("OK key %06lx\n", code);
+    return 0;
+}
+
+/* Several key presses on one service connection ("keys 616600 624600 ..."): a round trip
+   less per key than `key`, so typing keeps up */
+static int do_keys(nspire_handle_t *h, char *list) {
+    int r = service_connect(h, 0x4042);
+    if (r) {
+        printf("ERR keys: %s\n", nspire_strerror(r));
+        return 4;
+    }
+    int n = 0;
+    for (char *tok = strtok(list, " "); tok && !r; tok = strtok(NULL, " ")) {
+        unsigned long code = strtoul(tok, NULL, 16);
+        unsigned char p1[4] = {0x01, 0x00, 0x00, 0x80};
+        unsigned char p2[26];
+        memset(p2, 0, sizeof(p2));
+        p2[1 + 3] = 0x08;
+        p2[1 + 4] = 0x02;
+        p2[1 + 5] = (unsigned char)(code >> 16);
+        p2[1 + 7] = (unsigned char)(code >> 8);
+        p2[1 + 23] = (unsigned char)code;
+        r = data_write(h, p1, sizeof(p1));
+        if (!r) r = data_write(h, p2, sizeof(p2));
+        if (!r) n++;
+    }
+    int r2 = service_disconnect(h);
+    if (r || r2) {
+        printf("ERR keys after %d: %s\n", n, nspire_strerror(r ? r : r2));
+        return 4;
+    }
+    printf("OK keys %d\n", n);
+    return 0;
+}
+
+/* One command line on an open connection. "put" splits LOCAL|REMOTE on the bar (paths may
+   have spaces). */
+static int run_line(nspire_handle_t *h, char *line) {
+    char *arg = strchr(line, ' ');
+    if (arg) *arg++ = 0;
+    if (!strcmp(line, "info")) return do_info(h);
+    if (!strcmp(line, "ls")) return do_ls(h, arg && *arg ? arg : "/");
+    if (!strcmp(line, "mkdir") && arg) return do_mkdir(h, arg);
+    if (!strcmp(line, "shot") && arg) return do_shot(h, arg);
+    if (!strcmp(line, "key") && arg) return do_key(h, strtoul(arg, NULL, 16));
+    if (!strcmp(line, "keys") && arg) return do_keys(h, arg);
+    if (!strcmp(line, "put") && arg) {
+        char *bar = strchr(arg, '|');
+        if (bar) {
+            *bar++ = 0;
+            return do_put(h, arg, bar);
+        }
+    }
+    printf("ERR unknown command\n");
+    return 1;
+}
+
+static int cmd_serve(void) {
+    nspire_handle_t *h;
+    int r = open_handle(&h);
+    printf("END %d\n", r); /* The connection's own result, before any command */
+    if (r) return r;
+    char line[2048];
+    while (fgets(line, sizeof(line), stdin)) {
+        size_t n = strlen(line);
+        while (n && (line[n - 1] == '\n' || line[n - 1] == '\r')) line[--n] = 0;
+        if (!n) continue;
+        if (!strcmp(line, "quit")) break;
+        printf("END %d\n", run_line(h, line));
+    }
+    nspire_free(h);
+    return 0;
+}
+
+/* A one-shot command: its own connection (see the note at the top) */
+static int once(char *line) {
+    nspire_handle_t *h;
+    int r = open_handle(&h);
+    if (r) return r;
+    r = run_line(h, line);
+    nspire_free(h);
+    return r;
+}
+
 static int usage(void) {
-    printf("usage: nspire-cli devices | info | ls [PATH] | mkdir PATH | put LOCAL REMOTE\n"
+    printf("usage: nspire-cli devices | info | ls [PATH] | mkdir PATH | put LOCAL REMOTE |\n"
+           "       shot FILE.ppm | key HEXCODE | serve\n"
            "PATH is on the handheld; \"/\" is the top of My Documents.\n");
     return 1;
 }
@@ -251,10 +413,29 @@ int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     if (argc < 2) return usage();
     const char *c = argv[1];
+    char line[2048];
     if (!strcmp(c, "devices")) return cmd_devices();
-    if (!strcmp(c, "info")) return cmd_info();
-    if (!strcmp(c, "ls")) return cmd_ls(argc > 2 ? argv[2] : "/");
-    if (!strcmp(c, "mkdir") && argc == 3) return cmd_mkdir(argv[2]);
-    if (!strcmp(c, "put") && argc == 4) return cmd_put(argv[2], argv[3]);
+    if (!strcmp(c, "serve")) return cmd_serve();
+    if (!strcmp(c, "info")) {
+        strcpy(line, "info");
+        return once(line);
+    }
+    if (!strcmp(c, "ls")) {
+        snprintf(line, sizeof(line), "ls %s", argc > 2 ? argv[2] : "/");
+        return once(line);
+    }
+    if ((!strcmp(c, "mkdir") || !strcmp(c, "shot") || !strcmp(c, "key")) && argc == 3) {
+        snprintf(line, sizeof(line), "%s %s", c, argv[2]);
+        return once(line);
+    }
+    if (!strcmp(c, "put") && argc == 4) { /* The handheld's details too: one connection */
+        nspire_handle_t *h;
+        int r = open_handle(&h);
+        if (r) return r;
+        r = do_info(h);
+        if (!r) r = do_put(h, argv[2], argv[3]);
+        nspire_free(h);
+        return r;
+    }
     return usage();
 }

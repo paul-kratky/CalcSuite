@@ -21,6 +21,8 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import nspire_link  # noqa: E402  (one connection for every step)
 CLI = os.path.join(HERE, "bin", "nspire-cli.exe")
 TIMEOUT_S = 90
 
@@ -35,9 +37,9 @@ HELP = {
         "  - Close TI-Nspire Student/Teacher Software and any Chrome tab running\n"
         "    TI-Nspire CX II Connect, then unplug and replug the handheld.\n"
         "  - If it still fails: see README.md, 'One-time setup: USB driver'."),
-    4: ("The USB link started but the handheld did not answer properly.\n"
-        "  - Make sure it is on the Home screen, not in the middle of a dialog.\n"
-        "  - Close TI software / CX II Connect, unplug, wait 3 s, replug, try again.\n"
+    4: ("The handheld did not answer. It takes ONE USB connection per plug-in:\n"
+        "  - Unplug it, wait 3 s, plug it back in, then run this again.\n"
+        "  - Screen on, Home screen, no dialog open; close TI software / CX II Connect.\n"
         "  - Press-to-Test (exam) mode blocks normal file transfer: leave it first."),
     5: ("The file arrived but reading it back gave different bytes. Send it again;\n"
         "  if it keeps failing, try another cable or port."),
@@ -121,19 +123,36 @@ def show_info(d):
               " Update its OS (README, troubleshooting)." % d.get("os"))
 
 
-def cmd_list():
+def open_session():
+    """One connection for everything (the CX II takes one per plug-in). (session, None) or
+    (None, exit code)"""
     code, lines = devices()
     if code:
-        return fail(code, lines)
-    code, d = info()
+        return None, fail(code, lines)
+    try:
+        return nspire_link.Session(), None
+    except nspire_link.LinkError as e:
+        return None, fail(e.code, e.lines)
+
+
+def cmd_list():
+    s, err = open_session()
+    if not s:
+        return err
+    with s:
+        code, lines = s.cmd("info")
     if code:
-        return fail(code, [])
-    show_info(d)
+        return fail(code, lines)
+    show_info(nspire_link.info_dict(lines))
     return 0
 
 
 def cmd_ls(path):
-    code, lines = run_cli_retry(["ls", path])
+    s, err = open_session()
+    if not s:
+        return err
+    with s:
+        code, lines = s.cmd("ls " + path)
     if code:
         return fail(code, lines)
     for l in lines:
@@ -153,22 +172,23 @@ def send(tns_path, folder=None, quiet=False):
         print("ERROR: only .tns documents can be sent (got %s). Convert with tools/py2tns.py"
               % name)
         return 1
-    code, lines = devices()
-    if code:
-        return fail(code, lines)
-    code, d = info()
-    if code:
-        return fail(code, [])
-    show_info(d)
-    remote = "/" + name
-    if folder:
-        folder = folder.strip("/")
-        code, lines = run_cli_retry(["mkdir", "/" + folder])
+    s, err = open_session()
+    if not s:
+        return err
+    with s:
+        code, lines = s.cmd("info")
         if code:
             return fail(code, lines)
-        remote = "/" + folder + "/" + name
-    print("Sending %s -> My Documents%s ..." % (name, remote))
-    code, lines = run_cli_retry(["put", os.path.abspath(tns_path), remote])
+        show_info(nspire_link.info_dict(lines))
+        remote = "/" + name
+        if folder:
+            folder = folder.strip("/")
+            code, lines = s.cmd("mkdir /" + folder)
+            if code:
+                return fail(code, lines)
+            remote = "/" + folder + "/" + name
+        print("Sending %s -> My Documents%s ..." % (name, remote))
+        code, lines = s.cmd("put %s|%s" % (os.path.abspath(tns_path), remote))
     if code:
         return fail(code, lines)
     print("Sent and verified: My Documents%s" % remote)

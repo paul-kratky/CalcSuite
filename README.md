@@ -11,9 +11,10 @@
    yourself instead, see `third_party/README.md` and run `python tools/build_tools.py`.
 3. Python 3.8+ on the PC. Nothing to install with pip.
 
-**Known issue:** sending over USB times out on handheld OS 6.40. Build with
-`python -I tools/flash.py programs/<name>.py --dry-run`, then drag `build/<name>.tns` into
-TI-Nspire CX II Connect.
+**The app:** `Nspire Mirror.exe` (in the release) shows the handheld's screen live, sends
+programs with a button, takes screenshots, and passes your keyboard and mouse wheel to the
+handheld. No terminal, no Python needed. From the source: double-click `Nspire Mirror.bat`.
+What's new: [CHANGELOG.md](CHANGELOG.md).
 
 **Licence:** MIT (`LICENSE`), except `tools/nspire_cli/` and the `nspire-cli.exe` built from it,
 which are GPL-3.0-or-later because they link libnspire; `third_party/` projects keep their own
