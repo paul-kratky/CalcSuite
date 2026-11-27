@@ -148,6 +148,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      packages: write  # The zip as a GitHub Package (ghcr.io)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
@@ -206,6 +207,37 @@ jobs:
           }
           $line
           Add-Content -Path out/notes.md -Value $line -Encoding utf8
+
+      # GitHub Packages: the same zip (with its checksum and signed attestation) in GitHub's
+      # registry, shown in the repository's Packages box. Anyone can fetch it without signing in:
+      #   oras pull ghcr.io/paul-kratky/calcsuite:<version>
+      - uses: oras-project/setup-oras@ac735097e22fe643015b0d19645f7c9a69942128  # v2.0.4
+        with:
+          version: 1.4.0
+
+      - name: Publish the zip as a GitHub Package
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ver = $env:GITHUB_REF_NAME.TrimStart('v')
+          $repo = "ghcr.io/$($env:GITHUB_REPOSITORY.ToLower())"
+          $env:GH_TOKEN | oras login ghcr.io -u $env:GITHUB_ACTOR --password-stdin
+          if ($LASTEXITCODE) { throw "oras login failed" }
+          Push-Location out
+          $files = @((Get-ChildItem CalcSuite-*-win64.zip).Name, 'SHA256SUMS.txt') + @((Get-ChildItem *.sigstore.json -ErrorAction SilentlyContinue).Name)
+          oras push "${repo}:$ver" @files `
+            --artifact-type application/vnd.calcsuite.release.v1 `
+            --annotation "org.opencontainers.image.source=https://github.com/$env:GITHUB_REPOSITORY" `
+            --annotation "org.opencontainers.image.description=CalcSuite $ver for Windows: TI calculators on your PC (unzip and run CalcSuite.exe)" `
+            --annotation "org.opencontainers.image.licenses=MIT" `
+            --annotation "org.opencontainers.image.version=$ver" `
+            --annotation "org.opencontainers.image.title=CalcSuite"
+          if ($LASTEXITCODE) { throw "oras push failed" }
+          oras tag "${repo}:$ver" latest
+          if ($LASTEXITCODE) { throw "oras tag failed" }
+          Pop-Location
+          Add-Content -Path out/notes.md -Encoding utf8 -Value "- Also as a GitHub Package: ``oras pull $($repo):$ver`` ([package](https://github.com/$env:GITHUB_REPOSITORY/pkgs/container/calcsuite))."
 
       - name: Draft release (the owner reviews and publishes it)
         shell: pwsh

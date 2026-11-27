@@ -93,7 +93,7 @@ def build_luna(tc, force):
         ["-static", "-lz", "-o", out], tc)
 
 
-APP_VERSION = (1, 0, 1)  # The helpers' version info (Windows shows it in Properties > Details)
+APP_VERSION = (1, 0, 2)  # The helpers' version info (Windows shows it in Properties > Details)
 
 
 def version_res(tc, name, description, licence):

@@ -2,6 +2,37 @@
 
 What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40, Windows 11.
 
+## [1.0.2] - 2026-11-28
+
+### Added
+- **The Program editor is a tab** of the main window (beside All screens and the calculators),
+  not a separate window: **Program editor...** under a calculator's screen opens it aimed at that
+  calculator. The tab shows the file's name (a dot while unsaved) and closes with its ✕.
+- **Delete all programs...** (Nspire: **Delete all documents...**) and **Reset the
+  calculator...** in **Info**, both after a full backup. The TI-84 Plus CE's reset (Clear RAM or
+  Everything) presses its own 2nd MEM > Reset menu, after you type `RESET`; the 89 and the
+  Nspire show the steps on the calculator.
+- **Ctrl+Backspace / Ctrl+Delete** delete a word at a time in the editor.
+- **Resizable panels:** drag the handle between the screen and the side panel, and in
+  Functions between the list and the description.
+- Functions and Get programs: a scrollbar on the description, and a hint while nothing is picked.
+- **errors.log:** every error inside the window is written to
+  `CalcSuite files\logs\errors.log` instead of passing silently.
+- **Trust:** the release is built and attested by GitHub (`gh attestation verify`), carries its
+  signed attestation bundle, a VirusTotal scan in its notes and signed tags; SECURITY.md (private
+  reporting), CodeQL code scanning, Dependabot, OpenSSF Scorecard.
+- **GitHub Package:** the same zip at `ghcr.io/paul-kratky/calcsuite` (`oras pull`).
+
+### Fixed
+- **Info could stay on "Asking the calculator..." for good** (and the driver check on
+  "Checking..."): an error while drawing a calculator's screen stopped the loop that hands
+  background results to the window. That loop can't stop now, and the error is logged.
+- The README's and the quick start's steps match the zip (the quick start was the old
+  Nspire-only kit guide); `LICENSE` is the plain MIT text (exceptions in `LICENSING.md`).
+
+### Changed
+- The button is **Program editor...** (was Editor...).
+
 ## [1.0.1] - 2026-11-27
 
 ### Changed

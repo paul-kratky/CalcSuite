@@ -1,73 +1,54 @@
-# Quick start: a program on the calculator in 5 minutes
+# CalcSuite quick start
 
-For the TI-Nspire CX II (CAS), on Windows. You don't need AI for this; the kit also works with an AI coding assistant (see [docs/PYTHON_KIT.md](docs/PYTHON_KIT.md)). The full details are there too.
+Your TI calculators on your Windows PC in five minutes: the TI-Nspire CX II (CAS), the TI-84
+Plus CE and the TI-89 Titanium.
 
-## Python programs (number crunching, menus, quick tools)
+## 1. Get it
 
-1. **Write it** as `programs/myprog.py`:
-   - The name is lowercase, letters, digits and `_` only.
-   - Plain ASCII, 4-space indents.
-   - No f-strings: use `print("x =", x)`.
-   - Only `math`, `cmath`, `random`, `time` and `ti_*` modules.
-2. **Check and build it.** In a terminal in this folder:
+1. Download `CalcSuite-<version>-win64.zip` from the
+   [latest release](https://github.com/paul-kratky/CalcSuite/releases/latest).
+2. **Unzip it** (right-click, **Extract All**) wherever you like. Nothing is installed.
+3. Open `CalcSuite.exe` in the folder it made. If Windows says **"Windows protected your PC"**,
+   click **More info**, then **Run anyway** (CalcSuite isn't code-signed yet).
 
-   ```
-   python -I tools/flash.py programs/myprog.py --dry-run
-   ```
+## 2. Plug in
 
-   Fix anything it reports. It writes `build/myprog.tns`.
-3. **Test it on the PC (optional):**
+1. Plug the calculator in with a data cable and switch it on.
+2. Close TI's own software (TI Connect CE, CX II Connect): one program at a time.
+3. **The first time only,** CalcSuite opens the calculator's **Info** and offers to set up its
+   USB driver: **OK**, then **Yes** on Windows' prompt. A minute or two, once per calculator.
 
-   ```
-   python -I tools/run_on_pc.py programs/myprog.py
-   ```
+Its screen appears on **All screens** and in its own tab, live.
 
-4. **Send it,** any of these:
-   - `python -I tools/flash.py programs/myprog.py` (checks, builds and sends in one go);
-   - the **Send program...** button in CalcSuite (the TI-Nspire's tab);
-   - or drag `build/myprog.tns` into TI-Nspire CX II Connect.
-5. **Run it:** on the handheld, home > **My Documents** > `myprog`, then **ctrl+R**.
+## 3. Use it
 
-If the old version still runs, close the document on the handheld and open it again.
+| To | Do |
+| --- | --- |
+| Type on the calculator | Click its screen and type; the **Keys** panel shows which PC key is which |
+| Type a symbol (∫ √ π θ ≤ ...) | **Symbols** panel, or paste text with them (Ctrl+V) |
+| Find a command and its arguments | **Functions** panel; double-click to type it |
+| Write a program | **Program editor...** under the screen: it checks as you type, **F5** builds, sends and runs it |
+| Get ready-made programs | **Get programs** panel; double-click one to download and send it |
+| Save a screenshot or a video | **Screenshot**, **Record** |
+| Back up the calculator | **Files** > **Back up...** |
 
-## TI-Basic programs (exact answers with the CAS)
-
-Python on the calculator can't use the CAS, so it has no symbolic integrals, derivatives or `solve`. For those, write TI-Basic in **TI's TI-Nspire CX desktop software** on the PC:
-- Its Program Editor works like the handheld's, but you type on your keyboard.
-- Save the document as a `.tns`.
-- Drag it into CX II Connect like a Python program.
-
-TI-Basic gotchas:
-- A summation is `sumSeq(expr,k,1,n)` (the `Σ` template), not `sum(`. `sum(` adds a list.
-- A definite integral is `integral(f(x),x,a,b)` (the `∫` template).
-- Define the function first (`Define f(x)=...`) in the same document as the program.
-
-## Example: `numint` (in `programs/`)
-
-Trapezoid, Simpson and a reference value for an integral.
-
-1. Run it.
-2. Type `f(x)` as text, e.g. `x^2*e^x`, `sin(x)/x` or `sqrt(1+x^3)`.
-3. Then `a`, `b` and an even `n`.
-
-`x^2*e^x` from 0 to 2 with n = 4 gives:
-
-```
-Trap:   13.996...   Simp:   12.829...   Exact:  12.778...
-```
-
-## The app: CalcSuite
-
-Double-click `CalcSuite.exe` (or `CalcSuite.bat` from the source): the handheld's screen live
-in its own tab, your keyboard and mouse as its keys, **Send program...**, **Screenshot** and
-**Record**. It connects by itself. The tab's **Guide** panel has this kit's Python guide, with
-**Send to calculator** on every example program.
+Everything CalcSuite saves (captures, programs, backups) is in the `CalcSuite files` folder next
+to `CalcSuite.exe`. The guides are in `Guides`, and in the app (**Guide**, **Functions**).
 
 ## When something goes wrong
 
 | Problem | Fix |
 | --- | --- |
-| The checker reports an ERROR | Change the line it names; it says what TI's Python lacks |
-| "Can't read that" in `numint` | Use `*` for multiplication (`2*x`) and close every bracket |
-| Drag into CX II Connect does nothing | Unplug, wait 3 s, replug; the calculator on the Home screen; no exam (Press-to-Test) mode |
-| The handheld doesn't answer | Switch it on (Home screen, no dialog), close TI's own software; last resort: unplug, wait 3 s, replug |
+| It keeps looking for the calculator | Switch it on (it sleeps after a few minutes), use a data cable, close TI's software, try another USB port |
+| It never connects | **Info** > **Install the WinUSB driver...**; if that fails, the Zadig steps in the [README](README.md#get-started) |
+| TI's software no longer sees the calculator | **Info** > **Restore TI's driver...** |
+| Something stays on "Asking..." | `CalcSuite files\logs\errors.log` says why: attach it to an [issue](https://github.com/paul-kratky/CalcSuite/issues) |
+
+Everything else: the [README](README.md), the user guide (`Guides\User guide.pdf`).
+
+## Writing Nspire Python from the source (developers)
+
+The repository also has command-line tools for the TI-Nspire's Python, with no app needed:
+`python -I tools/flash.py programs/myprog.py` checks, builds and sends a program, and
+`python -I tools/run_on_pc.py programs/myprog.py` runs it on the PC first. Details:
+[docs/PYTHON_KIT.md](docs/PYTHON_KIT.md).

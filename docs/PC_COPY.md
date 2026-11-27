@@ -28,7 +28,7 @@ done.
 
 ## What happens on the calculator
 
-1. **A full backup** first, as **Back up...** makes it (`Documents\CalcSuite\backups\<model>-<date>`).
+1. **A full backup** first, as **Back up...** makes it (`CalcSuite files\backups\<model>-<date>`).
 2. **TI-84 Plus CE:** CalcSuite runs the calculator's own **Garbage Collect** (it tidies the
    archive; nothing is deleted), sends a small program, `ZZDUMP` (CEmu's ROM dumper), and starts
    it by typing its keys. The calculator shows "Dumping Segment A..." and so on for about a
@@ -46,9 +46,9 @@ CalcSuite stops before changing anything if the calculator already has something
 
 ## Where the files go
 
-- The ROM: `Documents\CalcSuite\backups\roms\ti84ce-<date>.rom` or `ti89t-<date>.rom` (4 MB),
+- The ROM: `CalcSuite files\backups\roms\ti84ce-<date>.rom` or `ti89t-<date>.rom` (4 MB),
   with a `.json` beside it (the OS version, the date, the SHA-256, which backup goes with it).
-- The emulators: `%LOCALAPPDATA%\CalcSuite\emulators\`.
+- The emulators: `CalcSuite files\cache\emulators\` (from the source: `%LOCALAPPDATA%\CalcSuite\emulators\`).
 
 The 84's ROM holds the boot code, the OS and TI's certificate; your archived files are not in it
 (they come from the backup). The 89's dump is the whole flash, archived variables included.
@@ -63,7 +63,7 @@ The 84's ROM holds the boot code, the OS and TI's certificate; your archived fil
   keeps its own saved state when you close it, and starting CEmu by itself carries on from it.
 - **TiEmu** (TI-89 Titanium, GPL-2.0): its last Windows version is 3.03, from 2010, as an
   installer on its SourceForge project. `get-emulator 89` downloads it, checks it, and leaves
-  `setup.exe` in `%LOCALAPPDATA%\CalcSuite\emulators\TiEmu\` for you to run if you want it.
+  `setup.exe` in `CalcSuite files\cache\emulators\TiEmu\` for you to run if you want it.
   After that, `open 89` starts TiEmu with the ROM (TiEmu turns a `.rom` into its own image the
   first time). CalcSuite doesn't run the installer for you.
 
