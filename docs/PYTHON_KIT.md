@@ -21,7 +21,7 @@ runs `tools/flash.py`, which checks the program, turns it into a `.tns` document
 uploads it over USB in one step, with no TI software (section 3).
 
 ```text
-nspire-python/
+CalcSuite/
   CLAUDE.md                 rules the AI follows when writing programs here
   programs/                 your programs (examples + probe.py)
     quadratic.py            quadratic solver: input() + cmath, real and complex roots
