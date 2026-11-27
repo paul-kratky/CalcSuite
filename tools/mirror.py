@@ -956,12 +956,51 @@ class Tab(object):
         th.button(bar, "Send program...", mirror.send_program).pack(side="left", padx=(6, 0))
         th.button(bar, "Reconnect", mirror.reconnect).pack(side="left", padx=(6, 0))
         th.check(bar, "Keyboard", mirror.keys_on).pack(side="right")
+        if mirror.calc.slug == "ti84":  # Fast mode (experimental): ~7 frames/s on the home screen
+            self.fast_var = tk.BooleanVar(master=self.frame, value=False)
+            th.check(bar, "Fast mode (experimental)", self.fast_var, self.toggle_fast).pack(
+                side="right", padx=(0, 10))
+            mirror.fast_listeners.append(
+                lambda state, note: self.app.root.after(0, self.fast_changed, state, note))
         tk.Label(left, textvariable=mirror.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
                  wraplength=640).pack(fill="x", pady=(8, 0))
         self.left = left
         self.panel = ui_panels.SidePanel(self.frame, app, mirror)
         self.panel.frame.pack(side="right", fill="y", padx=(8, 14), pady=(10, 10))
         mirror.listeners.append(self.key_pressed)
+
+    _fast_explained = False
+
+    def toggle_fast(self):
+        """The Fast mode checkbox: explains once, then turns it on or off on the calculator"""
+        on = self.fast_var.get()
+        if on:
+            ok, why = self.m.fast_supported()
+            if not ok:
+                self.fast_var.set(False)
+                messagebox.showinfo("Fast mode", why, parent=self.app.root)
+                return
+            if not Tab._fast_explained and not messagebox.askokcancel(
+                    "Fast mode (experimental)",
+                    "Fast mode sends a small add-on (CSFAST) to the TI-84 Plus CE that makes the "
+                    "home screen mirror at about 7 frames a second instead of 1.\n\n"
+                    "- It works on the home screen; graphs, tables and Y= keep the normal speed.\n"
+                    "- It uses about 40 KB of the calculator's RAM while it's on.\n"
+                    "- Turning it off removes everything it added.\n\n"
+                    "Your calculator's files aren't touched. Turn it on?", parent=self.app.root):
+                self.fast_var.set(False)
+                return
+            Tab._fast_explained = True
+        self.m.set_status("Turning Fast mode %s..." % ("on" if on else "off"))
+        self.m.set_fast(on)
+
+    def fast_changed(self, state, note):
+        """Fast mode's state changed (on Tk's thread): the checkbox follows it"""
+        self.fast_var.set(state in ("on", "starting"))
+        names = {"on": "Fast mode is on", "off": "Fast mode is off", "lost": "Fast mode stopped",
+                 "error": "Fast mode couldn't start"}
+        if state in names:
+            self.m.set_status(names[state] + (": " + note if note else ""))
 
     def fit(self):
         return max(1, self.screen_box.winfo_width()), max(1, self.screen_box.winfo_height())
