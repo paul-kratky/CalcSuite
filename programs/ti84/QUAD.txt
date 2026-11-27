@@ -1,0 +1,27 @@
+"QUAD: ROOTS OF AX^2+BX+C=0
+"REAL OR COMPLEX, ANY MODE
+ClrHome
+Disp "AX^2+BX+C=0"
+Prompt A,B,C
+If A=0
+Then
+If B=0
+Then
+Disp "NOT AN EQUATION"
+Stop
+End
+Disp "LINEAR, X=",-C/B
+Stop
+End
+B^2-4AC->D
+If D>=0
+Then
+(-B+sqrt(D))/(2A)->R
+(-B-sqrt(D))/(2A)->S
+Disp "X1=",R,"X2=",S
+Else
+-B/(2A)->R
+sqrt(-D)/(2A)->S
+Disp "COMPLEX PAIR X=RE+/-IM*I"
+Disp "RE=",R,"IM=",S
+End

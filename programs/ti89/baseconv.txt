@@ -1,0 +1,61 @@
+baseconv()
+Prgm
+© baseconv: decimal, hex and binary, and bitwise and/or/xor (uses tobase)
+© Hex and binary are typed without a prefix; the bitwise inputs take 0h.. or 0b..
+Local ch,s,t,n,m,bad
+Loop
+  PopUp {"Decimal in","Hex in","Binary in","a and/or/xor b","Quit"},ch
+  If ch=5
+    Exit
+  "255"->s
+  "0hF0"->t
+  If ch<=3 Then
+    Dialog
+      Title "Number"
+      Request "Value",s
+    EndDlog
+  Else
+    "0h3C"->s
+    Dialog
+      Title "Bitwise"
+      Request "a (0h, 0b or dec)",s
+      Request "b (0h, 0b or dec)",t
+    EndDlog
+  EndIf
+  If ok=0
+    Cycle
+  0->bad
+  Try
+    If ch=1 Then
+      expr(s)->n
+    ElseIf ch=2 Then
+      expr("0h"&s)->n
+    ElseIf ch=3 Then
+      expr("0b"&s)->n
+    Else
+      expr(s)->n
+      expr(t)->m
+    EndIf
+  Else
+    ClrErr
+    1->bad
+  EndTry
+  If bad=1 Then
+    Text "Can't read that number"
+    Cycle
+  EndIf
+  ClrIO
+  If ch<=3 Then
+    Disp "dec: "&string(n)
+    Disp "hex: "&tobase(n,16)
+    Disp "bin: "&tobase(n,2)
+  Else
+    Disp "a and b: "&tobase(n and m,16)
+    Disp "a or b:  "&tobase(n or m,16)
+    Disp "a xor b: "&tobase(n xor m,16)
+    Disp "(in hex)"
+  EndIf
+  Pause
+EndLoop
+DispHome
+EndPrgm

@@ -1,0 +1,32 @@
+"RCTAU: TIME CONSTANT OF AN
+"RC OR RL CIRCUIT, V(T)
+Menu("TIME CONSTANT","RC CIRCUIT",C,"RL CIRCUIT",L,"QUIT",Q)
+Lbl C
+Input "R (OHM)? ",R
+Input "C (FARAD)? ",C
+RC->T
+Goto S
+Lbl L
+Input "L (HENRY)? ",L
+Input "R (OHM)? ",R
+If R<=0
+Then
+Disp "R MUST BE >0"
+Stop
+End
+L/R->T
+Lbl S
+If T<=0
+Then
+Disp "TAU MUST BE >0"
+Stop
+End
+ClrHome
+Disp "TAU (S)=",T,"5 TAU (S)=",5T
+Input "STEP V? ",V
+Input "AT TIME (S)? ",X
+Disp "CHARGING V=",V(1-e^(-X/T))
+Disp "DECAYING V=",Ve^(-X/T)
+Stop
+Lbl Q
+ClrHome

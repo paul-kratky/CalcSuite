@@ -1,0 +1,18 @@
+"VECTOR: ADD 2D FORCES GIVEN
+"AS MAGNITUDES AND ANGLES (DEG)
+"SETS DEGREE MODE
+Degree
+ClrHome
+Input "MAGNITUDES {..}? ",L1
+Input "ANGLES DEG {..}? ",L2
+If dim(L1)!=dim(L2)
+Then
+Disp "THE LISTS DIFFER","IN SIZE"
+Stop
+End
+sum(L1cos(L2))->X
+sum(L1sin(L2))->Y
+ClrHome
+Disp "SUM FX=",X,"SUM FY=",Y
+Disp "RESULTANT=",R►Pr(X,Y)
+Disp "ANGLE (DEG)=",R►Pθ(X,Y)

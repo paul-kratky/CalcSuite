@@ -1,0 +1,24 @@
+"NUMINT: TRAPEZOID AND SIMPSON
+"RULES, CHECKED WITH FNINT(
+"TYPE F IN X, E.G. X^2*SIN(X)
+ClrHome
+Input "F(X)=",Str1
+Str1->Y1
+Input "A? ",A
+Input "B? ",B
+0->N
+Repeat N>=2 and not(fPart(N/2))
+Input "EVEN N? ",N
+End
+(B-A)/N->H
+Y1(A)+Y1(B)->T
+T->S
+For(I,1,N-1)
+Y1(A+IH)->F
+T+2F->T
+S+(4-2not(fPart(I/2)))F->S
+End
+ClrHome
+Disp "TRAPEZOID",TH/2
+Disp "SIMPSON",SH/3
+Disp "FNINT",fnInt(Y1,X,A,B)

@@ -1,0 +1,45 @@
+linsolve()
+Prgm
+© linsolve: solve A*x=b with simult(); A as [2,1;1,3], b as [3;5]
+© Exact answers (fractions) when you type exact numbers
+Local sa,sb,ma,mb,sol,bad
+"[2,1;1,3]"->sa
+"[3;5]"->sb
+Dialog
+  Title "Solve A*x = b"
+  Request "A as [a,b;c,d]",sa
+  Request "b as [p;q]",sb
+EndDlog
+If ok=0
+  Return
+0->bad
+Try
+  expr(sa)->ma
+  expr(sb)->mb
+Else
+  ClrErr
+  1->bad
+EndTry
+If bad=1 Then
+  Text "Can't read the matrices"
+  Return
+EndIf
+If getType(ma)!="MAT" or getType(mb)!="MAT" Then
+  Text "A and b must be matrices"
+  Return
+EndIf
+If rowDim(ma)!=colDim(ma) or rowDim(mb)!=rowDim(ma) Then
+  Text "A must be square, b one column"
+  Return
+EndIf
+If det(ma)=0 Then
+  Text "A is singular: no unique x"
+  Return
+EndIf
+simult(ma,mb)->sol
+ClrIO
+Disp "x =",sol
+Disp "Decimal:",approx(sol)
+Pause
+DispHome
+EndPrgm

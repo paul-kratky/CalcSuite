@@ -1,0 +1,38 @@
+"UNITS: ENGINEERING UNIT
+"CONVERSIONS FROM A MENU
+Lbl M
+Menu("CONVERT","MM TO IN",A,"IN TO MM",B,"KM TO MI",C,"N TO LBF",D,"PA TO PSI",E,"KW TO HP",F,"DEG C TO DEG F",G,"DEG F TO DEG C",H,"QUIT",Q)
+Lbl A
+1/25.4->K
+Goto X
+Lbl B
+25.4->K
+Goto X
+Lbl C
+1/1.609344->K
+Goto X
+Lbl D
+1/4.4482216152605->K
+Goto X
+Lbl E
+1/6894.757293168->K
+Goto X
+Lbl F
+1000/745.69987158227->K
+Lbl X
+Input "VALUE? ",V
+Disp "RESULT=",VK
+Pause
+Goto M
+Lbl G
+Input "DEG C? ",V
+Disp "DEG F=",9V/5+32
+Pause
+Goto M
+Lbl H
+Input "DEG F? ",V
+Disp "DEG C=",5(V-32)/9
+Pause
+Goto M
+Lbl Q
+ClrHome

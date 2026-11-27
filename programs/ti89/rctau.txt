@@ -1,0 +1,50 @@
+rctau()
+Prgm
+© rctau: time constant of an RC or RL circuit, and v(t) charging and decaying
+© Type 1E-6 with the EE key in the dialog, or 0.000001
+Local ch,sr,sx,sv,st,r,cl,v,t,tau,bad
+PopUp {"RC circuit","RL circuit"},ch
+"1000"->sr
+"0.000001"->sx
+"5"->sv
+"0.001"->st
+Dialog
+  Title "Time constant"
+  Request "R (ohm)",sr
+  Request "C (F) or L (H)",sx
+  Request "Step voltage (V)",sv
+  Request "At time t (s)",st
+EndDlog
+If ok=0
+  Return
+0->bad
+Try
+  expr(sr)->r
+  expr(sx)->cl
+  expr(sv)->v
+  expr(st)->t
+Else
+  ClrErr
+  1->bad
+EndTry
+If bad=1 Then
+  Text "Can't read the input"
+  Return
+EndIf
+If r<=0 or cl<=0 Then
+  Text "R, C and L must be > 0"
+  Return
+EndIf
+If ch=1 Then
+  r*cl->tau
+Else
+  cl/r->tau
+EndIf
+ClrIO
+Disp "tau (s):",approx(tau)
+Disp "5 tau (s):",approx(5*tau)
+Disp "Charging v(t):",approx(v*(1-e^(-t/tau)))
+Disp "Decaying v(t):",approx(v*e^(-t/tau))
+Pause
+DispHome
+EndPrgm

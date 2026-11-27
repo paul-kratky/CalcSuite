@@ -1,0 +1,29 @@
+"LINSOLVE: N LINEAR EQUATIONS
+"[A]*X=[B], ENTERED ROW BY ROW
+ClrHome
+Input "UNKNOWNS (1-6)? ",N
+If N<1 or N>6 or fPart(N)
+Then
+Disp "N FROM 1 TO 6"
+Stop
+End
+{N,N}->dim([A])
+{N,1}->dim([B])
+For(I,1,N)
+For(J,1,N)
+"A("+toString(I)+","+toString(J)+")="->Str1
+Input Str1,X
+X->[A](I,J)
+End
+"B("+toString(I)+")="->Str1
+Input Str1,X
+X->[B](I,1)
+End
+If det([A])=0
+Then
+Disp "SINGULAR MATRIX:","NO UNIQUE SOLUTION"
+Stop
+End
+[A]^-1[B]->[C]
+ClrHome
+Disp "X=",[C]

@@ -1,0 +1,26 @@
+quadc()
+Prgm
+© quadc: roots of a*x^2+b*x+c=0, real and complex, exact and decimal (CAS)
+© Uses x as the unknown, so x must have no value (DelVar x)
+Local a,b,c,r
+ClrIO
+If getType(x)!="NONE" Then
+  Disp "x has a value."
+  Disp "Type DelVar x, then rerun."
+  Pause
+  DispHome
+  Return
+EndIf
+Input "a?",a
+Input "b?",b
+Input "c?",c
+If a=0 Then
+  Disp "a=0: not a quadratic"
+Else
+  cZeros(a*x^2+b*x+c,x)->r
+  Disp "Exact:",r
+  Disp "Decimal:",approx(r)
+EndIf
+Pause
+DispHome
+EndPrgm

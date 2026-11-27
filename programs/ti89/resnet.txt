@@ -1,0 +1,50 @@
+resnet()
+Prgm
+© resnet: series and parallel resistance of a list, and a voltage divider
+© A list is typed as {100,220,470}
+Local ch,s,rl,sv,s1,s2,v,bad
+Loop
+  PopUp {"Series","Parallel","Voltage divider","Quit"},ch
+  If ch=4
+    Exit
+  If ch<=2 Then
+    "{100,220}"->s
+    Dialog
+      Title "Resistors"
+      Request "R list (ohm)",s
+    EndDlog
+    If ok=0
+      Cycle
+    0->bad
+    Try
+      expr(s)->rl
+    Else
+      ClrErr
+      1->bad
+    EndTry
+    If bad=1 or getType(rl)!="LIST" Then
+      Text "Type a list like {100,220}"
+    ElseIf ch=1 Then
+      Text "Series: "&string(approx(sum(rl)))&" ohm"
+    ElseIf min(rl)<=0 Then
+      Text "Every R must be > 0"
+    Else
+      Text "Parallel: "&string(approx(1/sum(1/rl)))&" ohm"
+    EndIf
+  Else
+    "5"->sv
+    "10000"->s1
+    "10000"->s2
+    Dialog
+      Title "Voltage divider"
+      Request "Vin (V)",sv
+      Request "R1 top (ohm)",s1
+      Request "R2 bottom (ohm)",s2
+    EndDlog
+    If ok=1 Then
+      expr(sv)*expr(s2)/(expr(s1)+expr(s2))->v
+      Text "Vout: "&string(approx(v))&" V"
+    EndIf
+  EndIf
+EndLoop
+EndPrgm

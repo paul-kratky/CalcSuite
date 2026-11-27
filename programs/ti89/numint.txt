@@ -1,0 +1,60 @@
+numint()
+Prgm
+© numint: trapezoid and Simpson rules, checked against nInt() and the exact integral
+© Type f in x, e.g. x^2*sin(x); x must have no value (DelVar x)
+Local s,sa,sb,sn,f,a,b,n,h,t,si,k,y,bad
+If getType(x)!="NONE" Then
+  Text "x has a value: DelVar x first"
+  Return
+EndIf
+"x^2*sin(x)"->s
+"0"->sa
+"2"->sb
+"10"->sn
+Dialog
+  Title "Numeric integral"
+  Request "f(x)",s
+  Request "From a",sa
+  Request "To b",sb
+  Request "Even n",sn
+EndDlog
+If ok=0
+  Return
+0->bad
+Try
+  expr(s)->f
+  expr(sa)->a
+  expr(sb)->b
+  expr(sn)->n
+Else
+  ClrErr
+  1->bad
+EndTry
+If bad=1 Then
+  Text "Can't read the input"
+  Return
+EndIf
+If n<2 or mod(n,2)!=0 Then
+  Text "n must be even and >= 2"
+  Return
+EndIf
+approx((b-a)/n)->h
+approx((f|x=a)+(f|x=b))->t
+t->si
+For k,1,n-1
+  approx(f|x=a+k*h)->y
+  t+2*y->t
+  If mod(k,2)=1 Then
+    si+4*y->si
+  Else
+    si+2*y->si
+  EndIf
+EndFor
+ClrIO
+Disp "Trapezoid:",t*h/2
+Disp "Simpson:",si*h/3
+Disp "nInt:",nInt(f,x,a,b)
+Disp "Exact:",∫(f,x,a,b)
+Pause
+DispHome
+EndPrgm

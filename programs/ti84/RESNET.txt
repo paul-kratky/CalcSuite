@@ -1,0 +1,29 @@
+"RESNET: SERIES, PARALLEL
+"AND VOLTAGE DIVIDER
+Lbl M
+Menu("RESISTORS","SERIES",S,"PARALLEL",P,"VOLTAGE DIVIDER",D,"QUIT",Q)
+Lbl S
+Input "R LIST {R1,R2..}? ",L1
+Disp "R TOTAL=",sum(L1)
+Pause
+Goto M
+Lbl P
+Input "R LIST {R1,R2..}? ",L1
+If min(L1)>0
+Disp "R PARALLEL=",1/sum(1/L1)
+If min(L1)<=0
+Disp "EVERY R MUST BE >0"
+Pause
+Goto M
+Lbl D
+Input "VIN? ",V
+Input "R1 (TOP)? ",R
+Input "R2 (BOTTOM)? ",S
+If R+S>0
+Disp "VOUT=",VS/(R+S)
+If R+S<=0
+Disp "R1+R2 MUST BE >0"
+Pause
+Goto M
+Lbl Q
+ClrHome

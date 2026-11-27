@@ -1,0 +1,37 @@
+unitconv()
+Prgm
+© unitconv: engineering unit conversions with the 89's built-in units
+© value*_from/_to cancels the units and leaves the number
+Local ch,s,v,r
+Loop
+  PopUp {"mm to in","in to mm","km to mi","N to lbf","Pa to psi","kW to hp","deg C to deg F","deg F to deg C","Quit"},ch
+  If ch=9
+    Exit
+  "1"->s
+  Dialog
+    Title "Convert"
+    Request "Value",s
+  EndDlog
+  If ok=0
+    Cycle
+  expr(s)->v
+  If ch=1 Then
+    v*_mm/_in->r
+  ElseIf ch=2 Then
+    v*_in/_mm->r
+  ElseIf ch=3 Then
+    v*_km/_mi->r
+  ElseIf ch=4 Then
+    v*_N/_lbf->r
+  ElseIf ch=5 Then
+    v*_Pa/_psi->r
+  ElseIf ch=6 Then
+    v*_kW/_hp->r
+  ElseIf ch=7 Then
+    9*v/5+32->r
+  Else
+    5*(v-32)/9->r
+  EndIf
+  Text "Result: "&string(approx(r))
+EndLoop
+EndPrgm

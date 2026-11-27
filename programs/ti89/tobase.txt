@@ -1,0 +1,18 @@
+tobase(n,b)
+Func
+© tobase(n,b): whole number n >= 0 as a string in base b (2 to 16)
+© tobase(255,16) is "FF", tobase(10,2) is "1010"; baseconv() uses it
+Local s,d
+If b<2 or b>16 or n<0 or fPart(n)!=0
+  Return "bad input"
+exact(n)->n
+""->s
+Loop
+  mod(n,b)->d
+  mid("0123456789ABCDEF",d+1,1)&s->s
+  intDiv(n,b)->n
+  If n=0
+    Exit
+EndLoop
+Return s
+EndFunc
