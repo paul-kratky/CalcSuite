@@ -5,6 +5,14 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 ## [Unreleased]
 
 ### Added
+- **The program editor** (`tools/editor.py`, checks in `tools/code_check.py`, both MIT): TI-84
+  Plus CE and TI-89 Titanium TI-Basic and Nspire Python, checked as you type (unknown words,
+  block structure, argument counts from the Functions reference, stores, labels, screen
+  positions, the 89's function rules, Python's syntax, TI's modules, undefined names), each
+  mistake underlined at its exact place with a fix; VS Code Dark+ colours, completion, syntax
+  hints, Build (Ctrl+B) into `Documents\CalcSuite\programs\<calculator>\`, F5 send and run,
+  open from the calculator, Copy AI instructions / Copy problems for the AI; it never loses
+  unsaved changes. `tools/selftest/editor_checks.py` tests every rule.
 - **The guides as PDFs, dark like the app.** **Save as PDF** in the Guide and Functions panels
   saves the calculator's guide or its Functions reference (every command by category, with its
   syntax, arguments, result, example and keys) where you pick (Documents\CalcSuite to start)

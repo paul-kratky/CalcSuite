@@ -114,6 +114,8 @@ def main():
     failures += reference_checks.main()
     import fast84_checks  # The TI-84 Plus CE's Fast mode: frame format, CSFAST.8xp's hash
     failures += fast84_checks.main()
+    import editor_checks  # The program editor's checkers, colours, completions and hints
+    failures += editor_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 

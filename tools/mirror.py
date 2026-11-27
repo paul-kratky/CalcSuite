@@ -955,6 +955,7 @@ class Tab(object):
         self.rec_btn.pack(side="left", padx=(6, 0))
         th.button(bar, "Send program...", mirror.send_program).pack(side="left", padx=(6, 0))
         th.button(bar, "Reconnect", mirror.reconnect).pack(side="left", padx=(6, 0))
+        th.button(bar, "Editor...", self.open_editor).pack(side="left", padx=(6, 0))
         th.check(bar, "Keyboard", mirror.keys_on).pack(side="right")
         if mirror.calc.slug == "ti84":  # Fast mode (experimental): ~7 frames/s on the home screen
             self.fast_var = tk.BooleanVar(master=self.frame, value=False)
@@ -968,6 +969,11 @@ class Tab(object):
         self.panel = ui_panels.SidePanel(self.frame, app, mirror)
         self.panel.frame.pack(side="right", fill="y", padx=(8, 14), pady=(10, 10))
         mirror.listeners.append(self.key_pressed)
+
+    def open_editor(self):
+        """The program editor, aimed at this calculator (TI-Basic or Nspire Python)"""
+        import editor
+        editor.open_editor(self.app, list(self.app.mirrors.values()), initial_target=self.m)
 
     _fast_explained = False
 
@@ -1387,6 +1393,12 @@ class App(object):
         """Closes at once: the window goes away first, then every calculator's link stops at the
         same time (each helper gets 0.8 s to finish what it's doing, then it's ended). Before,
         each link waited up to 5 s, one after another: closing took many seconds."""
+        try:  # Unsaved programs first: Save / Don't save / Cancel (Cancel keeps the app open)
+            import editor
+            if not editor.confirm_close_all(self.root):
+                return
+        except ImportError:
+            pass
         mirrors = list(self.mirrors.values())
         for m in mirrors:  # Tk's part first, on Tk's thread
             m.running = False

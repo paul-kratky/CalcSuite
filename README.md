@@ -157,6 +157,19 @@ offers to download it for you (free, about 39 MB, once). Say no to keep the GIF 
 It asks before replacing anything on the calculator. The **Guide** panel's examples send in one
 click. How to write the text: [TI-Basic from the PC](#ti-basic-from-the-pc).
 
+### The program editor
+
+Write TI-84 Plus CE TI-Basic, TI-89 Titanium TI-Basic or Nspire Python in CalcSuite itself
+(`python -I tools/editor.py [file]` opens it on its own). It checks as you type, underlines each
+mistake and lists it with its fix (F8 goes to the next one), colours the code like VS Code,
+completes command names (Ctrl+Space) and shows the command's syntax with the current argument
+in bold. **Build** (Ctrl+B) makes the calculator's file (`.8xp`, `.89p`, `.tns`) in
+`Documents\CalcSuite\programs\<calculator>\` with the source beside it; **Copy file** puts it
+on the clipboard for Discord or e-mail. **F5** checks, builds, sends and runs it (the Nspire:
+sends it; open it on the handheld), **F6** sends only. Nothing is built or sent while there are
+errors. **Copy AI instructions** gives a chat AI the rules for your calculator; paste its
+answer into an empty editor and **Copy problems for the AI** hands back what the checker found.
+
 ## Files, backup and restore
 
 | | TI-Nspire CX II | TI-84 Plus CE | TI-89 Titanium |
