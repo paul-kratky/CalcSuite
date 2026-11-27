@@ -778,6 +778,13 @@ class Manager(object):
             self.clock_btn.pack(side="left", padx=(0, 6))
             self.job("clock", self.got_clock)
         tk.Button(bar, text="Exit Press-to-Test...", command=self.exit_test_mode, **BUTTON).pack(side="left")
+        # Clearing the calculator: both back up the whole calculator first
+        erase = tk.Frame(w, bg=BG)
+        erase.pack(fill="x", padx=16, pady=(0, 16))
+        tk.Button(erase, text="Delete all documents..." if self.nspire else "Delete all programs...",
+                  command=self.delete_all_programs, **BUTTON).pack(side="left", padx=(0, 6))
+        tk.Button(erase, text="Reset the calculator...", command=self.reset_calculator,
+                  **BUTTON).pack(side="left")
 
     def got_clock(self, code, lines):
         if self.about_win is None:
@@ -820,6 +827,186 @@ class Manager(object):
             self.job("clock", self.got_clock)
         # "now": the PC's time when the link gets to it (a picture may be on its way first)
         self.job("setclock now", done)
+
+    # ---- Delete all programs, reset (Info) ----
+    # 84: Program and locked Program; 89: Program and Function; Nspire: every document (.tns/.py)
+    PROGRAM_TYPES = {"ti84": (0x05, 0x06), "ti89": (0x12, 0x13)}
+    # The calculator's own reset menus, one key at a time. TI-84 Plus CE (checked on OS 5.4):
+    # 2nd MEM > 7:Reset... (tabs RAM / ARCHIVE / ALL) > 1:All RAM... or ALL 1:All Memory... >
+    # RESET screen 1:No 2:Reset
+    RESET_KEYS = {
+        "ti84": {"ram": ["quit", "clear", "mem", "7", "1", "2"],
+                 "all": ["quit", "clear", "mem", "7", "right", "right", "1", "2"]},
+    }
+
+    def programs_on_calc(self):
+        """Worker thread: [(rm command, name shown)] for every program (document) on it"""
+        if self.nspire:
+            files, _folders, errors = cb.nspire_tree(self.run_batch)
+            if errors and not files:
+                raise OSError("couldn't read My Documents: %s" % errors[0][1])
+            return [("rm " + path, cb.nspire_text(path).lstrip("/")) for path, _size in files
+                    if path.lower().endswith((".tns", ".py"))]
+        want = self.PROGRAM_TYPES[self.slug]
+        out = []
+        for i in cb.dusb_items(self.run_batch, self.slug):
+            if i["type"] in want:
+                name = (i["folder_text"] + "\\" if i["folder_text"] else "") + i["text"]
+                out.append(("rm %02x %s %s" % (i["type"], cf.to_hex(i["name"]), cf.to_hex(i["folder"])),
+                            name))
+        return out
+
+    def backup_first(self, then, what):
+        """The whole calculator into a new backup folder, then then(folder) on the window's thread;
+        a failed backup stops here"""
+        folder = cb.new_backup_folder(self.slug)
+        self.status.set("Backing up the whole %s first, into %s..." % (self.calc.title, folder))
+
+        def work():
+            try:
+                code, lines = self.run_batch([("info", None)])[0]
+                import nspire_link
+                info = nspire_link.info_dict(lines) if code == 0 else dict(self.m.info)
+                cb.backup(self.slug, self.run_batch, info, folder, self.say)
+            except Exception as e:
+                self.ui(self.status.set, "Backup failed, so nothing was %s: %s" % (what, e))
+                self.ui(self.set_busy, None)
+                return
+            self.ui(then, folder)
+        threading.Thread(target=work, daemon=True).start()
+
+    def delete_all_programs(self):
+        if self.busy or not self.connected():
+            return
+        self.set_busy("delete all")
+        self.status.set("Looking for the programs...")
+
+        def work():
+            try:
+                found = self.programs_on_calc()
+            except Exception as e:
+                self.ui(self.status.set, "Couldn't read the list: %s" % e)
+                self.ui(self.set_busy, None)
+                return
+            self.ui(self.confirm_delete_all, found)
+        threading.Thread(target=work, daemon=True).start()
+
+    def confirm_delete_all(self, found):
+        what = "documents" if self.nspire else "programs"
+        if not found:
+            self.status.set("No %s on the %s" % (what, self.calc.title))
+            self.set_busy(None)
+            return
+        names = [n for _l, n in found]
+        listing = "\n".join(names[:12]) + ("\n... and %d more" % (len(names) - 12) if len(names) > 12 else "")
+        keep = ("Folders and other files stay." if self.nspire else
+                "Apps, the OS and your other variables (lists, matrices, AppVars...) stay.")
+        if not messagebox.askyesno(
+                "Delete all %s?" % what,
+                "Delete all %d %s from the %s?\n\n%s\n\n%s CalcSuite backs up the whole calculator "
+                "first (CalcSuite files\\backups), so Restore... can bring them back."
+                % (len(found), what, self.calc.title, listing, keep), icon="warning",
+                parent=self.about_win or self.win):
+            self.set_busy(None)
+            self.status.set("Nothing deleted")
+            return
+
+        def after_backup(folder):
+            def work():
+                res = self.run_batch([(line, None) for line, _n in found])
+                failed = [n for (code, _lines), (_l, n) in zip(res, found) if code]
+                self.ui(self.deleted_all, len(found) - len(failed), failed, folder)
+            threading.Thread(target=work, daemon=True).start()
+        self.backup_first(after_backup, "deleted")
+
+    def deleted_all(self, done, failed, folder):
+        self.set_busy(None)
+        msg = "Deleted %d; the backup is in %s" % (done, folder)
+        if failed:
+            msg += ". Not deleted: " + ", ".join(failed[:5])
+        self.status.set(msg)
+        try:
+            self.refresh()
+        except tk.TclError:
+            pass
+
+    def reset_calculator(self):
+        """TI's own reset, pressed for you on the 84 (and later the 89); the Nspire's is on the
+        handheld only"""
+        parent = self.about_win or self.win
+        if self.nspire:
+            messagebox.showinfo(
+                "Reset the TI-Nspire CX II",
+                "TI lets the handheld reset only from the handheld itself, not over USB.\n\n"
+                "To clear everything: with the handheld on, hold doc, enter and EE together, press "
+                "the reset button on the back with a paper clip, keep holding the three keys until the "
+                "Maintenance Menu shows, then choose Reset All (TI's guide: \"Maintenance Menu\").\n\n"
+                "Back up first (Files > Back up...). To clear only your documents, use Delete all "
+                "documents... here.", parent=parent)
+            return
+        keys = self.RESET_KEYS.get(self.slug)
+        if not keys:
+            messagebox.showinfo(
+                "Reset the %s" % self.calc.title,
+                "Not built for the %s yet. On the calculator: 2nd MEM (2nd 6), F1 Reset, then choose "
+                "RAM, Flash ROM or All Memory. Back up first (Files > Back up...)." % self.calc.title,
+                parent=parent)
+            return
+        if self.busy or not self.connected():
+            return
+        win = tk.Toplevel(parent)
+        win.title("Reset the %s" % self.calc.title)
+        win.configure(bg=BG)
+        win.transient(parent)
+        try:
+            th.dark_title_bar_when_shown(win)
+        except Exception:
+            pass
+        choice = tk.StringVar(master=win, value="ram")
+        tk.Label(win, text="Reset the %s with its own reset menu (CalcSuite presses the keys)."
+                 % self.calc.title, bg=BG, fg=FG, justify="left", wraplength=420).pack(
+            anchor="w", padx=16, pady=(16, 8))
+        for val, text in (("ram", "Clear RAM: programs, variables and settings in RAM. Archived "
+                                  "programs and apps stay."),
+                          ("all", "Everything (like new): RAM and Archive, programs and apps. Only "
+                                  "the OS stays.")):
+            tk.Radiobutton(win, text=text, variable=choice, value=val, bg=BG, fg=FG, selectcolor=BG,
+                           activebackground=BG, activeforeground=FG, justify="left", wraplength=400,
+                           anchor="w").pack(fill="x", padx=16, pady=2)
+        tk.Label(win, text="CalcSuite backs up the whole calculator first (CalcSuite files\\backups). "
+                 "Type RESET to go ahead:", bg=BG, fg=DIM, justify="left", wraplength=420).pack(
+            anchor="w", padx=16, pady=(10, 4))
+        typed = tk.StringVar(master=win)
+        entry = tk.Entry(win, textvariable=typed, bg="#1a1a1a", fg=FG, insertbackground=FG, relief="flat")
+        entry.pack(fill="x", padx=16)
+        row = tk.Frame(win, bg=BG)
+        row.pack(fill="x", padx=16, pady=16)
+        go = tk.Button(row, text="Back up and reset", state="disabled", **BUTTON)
+        go.pack(side="right")
+        tk.Button(row, text="Cancel", command=win.destroy, **BUTTON).pack(side="right", padx=(0, 6))
+        typed.trace_add("write", lambda *a: go.configure(
+            state="normal" if typed.get().strip().upper() == "RESET" else "disabled"))
+
+        def start():
+            seq = keys[choice.get()]
+            win.destroy()
+            self.set_busy("reset")
+
+            def after_backup(folder):
+                self.status.set("Backed up to %s. Resetting the %s..." % (folder, self.calc.title))
+
+                def work():
+                    for name in seq:
+                        code = self.calc.resolve(name)
+                        self.run_batch([("key " + self.calc.key_fmt % code, None)])
+                        time.sleep(0.7)  # Each menu draws before the next key
+                    self.ui(self.set_busy, None)
+                    self.ui(self.status.set, "Reset sent. The %s starts again; its backup is in %s"
+                            % (self.calc.title, folder))
+                threading.Thread(target=work, daemon=True).start()
+            self.backup_first(after_backup, "reset")
+        go.configure(command=start)
+        entry.focus_set()
 
     def exit_test_mode(self):
         """TI's own ways out of Press-to-Test: CalcSuite sends no test-mode command"""
