@@ -115,6 +115,7 @@ def package(version, libusb):
     root = "CalcSuite"
     licences = [
         ("LICENSE-CalcSuite.txt", os.path.join(KIT, "LICENSE")),
+        ("LICENSING.md", os.path.join(KIT, "LICENSING.md")),
         ("GPL-3.0.txt", os.path.join(KIT, "tools", "nspire_cli", "COPYING")),
         ("LGPL-3.0.txt", os.path.join(KIT, "third_party", "libwdi", "COPYING-LGPL")),
         ("luna_MPL-1.1.txt", os.path.join(KIT, "third_party", "luna", "LICENSE")),

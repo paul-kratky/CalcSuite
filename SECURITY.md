@@ -2,8 +2,9 @@
 
 ## Reporting a problem
 
-If you find a security problem in CalcSuite, please report it privately: on GitHub, open the
-repository's **Security** tab and choose **Report a vulnerability**. Please don't open a public
+If you find a security problem in CalcSuite, please report it privately:
+<https://github.com/paul-kratky/CalcSuite/security/advisories/new> (the repository's
+**Security** tab, **Report a vulnerability**). Please don't open a public
 issue for it. You'll get an answer within a week; a fix goes out as a new release, with credit if
 you want it.
 

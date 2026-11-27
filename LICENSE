@@ -19,12 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This MIT licence covers everything in this repository EXCEPT:
-
-- tools/nspire_cli/ and the nspire-cli.exe built from it: GPL-3.0-or-later,
-  because it links libnspire (see tools/nspire_cli/COPYING).
-- third_party/: each project keeps its own licence (third_party/README.md):
-  Luna MPL-1.1, libnspire GPL-3.0-or-later, libusb LGPL-2.1-or-later.

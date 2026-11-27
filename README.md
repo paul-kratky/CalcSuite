@@ -289,9 +289,6 @@ the first time it starts (nothing is deleted).
 
 What's new: [CHANGELOG.md](CHANGELOG.md).
 
-**Licence:** MIT (`LICENSE`), except `tools/nspire_cli/` and `tools/ti84_cli/` and the
-programs built from them, which are GPL-3.0-or-later (they link libnspire / follow TILP), and
-`tools/bin/calcsuite-driver.exe` (LGPL-3.0-or-later, libwdi; its source is in
-`tools/driver_helper/`); `third_party/` projects and `tools/third_party_py/tivars` (MIT) keep
-their own licences. Programs from **Get programs** keep their authors' licences: CalcSuite
+**Licence:** MIT ([LICENSE](LICENSE)), except the link tools, the driver helper, the .tns
+writer and `third_party/`, which keep their own licences: [LICENSING.md](LICENSING.md). Programs from **Get programs** keep their authors' licences: CalcSuite
 links to them and downloads them only when you ask. Not affiliated with Texas Instruments.
