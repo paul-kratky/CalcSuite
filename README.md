@@ -12,7 +12,7 @@ their keys, symbols and text pasted in, screenshots and recordings, programs sen
 files on them, and a guide for writing programs. For the **TI-Nspire CX II** (CAS too), the
 **TI-84 Plus CE** and the **TI-89 Titanium**, several at once.
 
-![CalcSuite showing a TI-Nspire CX II CAS on All screens](docs/img/all-screens.png)
+![CalcSuite showing a TI-Nspire CX II CAS, a TI-84 Plus CE and a TI-89 Titanium side by side on All screens](docs/img/all-screens.png)
 
 ## Get started
 
