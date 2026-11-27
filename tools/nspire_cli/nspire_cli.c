@@ -38,6 +38,14 @@
 
 #include <libusb.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#define sleep_ms(ms) Sleep(ms)
+#else
+#include <unistd.h>
+#define sleep_ms(ms) usleep((ms) * 1000u)
+#endif
+
 #include "nspire.h"
 #include "screenshot.h"
 /* libnspire internals, for the key-press service it has no API for */
@@ -560,7 +568,16 @@ static int send_keys(nspire_handle_t *h, char *list, int *sent) {
         if (!r) r = data_write(h, p2, sizeof(p2));
         if (!r) (*sent)++;
     }
-    if (r) close_kept(h); /* The next command starts on a fresh connection */
+    if (r) {
+        close_kept(h); /* The next command starts on a fresh connection */
+        return r;
+    }
+    /* The handheld acks a key before it has acted on it, and closing the key service (the next
+       screenshot does) drops what it hasn't processed yet: "integral(" typed as 9 keys arrived as
+       "inte" (bench, 2026-11-27). Letters take longest (it checks whether the word is a command).
+       So give it time to take them in: 30 ms a key, at most 1.5 s. */
+    unsigned wait = (unsigned)*sent * 30u;
+    sleep_ms(wait > 1500u ? 1500u : wait);
     return r;
 }
 
