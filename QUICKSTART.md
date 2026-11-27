@@ -24,7 +24,7 @@ For the TI-Nspire CX II (CAS), on Windows. You don't need AI for this; the kit a
 
 4. **Send it,** any of these:
    - `python -I tools/flash.py programs/myprog.py` (checks, builds and sends in one go);
-   - the **Send program...** button in Nspire Mirror;
+   - the **Send program...** button in CalcSuite (the TI-Nspire's tab);
    - or drag `build/myprog.tns` into TI-Nspire CX II Connect.
 5. **Run it:** on the handheld, home > **My Documents** > `myprog`, then **ctrl+R**.
 
@@ -56,11 +56,12 @@ Trapezoid, Simpson and a reference value for an integral.
 Trap:   13.996...   Simp:   12.829...   Exact:  12.778...
 ```
 
-## The app: Nspire Mirror
+## The app: CalcSuite
 
-Double-click `Nspire Mirror.exe` (or `Nspire Mirror.bat` from the source): the handheld's
-screen live, your keyboard and mouse wheel as its keys, **Send program...** and
-**Screenshot** buttons. It connects by itself.
+Double-click `CalcSuite.exe` (or `CalcSuite.bat` from the source): the handheld's screen live
+in its own tab, your keyboard and mouse as its keys, **Send program...**, **Screenshot** and
+**Record**. It connects by itself. The tab's **Guide** panel has this kit's Python guide, with
+**Send to calculator** on every example program.
 
 ## When something goes wrong
 

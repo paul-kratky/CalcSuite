@@ -172,7 +172,7 @@ def safe_file_name(name):
     return "".join(out) or "var"
 
 
-def ti8x_bytes(entries, comment="Saved by Calc Mirror"):
+def ti8x_bytes(entries, comment="Saved by CalcSuite"):
     """A .8x? file (the TI-83 Plus / 84 Plus family's format, "**TI83F*"). entries: list of
     (type, name bytes, version, archived, data)."""
     body = b""
@@ -231,7 +231,7 @@ TYPES_89 = {
 TEXT_TYPES_89 = (0x0B, 0x0C)
 
 
-def ti89_bytes(vtype, folder, name, archived, data, comment="Saved by Calc Mirror"):
+def ti89_bytes(vtype, folder, name, archived, data, comment="Saved by CalcSuite"):
     """A single-variable .89? file (libtifiles: ti9x_file_write_regular)"""
     pad8 = lambda b: (b + b"\x00" * 8)[:8]
     head = b"**TI89**" + b"\x01\x00" + pad8(folder) + comment.encode("ascii")[:40].ljust(40, b"\x00")
@@ -1021,7 +1021,7 @@ def nice_version(slug, text):
 
 def _cache_path():
     base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    return os.path.join(base, "CalcMirror", "os_versions.json")
+    return os.path.join(base, "CalcSuite", "os_versions.json")
 
 
 def newest_os(page_key, timeout=8):

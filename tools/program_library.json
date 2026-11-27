@@ -1,0 +1,1624 @@
+{
+ "_meta": {
+  "generated": "2026-11-27",
+  "source": "docs/dev/program_library_research.md",
+  "notes": [
+   "action: download = CalcSuite downloads it on a click and sends 'send' (zip member patterns, lower case, fnmatch; Nspire: the folder it goes to); page = open info_url in the browser; ti_page = TI's page (its licence), never downloaded by CalcSuite.",
+   "verified: false means the entry came from a directory listing: its file names were not checked."
+  ]
+ },
+ "items": [
+  {
+   "id": "ce-cesium",
+   "name": "Cesium 3.8.0",
+   "description": "Program launcher/shell: runs any program (BASIC or ASM, archived or not) from a menu, hides, locks and renames programs.",
+   "category": "General / shell",
+   "author": "MateoConLechuga",
+   "license": "not stated on ticalc page or release page",
+   "source_site": "ticalc.org (mirror of GitHub release)",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/465/46574.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/shells/cesium.zip",
+   "alt_download_url": "https://github.com/mateoconlechuga/cesium/releases/download/v3.8.0/cesium.zip",
+   "size": "71,664 B zip",
+   "os_notes": "ASM. Runs directly on OS 5.4.0 (run prgmCESIUM once to install). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [],
+   "special_handling": "Pick the language file (english/dutch/french/italian/turkish). The user runs it once on the calculator to install.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "cesium_english*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-clibs",
+   "name": "CE C Libraries (clibs) v15.0",
+   "description": "Shared runtime libraries (graphics, keypad, fonts, file I/O) that most C/ASM programs need. Install once.",
+   "category": "General / dependency",
+   "author": "CE-Programming (mateoconlechuga et al.)",
+   "license": "not shown on release page (check repo LICENSE)",
+   "source_site": "GitHub (CE-Programming/libraries)",
+   "info_url": "https://github.com/CE-Programming/libraries/releases/latest",
+   "download_url": "https://github.com/CE-Programming/libraries/releases/download/v15.0/clibs.8xg",
+   "alt_download_url": null,
+   "size": "not stated (tens of KB)",
+   "os_notes": "Libraries themselves work on any CE OS. The programs that use them need ASM (5.4.0 ok; 5.5+ needs arTIfiCE).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Offer to install automatically when a picked item lists clibs as a dependency. Resolve 'latest' through the GitHub API instead of pinning v15.0.",
+   "verified": true,
+   "official": false,
+   "archive": false,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "clibs.8xg",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-khicas",
+   "name": "KhiCAS (χCAS) for TI-84 Plus CE",
+   "description": "A full computer algebra system (from Giac/Xcas): symbolic solve, derivatives, integrals, matrices, plus a Python-like language, inside the CE.",
+   "category": "Math / CAS",
+   "author": "Bernard Parisse (Giac by B. Parisse and R. De Graeve)",
+   "license": "GPL2 (allocator_standard.c is GPL3). The INST installer is closed source but free to run and redistribute for non-commercial use.",
+   "source_site": "Bernard Parisse, Univ. Grenoble Alpes (Institut Fourier)",
+   "info_url": "https://xcas.univ-grenoble-alpes.fr/backup/ti/khicas84.html",
+   "download_url": "https://www-fourier.univ-grenoble-alpes.fr/~parisse/ti/khicas84.zip",
+   "alt_download_url": "https://www-fourier.univ-grenoble-alpes.fr/~parisse/ti/khicas84.b84 (single bundle file); nightly builds: https://github.com/KhiCAS/ti-ce/releases/tag/nightly",
+   "size": "about 3 MB of archive once installed",
+   "os_notes": "Below OS 5.5 (so 5.4.0) you run INST straight from the prgm menu. 5.5+ needs the artifice step first. The author warns it would not run on the latest OS and says never to upgrade the OS.",
+   "needs_asm": true,
+   "dependencies": [],
+   "special_handling": "Needs about 2948-3014K ARC FREE: back up and purge the archive (including language packs) first. Multi-file install, then run INST on the calculator and delete the leftover install AppVars. Show these steps in a wizard. Never offer an OS update to this user.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "page",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-converty",
+   "name": "Converty: The Ultimate Unit Converter",
+   "description": "Menu-driven unit converter: 98 units in 12 groups (length, area, volume, mass, force, temperature, energy, density, pressure, speed, time, memory).",
+   "category": "Units",
+   "author": "TICalc Arts",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/479/47911.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/converty.zip",
+   "alt_download_url": null,
+   "size": "71,077 B zip / 2,969 B program",
+   "os_notes": "Pure BASIC; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "converty.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-progcalc",
+   "name": "Programmer's Calculator v1.21",
+   "description": "RPN programmer's calculator: arithmetic and bitwise AND/OR/XOR/shift in hex, decimal, octal and binary, all shown at once.",
+   "category": "Computer engineering / bases",
+   "author": "Ander D'nar (DrDnar)",
+   "license": "LICENSE file inside the zip (terms not on the page)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/476/47654.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/math/progcalc.zip",
+   "alt_download_url": null,
+   "size": "162,545 B zip",
+   "os_notes": "ASM/C: works on 5.4.0; 5.5+ needs arTIfiCE.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (likely; C toolchain program)"
+   ],
+   "special_handling": "Send all three calculator files. Skip the src/ folder.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "progcalc.8xp",
+     null
+    ],
+    [
+     "drmono.8xv",
+     null
+    ],
+    [
+     "drsans.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-logice",
+   "name": "LOGiCE",
+   "description": "Boolean algebra simplifier (Quine-McCluskey, up to 10 variables) with truth tables and Karnaugh maps.",
+   "category": "Computer engineering / digital logic",
+   "author": "Megami Tensei (atomicra1n)",
+   "license": "MIT (GitHub repo)",
+   "source_site": "ticalc.org (also GitHub atomicra1n/LOGiCE)",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/480/48002.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/math/logice.zip",
+   "alt_download_url": "https://github.com/atomicra1n/LOGiCE/releases/latest",
+   "size": "127,568 B zip / 11,729 B program",
+   "os_notes": "C program: runs on 5.4.0. The README says 5.5.1+ needs arTIfiCE plus a shell.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (required per README)"
+   ],
+   "special_handling": "Send only bin/LOGiCE.8xp (ignore .bin/.map/obj).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "bin/logice.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-graph3ce",
+   "name": "Graph3CE v2.0 (3D graphing)",
+   "description": "Plots up to 6 surfaces z=f(x,y) in 3D with rotation, zoom, window settings and trace.",
+   "category": "Graphing",
+   "author": "not checked (port of a Casio Prizm app)",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/84plusce/asm/math/",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/math/graph3cev2.0.zip",
+   "alt_download_url": null,
+   "size": "31k zip",
+   "os_notes": "ASM/C: 5.4.0 ok; 5.5+ needs arTIfiCE. Marked beta.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (likely)"
+   ],
+   "special_handling": "Inspect the zip at runtime and send every .8xp/.8xv.",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-complexmath",
+   "name": "Complex Math",
+   "description": "Complex-number arithmetic (add, subtract, multiply, divide, power, root, exp, ln) shown in rectangular and polar form; handy for phasors.",
+   "category": "Math / complex numbers",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/84pluscse/basic/math/",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/math/complexmath.zip",
+   "alt_download_url": null,
+   "size": "190k zip",
+   "os_notes": "BASIC; CSE/CE shared folder; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-resistorcolor",
+   "name": "Resistor Color Code",
+   "description": "Converts resistor colour bands to value and tolerance and back (3 to 6 bands), and draws the resistor.",
+   "category": "Electronics",
+   "author": "Osias Hernandez",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/455/45501.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/resistorcolorcode.zip",
+   "alt_download_url": null,
+   "size": "2,840 B zip",
+   "os_notes": "Written for the 84+ C SE; filed under the shared CSE/CE BASIC folder. Should run on CE (same screen size), not bench-verified.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "The helper program name contains theta (θR); keep the tokenised name from the .8xp header, not the zip filename.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-ohmslaw",
+   "name": "Ohm's Law Calculator",
+   "description": "From any two known values, works out voltage, current, resistance, power and reactance.",
+   "category": "Electronics",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/84pluscse/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/ohmslaw.zip",
+   "alt_download_url": null,
+   "size": "1k zip",
+   "os_notes": "BASIC; any OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-555",
+   "name": "555 Astable Multivibrator",
+   "description": "Designs and analyses 555 timer astable circuits: frequency, high/low times, duty cycle.",
+   "category": "Electronics",
+   "author": "not checked (same tool exists for the 89 as ast555.zip)",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/84pluscse/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/555plusc.zip",
+   "alt_download_url": null,
+   "size": "4k zip",
+   "os_notes": "BASIC; any OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-capfinder",
+   "name": "Capacitor Value Finder",
+   "description": "Decodes a ceramic disc capacitor's printed code (e.g. 104) into its capacitance.",
+   "category": "Electronics",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/84pluscse/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/discap.zip",
+   "alt_download_url": null,
+   "size": "1k zip",
+   "os_notes": "BASIC; any OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-crosssection",
+   "name": "Cross-Section Properties and Stresses v1.03",
+   "description": "Polygon cross-sections: area, centroid, moments of inertia, and stresses under combined loads (mechanics of materials).",
+   "category": "Statics / mechanics of materials",
+   "author": "not checked (likely same author as the Nspire 'Cross-Section Properties v2.0')",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/84pluscse/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/polygon84.zip",
+   "alt_download_url": null,
+   "size": "372k zip",
+   "os_notes": "BASIC; any OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Large zip; may include docs/PDF: send only calculator files.",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-cedit",
+   "name": "CEdit (text editor)",
+   "description": "Text editor for notes and formula sheets stored as AppVars, with cut/copy/paste.",
+   "category": "Notes / reference",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/84plusce/asm/programs/",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/programs/cedit.zip",
+   "alt_download_url": null,
+   "size": "2189k zip (mostly non-calculator files, likely)",
+   "os_notes": "ASM: 5.4.0 ok; 5.5+ arTIfiCE.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (likely)"
+   ],
+   "special_handling": "Inspect the zip; send only .8x* files.",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-cst",
+   "name": "Control System Toolbox r1.3",
+   "description": "Control-systems suite: transfer functions, Bode, Nyquist, root locus, step response, margins, Routh, lead/lag and PID design.",
+   "category": "Electrical / control",
+   "author": "Loreto Parisi",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/379/37951.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/electricity/cst.zip",
+   "alt_download_url": null,
+   "size": "274,517 B zip",
+   "os_notes": "TI-BASIC; AMS 3.10 fine. KerNO + HW3Patch are bundled in tools/ but are only for ASM helpers. Do not send them unless asked.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Many files that must land in the folder named in each variable's header (probably 'cst'). Run install() after sending. Skip .DS_Store and the PDF.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "cst-1.3.89g/*.89?",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-lzt",
+   "name": "Laplace and Z transform (LZT)",
+   "description": "Forward and inverse Laplace and Z transforms, plus shells for simulating circuits and block diagrams.",
+   "category": "Math / signals and transforms",
+   "author": "Jiri Bazant",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/296/29629.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/math/calculus/lzt.zip",
+   "alt_download_url": null,
+   "size": "439,775 B zip",
+   "os_notes": "TI-89/92+/V200 BASIC; AMS 3.10 fine. Large and memory-hungry.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Send the group file; the calculator ungroups it. Check free RAM/archive first.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*lztr7.89g",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-fluidti",
+   "name": "FluidTI (IAPWS-IF97 steam tables)",
+   "description": "Water and steam properties (h, s, v, u, cp and more) from the industrial IAPWS-IF97 standard, so you don't need printed steam tables.",
+   "category": "Thermodynamics / fluids",
+   "author": "Roman Krause, Hans-Joachim Kretzschmar (Zittau/Görlitz)",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/282/28270.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/applied/fluidti_if97_eng.zip",
+   "alt_download_url": null,
+   "size": "about 659 KB zip",
+   "os_notes": "BASIC; AMS 3.x ok.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "The zip mixes .89g/.92G/.9Xg: filter by extension. A smaller water-only package exists (fileinfo 363/36373).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89g",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-logical",
+   "name": "Logical Suite v1.34",
+   "description": "Karnaugh-map editor and simplifier, logic-circuit drawing, and 4-bit synchronous counter design.",
+   "category": "Computer engineering / digital logic",
+   "author": "Thiernesse Vincent",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/370/37085.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/electricity/karnaugh.zip",
+   "alt_download_url": null,
+   "size": "121,527 B zip",
+   "os_notes": "BASIC; AMS 3.10 ok.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Only the TI89/ subfolder; skip the .9xp/.9xm files (TI-92+/V200).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*ti89/logic*.89p",
+     null
+    ],
+    [
+     "*ti89/logic*.89m",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-periodic",
+   "name": "Table of Elements v1.2 (English)",
+   "description": "Periodic table app: 3 views, 14 sort orders, 10 properties per element.",
+   "category": "Reference / chemistry",
+   "author": "Eric Marion, Jake Poznanski",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/269/26904.html",
+   "download_url": "https://www.ticalc.org/pub/89/flash/periodicenglish1.2.zip",
+   "alt_download_url": null,
+   "size": "91k zip",
+   "os_notes": "Flash app from before the Titanium (2003). Most 89 apps install on the Titanium; not confirmed for this one.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Flash-app transfer (CalcSuite must support app sending for .89k).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "page",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-be",
+   "name": "BE (Basic Extensions)",
+   "description": "Flash app adding 175+ functions for maths, EE and DSP/statistics, and exposing ROM calls to TI-BASIC.",
+   "category": "Math / library",
+   "author": "Ralph Schenn",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/464/46405.html",
+   "download_url": "https://www.ticalc.org/pub/89/flash/be.zip",
+   "alt_download_url": null,
+   "size": "1,080,980 B zip (BE.89k 167,919 B)",
+   "os_notes": "Recent build; Titanium/AMS 3.10 support not stated on the page.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Point the user to BE-Manual.pdf (keep it on the PC).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "page",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-statics",
+   "name": "Statics (2D) and Statics (3D)",
+   "description": "Solves 2D equilibrium/truss problems (up to 9 equations) and 3D equilibrium with vector input, with worked examples.",
+   "category": "Statics",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/89/basic/science/applied/",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/applied/statics2.zip",
+   "alt_download_url": "https://www.ticalc.org/pub/89/basic/science/applied/statics3.zip",
+   "size": "235k / 257k zip",
+   "os_notes": "BASIC.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Two separate downloads; offer both.",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-rm",
+   "name": "Resistencia de Materiales v2.01",
+   "description": "Mechanics of materials: stresses, Mohr's circle (English and Spanish).",
+   "category": "Mechanics of materials",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/89/basic/science/applied/",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/applied/rm_v_201.zip",
+   "alt_download_url": null,
+   "size": "18k zip",
+   "os_notes": "BASIC.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-numerica",
+   "name": "Numerica v1.0 (numerical methods suite)",
+   "description": "Root finding, interpolation, numerical integration and ODEs (Euler, Runge-Kutta).",
+   "category": "Numerical methods",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/89/basic/math/calculus/",
+   "download_url": "https://www.ticalc.org/pub/89/basic/math/calculus/numerica.zip",
+   "alt_download_url": null,
+   "size": "25k zip",
+   "os_notes": "BASIC.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-ecuacion",
+   "name": "Ecuacion (equations manager)",
+   "description": "About 900 engineering/science equations with a solver, equation-system tools, and a 1st/2nd-order ODE solver (EN/ES).",
+   "category": "Formula reference / solver",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/89/basic/science/applied/",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/applied/ecuacion.zip",
+   "alt_download_url": null,
+   "size": "786k zip",
+   "os_notes": "BASIC.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Large: check memory first.",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-multiloop",
+   "name": "Multiloop DC and AC Circuits",
+   "description": "Mesh-current analysis of multi-loop DC and AC circuits: currents, voltages, charges, impedances, with examples.",
+   "category": "Electrical / circuits",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/89/basic/science/electricity/",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/electricity/crcuits.zip",
+   "alt_download_url": null,
+   "size": "64k zip",
+   "os_notes": "BASIC.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-tlines",
+   "name": "tlines89 v1.1",
+   "description": "Transmission-line analysis, Smith chart plotting and stub matching.",
+   "category": "Electrical / RF",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/89/basic/science/electricity/",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/electricity/tlines.zip",
+   "alt_download_url": null,
+   "size": "5k zip",
+   "os_notes": "BASIC.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-chemistry",
+   "name": "Chemistry v1.00 (Flash app)",
+   "description": "Periodic and solubility tables, thermodynamic data, chemistry equations and a molar-mass converter.",
+   "category": "Reference / chemistry",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/89/flash/",
+   "download_url": "https://www.ticalc.org/pub/89/flash/chemistry.zip",
+   "alt_download_url": null,
+   "size": "80k zip",
+   "os_notes": "Pre-Titanium flash app; Titanium compatibility not confirmed.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "page",
+   "send": [
+    [
+     "*.89p",
+     null
+    ],
+    [
+     "*.89f",
+     null
+    ],
+    [
+     "*.89g",
+     null
+    ],
+    [
+     "*.89m",
+     null
+    ],
+    [
+     "*.89s",
+     null
+    ],
+    [
+     "*.89e",
+     null
+    ],
+    [
+     "*.89t",
+     null
+    ],
+    [
+     "*.89l",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "nsp-formulapro",
+   "name": "FormulaPro 1.42b (EE*Pro for Nspire)",
+   "description": "Electrical-engineering equation solver: 700+ equations in 16 categories plus a reference section. Enter known values in any units and it solves the rest.",
+   "category": "Electrical / formula solver",
+   "author": "Jim Bauwens, Adrien Bertrand (Adriweb), TI-Planet / Inspired-Lua",
+   "license": "LGPL-3 (README); TI's page also says free and open source, LGPL",
+   "source_site": "GitHub (adriweb/EEPro-for-Nspire); also hosted by TI Education and ticalc.org",
+   "info_url": "https://github.com/adriweb/EEPro-for-Nspire",
+   "download_url": "https://github.com/adriweb/EEPro-for-Nspire/raw/master/FormulaPro.tns",
+   "alt_download_url": "https://education.ti.com/-/media/8F382C3A46184F9BA0EA386497561661 (TI activity page https://education.ti.com/en/activity/detail/formulapro); ticalc zip https://www.ticalc.org/pub/nspire/lua/science/formulapro.zip (fileinfo 450/45028)",
+   "size": "zip 1,876,682 B on ticalc; the .tns alone is smaller",
+   "os_notes": "Any Nspire OS 3.0+, no Ndless. TI lists CX II CAS as compatible.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": false,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "formulapro.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-mathlib",
+   "name": "Math Equations Library 4.0 (CAS)",
+   "description": "Searchable formula sheets and programs for calculus I-III, linear algebra, differential equations, statistics and vector analysis (e.g. fetch(\"trig identity\")).",
+   "category": "Formula reference / math",
+   "author": "Rachel Bush",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/460/46022.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/math/mathlibrary.zip",
+   "alt_download_url": null,
+   "size": "3,155,224 B zip",
+   "os_notes": "CAS model; no Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Library files must go to /MyLib; the user then runs Refresh Libraries (Doc/Actions menu) or restarts the handheld. Keep the folder structure.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "mylib/*.tns",
+     "/MyLib"
+    ],
+    [
+     "workspaces/*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-chemlib",
+   "name": "Chemistry Library",
+   "description": "Balances chemical equations and computes molar masses, e.g. balance(\"H2+O2=H2O\"), mass(\"H2SO4\"); element names/symbols/numbers.",
+   "category": "Reference / chemistry",
+   "author": "Nelson Sousa",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/417/41715.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/chemistry.zip",
+   "alt_download_url": null,
+   "size": "28,566 B zip",
+   "os_notes": "No Ndless. A review says mass() needs Calculation Mode set to Auto.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "MyLib install + Refresh Libraries. Skip Chemistry_PT.tns unless Portuguese.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*chemistry_en.tns",
+     "/MyLib"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-periodic",
+   "name": "Multilingual Periodic Table",
+   "description": "Periodic table with full element data and 3D crystal-structure animation.",
+   "category": "Reference / chemistry",
+   "author": "Nick Steen",
+   "license": "not stated (source included)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/444/44465.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/science/periodicanimated.zip",
+   "alt_download_url": null,
+   "size": "568,975 B zip / 23,532 B .tns",
+   "os_notes": "'Works on every Nspire that supports Lua (OS>3)'; no Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Skip the screenshots in the zip.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*multiperiodic.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-bode",
+   "name": "bodeplot v2.1.1",
+   "description": "Draws Bode magnitude and phase plots from a transfer function you type in.",
+   "category": "Electrical / control",
+   "author": "najiji",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/452/45272.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/math/bode.zip",
+   "alt_download_url": null,
+   "size": "5,432 B zip",
+   "os_notes": "Lua, no Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*bode.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-eetools",
+   "name": "Electrical Engineering Tools",
+   "description": "Four documents of tools for DSP, RLC circuits, power, and electromagnetics (work in progress).",
+   "category": "Electrical",
+   "author": "Asil Poyraz Yongaci",
+   "license": "LICENSE file in zip (terms not on the page)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/478/47870.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/ticalcversion1.1.zip",
+   "alt_download_url": null,
+   "size": "26,793 B zip",
+   "os_notes": "No Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Check the README to see whether these belong in MyLib.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-rk4",
+   "name": "Runge-Kutta v2.05",
+   "description": "Numerical solutions and plots for systems of 1st- and 2nd-order ODEs.",
+   "category": "Numerical methods / ODE",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/basic/math/",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/math/rungekutta4.zip",
+   "alt_download_url": null,
+   "size": "25k zip",
+   "os_notes": "No Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-baseconv",
+   "name": "Number Base Converter",
+   "description": "Converts between binary, octal, decimal and hexadecimal, including fractional parts.",
+   "category": "Computer engineering / bases",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/lua/math/",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/math/numberbaseconverter.zip",
+   "alt_download_url": null,
+   "size": "6k zip",
+   "os_notes": "Lua, no Ndless. The built-in ►Base2/►Base16 already covers integers.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-laguerre",
+   "name": "Laguerre (polynomial roots)",
+   "description": "Finds up to 9 complex zeros of a polynomial (and of its derivative) with Laguerre's method, shown graphically.",
+   "category": "Math / polynomials",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/lua/math/",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/math/laguerre.zip",
+   "alt_download_url": null,
+   "size": "8k zip",
+   "os_notes": "Lua, no Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-truss",
+   "name": "Truss 2-D and 3-D v1.01",
+   "description": "Member and reaction forces in 2D and 3D trusses by nodal equilibrium.",
+   "category": "Statics",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/threedtruss.zip",
+   "alt_download_url": null,
+   "size": "194k zip",
+   "os_notes": "No Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-crosssection",
+   "name": "Cross-Section Properties v2.0",
+   "description": "Section properties of polygon cross-sections and stresses under combined axial and bending loads.",
+   "category": "Mechanics of materials",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/polygon.zip",
+   "alt_download_url": null,
+   "size": "360k zip",
+   "os_notes": "No Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-twoport",
+   "name": "Two Port Network Solver (CX CAS)",
+   "description": "Converts between two-port parameter sets (Z, Y, h, ABCD...), evaluates circuit performance, and combines networks in series, parallel or cascade.",
+   "category": "Electrical / circuits",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/tpn_cas.zip",
+   "alt_download_url": null,
+   "size": "18k zip",
+   "os_notes": "CAS required (user has CAS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-cmplxanlys",
+   "name": "Complex Analysis Functions",
+   "description": "CAS functions for poles, residues, contour integrals, and Laplace/inverse Laplace transforms.",
+   "category": "Math / complex and transforms",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/basic/math/",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/math/cmplxanlys.zip",
+   "alt_download_url": null,
+   "size": "6k zip",
+   "os_notes": "CAS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Probably a MyLib library.",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/MyLib"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-advreg",
+   "name": "Advanced Regression for TI-Nspire CAS",
+   "description": "Nonlinear regression with ANOVA, standard errors, R² and parameter tests.",
+   "category": "Statistics",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/basic/math/",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/math/advreg.zip",
+   "alt_download_url": null,
+   "size": "33k zip",
+   "os_notes": "CAS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-darcy",
+   "name": "Darcy-Weisbach Application",
+   "description": "Pipe flow: friction factor, head loss, Reynolds number and water viscosity.",
+   "category": "Fluids",
+   "author": "not checked",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/pub/nspire/basic/science/",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/darcyweisbach.zip",
+   "alt_download_url": null,
+   "size": "519k zip",
+   "os_notes": "No Ndless.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": false,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "ti-ce-scitools",
+   "name": "Science Tools 5.6",
+   "description": "Unit converter, significant-figures calculator, data/graph wizard and vector calculator.",
+   "category": "Units / science",
+   "author": "Texas Instruments",
+   "license": "TI licence, implied acceptance on download; no login",
+   "source_site": "education.ti.com",
+   "info_url": "https://education.ti.com/en/software/details/en/DB947BF05FB2414081C2B4DAA47271D1/84ce-science-tools-app",
+   "download_url": "https://education.ti.com/download/en/ed-tech/DB947BF05FB2414081C2B4DAA47271D1/18E2A49485724C1389FDA5F4DE0F1E4D/SciTools_CE_5.6.0.0029.8ek",
+   "alt_download_url": null,
+   "size": "50 KB",
+   "os_notes": "No minimum OS stated. v5.6 was built after OS 5.6; not verified on 5.4.0.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Licence gate. Likely already on the calculator.",
+   "verified": true,
+   "official": true,
+   "archive": false,
+   "calculator": "ti84",
+   "action": "ti_page",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ti-ce-plysmlt2",
+   "name": "Polynomial Root Finder and Simultaneous Equation Solver (PlySmlt2) 5.5",
+   "description": "Roots of polynomials up to degree 10 and linear systems up to 10x10, including complex results.",
+   "category": "Math / solvers",
+   "author": "Texas Instruments",
+   "license": "TI licence, implied acceptance; no login",
+   "source_site": "education.ti.com",
+   "info_url": "https://education.ti.com/en/software/details/en/07D95F33132D4B46B0B7BACF09E10E9C/polynomial-root-finder-and-simultaneous-equation-solver-app",
+   "download_url": "https://education.ti.com/download/en/ed-tech/07D95F33132D4B46B0B7BACF09E10E9C/DE770601919446F68A847597CC98DD5C/PlySmlt2_CE_5.5.0.0038.8ek",
+   "alt_download_url": null,
+   "size": "86 KB",
+   "os_notes": "No minimum OS stated.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Licence gate.",
+   "verified": true,
+   "official": true,
+   "archive": false,
+   "calculator": "ti84",
+   "action": "ti_page",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ti-ce-periodic",
+   "name": "Periodic Table 5.5",
+   "description": "Periodic table with element properties and graphs of trends.",
+   "category": "Reference",
+   "author": "Texas Instruments",
+   "license": "TI licence, implied acceptance; no login",
+   "source_site": "education.ti.com",
+   "info_url": "https://education.ti.com/en/software/details/en/BDE2DB7E54964A4CBAB6D8611239FAB2/periodic-table-app",
+   "download_url": "https://education.ti.com/download/en/ed-tech/BDE2DB7E54964A4CBAB6D8611239FAB2/11C5FAEDFDF548DD8C98D76D9D799C35/Periodic_CE_5.5.0.0038.8ek",
+   "alt_download_url": null,
+   "size": "45 KB",
+   "os_notes": "No minimum OS stated.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Licence gate.",
+   "verified": true,
+   "official": true,
+   "archive": false,
+   "calculator": "ti84",
+   "action": "ti_page",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ti-ce-cellsheet",
+   "name": "CellSheet 5.1.1",
+   "description": "Spreadsheet on the calculator.",
+   "category": "General",
+   "author": "Texas Instruments",
+   "license": "TI licence, implied acceptance; no login",
+   "source_site": "education.ti.com",
+   "info_url": "https://education.ti.com/en/software/details/en/EA94E71DFFD94CB0A8AB73EF0A58B9D4/84ce-cellsheet-app",
+   "download_url": "https://education.ti.com/download/en/ed-tech/EA94E71DFFD94CB0A8AB73EF0A58B9D4/1F387F1A3A454B93B98A039EEE0319CA/CelSheet_CE_5.1.1.0017.8ek",
+   "alt_download_url": null,
+   "size": "120 KB",
+   "os_notes": "No minimum OS stated.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Licence gate.",
+   "verified": true,
+   "official": true,
+   "archive": false,
+   "calculator": "ti84",
+   "action": "ti_page",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ],
+    [
+     "*.8xv",
+     null
+    ]
+   ]
+  }
+ ]
+}

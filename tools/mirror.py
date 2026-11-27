@@ -494,6 +494,8 @@ class Mirror(object):
         for i in range(0, len(codes), 64):
             self.queue("keys " + " ".join(self.calc.key_fmt % c for c in codes[i:i + 64]))
         self.set_status("Pasting %d characters..." % len(text))
+        shown = text.replace("\n", " ↵ ")
+        self.pressed(None, None, [], text="paste " + (shown[:24] + "..." if len(shown) > 24 else shown))
 
     def copy_screen(self):
         """The calculator's screen, as a picture, on the PC clipboard"""

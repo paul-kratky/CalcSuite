@@ -12,7 +12,7 @@ handheld over USB, with no TI software. Doing it by hand, without AI: [QUICKSTAR
    `tools/bin/` (`luna.exe`, `nspire-cli.exe`, `ti84-cli.exe`, `libusb-1.0.dll`). To build them
    yourself instead, see `third_party/README.md` and run `python tools/build_tools.py`.
 3. Python 3.8+ on the PC. Nothing to install with pip. The app from the source:
-   double-click `Nspire Mirror.bat`.
+   double-click `CalcSuite.bat`.
 
 You ask an AI assistant (Claude Code) for a program. It writes `programs/<name>.py`, a
 checker makes sure the calculator's Python can run it, you can try it on the PC, and then

@@ -107,6 +107,9 @@ def main():
         print("SKIP .tns tests: tools/bin/luna.exe missing (python -I tools/build_tools.py)")
 
     failures += ti_basic_checks()
+    sys.path.insert(0, HERE)
+    import ui_checks  # The app's pure parts: Markdown, keys, symbols, clicks, library, strip
+    failures += ui_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 

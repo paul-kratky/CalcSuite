@@ -1,4 +1,3 @@
 @echo off
-rem Opens the mirror window (the handheld plugged in, screen on).
-cd /d "%~dp0"
-start "" pythonw -I tools\mirror.py
+rem The old name: opens CalcSuite.
+call "%~dp0CalcSuite.bat"

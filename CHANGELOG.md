@@ -4,7 +4,81 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 ## [Unreleased]
 
+### Changed
+- **One window, and the app is called CalcSuite.** A tab strip: **All screens** first (every
+  connected calculator's live screen side by side, with its frame rate, Screenshot and
+  Record; click a screen to type on it, orange outline and a KEYBOARD tag; double click opens
+  its tab), then a tab per calculator (a status dot, its name, its frame rate). **Open in its
+  own window** pops a calculator out into a window of its own; closing it docks it back. A
+  calculator plugged in later gets a tab; one unplugged greys out ("not plugged in") and comes
+  back when it's plugged in again. Each calculator still has its own link thread, as before
+  (keys first, keep-alive, paste, copy, recording, Send program, Files, Backup, Restore,
+  About). Dark everywhere (true black, an orange accent for the calculator you type on, mint
+  for what's OK), plain Tk.
+- The exe is `CalcSuite.exe`; `CalcSuite.bat` starts it from the source (`Nspire Mirror.bat`
+  still works and calls it). Its files are in `Documents\CalcSuite`: the first start copies
+  what's in `Documents\Nspire Mirror` (captures, programs, ...) there, never replacing a file,
+  and leaves a note in the old folder (nothing is deleted). Only one CalcSuite runs at a time,
+  and it also sees an old Nspire Mirror that's running. Saved TI files say "Saved by CalcSuite".
+- The TI-84 key name `i` pressed imag( (0xFC83, a wrong entry); it is now 𝑖 (0xEE).
+
 ### Added
+- **A calculator's tab:** the screen big, **Screenshot**, **Copy screen**, **Paste text**,
+  **Record**, **Send program...**, **Keyboard** on/off, a **Last key: F5 → GRAPH** line, and a
+  side panel: **Files** (the file manager, with Back up / Restore), **Keys**, **Symbols**,
+  **Guide**, **Get programs** and **Info**.
+- **Keys:** which PC key presses which calculator key, grouped (Top row, Menus, Editing,
+  Mouse), made from the same table the keys use (`tools/calc_models.py`), so it can't be out
+  of date. The key you just pressed lights up.
+- **Key history:** the last 8 keys as keycaps under the screen. **Show keys in recordings**
+  puts that strip into every GIF/MP4 frame (the 89's small screen is doubled first so the keys
+  stay readable). Tested on the Nspire: a GIF and an MP4 with "1 + 2 enter" in the strip.
+- **The mouse on the 84 and the 89.** TI-89 Titanium: a click on a toolbar tab presses its F
+  key (the tabs are found in the picture: they're as wide as their names), right click ESC,
+  middle click HOME, double click ENTER, the wheel the arrows. TI-84 Plus CE: a click on a
+  numbered menu line (MATH, PRGM, VARS, ...) picks it (arrows to it, then ENTER, so a
+  scrolled menu and lines 0: and A: work too; the menu is recognised by its highlighted number
+  block and the number-colon column, measured on OS 5.4.0), right click CLEAR, double click
+  ENTER. Clicks map through the picture's real size and offset, at any zoom. Tested: the 89's
+  F2 tab opened Algebra and a right click closed it; on the 84, a click on MATH's line 8 typed
+  nDeriv(.
+- **Symbols:** ∫ d/dx √ π θ Σ ∞ ≤ ≥ ≠ → i e ∠ ° ² ⁻¹ ‾ ± × ÷ ^ E ! |x| and more, per
+  calculator; a click types it. A symbol the calculator lacks is greyed and says what to use.
+  TI-84 Plus CE: its own keys (fnInt(, nDeriv(, the TEST menu's = ≠ > ≥ < ≤, 𝑖, e, °, ʳ, ³,
+  ³√, ˣ√, !, abs(; from TILP's key list), each tried on a TI-84 Plus CE, OS 5.4.0. TI-89
+  Titanium: 2nd 7 ∫(, 2nd 8 d(, √(, and the 89's own characters (π θ Σ ∞ ≤ ≥ ≠ → 𝑖 ℯ ∠ °),
+  each tried on a TI-89 Titanium, OS 3.10. TI-Nspire: the spellings TI's handheld turns into
+  symbols (`integral(`, `derivative(`, `sqrt(`, `pi`, `<=`, `/=`, `=:`, `@i`, `@e`, `@<`,
+  `@d`, `@>`, `infinity`), tried on a CX II CAS, OS 6.4.
+- **Ctrl+V types these symbols too,** on each calculator. The 84 can now be pasted `=`, `<`,
+  `>`, `!` and the ≤ ≥ ≠ → √ π θ ² ³ ⁻¹ 𝑖 ℯ ° symbols; the 89 every character of its own set;
+  the Nspire any ASCII character (`!`, `@`, `_`, `{`, `[`: its key code is the character code)
+  and the symbols above. On the Nspire a pasted `x^2+1` now leaves the exponent after the 2
+  (the ^ key opens a raised box), and `√(16)` leaves the root's box.
+- **Guide:** the calculator's guide (TI-Basic for the 84 and the 89, Python for the Nspire)
+  rendered in the app: headings, lists, tables, code, links (they open in the browser), a
+  Contents list and search. Every example with a name has **Copy** and **Send to
+  calculator** (TI-Basic through the same path as Send program; Python checked and converted
+  first). Tested: an 84 example sent as ZZTEST, an 89 one as zztest, a Python one to the
+  Nspire as zztest.tns, all deleted after.
+- **Get programs:** a short list of programs picked for engineering work, per calculator
+  (`tools/program_library.json`, from the research in `docs/dev/program_library_research.md`):
+  name, description, category, author, licence, source, verified ones first and unverified
+  ones marked. **Download and send** downloads from ticalc.org or GitHub only when you click
+  (CalcSuite/1.0 User-Agent, kept in `%LOCALAPPDATA%\CalcSuite\library`), picks the right
+  files from the zip and sends them (asking first, and before replacing anything; Nspire
+  libraries go to MyLib with a Refresh Libraries note). Cemetech, TI-Planet and Flash-app items
+  open their page; TI's own apps open TI's page (their licence) and are never downloaded by
+  CalcSuite. Assembly programs on the 84 say "needs OS 5.4 or older" and are checked against
+  the connected 84's OS. Tested: Converty downloaded and sent to a TI-84 Plus CE, then deleted.
+- **Info:** model, OS, free memory, the OS update check, the clock and Set the clock, Exit
+  Press-to-Test, Reconnect, and the connection doctor for this calculator, with its fix
+  buttons. Install / Restore TI's driver first runs the helper's dry run and shows its steps;
+  only OK starts the real change (Windows' admin prompt). A "Support CalcSuite" link appears
+  once a sponsor page is set (`SPONSOR_URL` in `tools/mirror.py`).
+- Self-test: the Markdown parser, the Keys panel against the key table, every symbol, the
+  paste maps, the 84 menu and 89 toolbar clicks on made-up screens, the program list and zip
+  picking, the key strip, the Documents move (`tools/selftest/ui_checks.py`).
 - **Back up... and Restore...** in **Files...** (and `python -I tools/calc_backup.py backup|show|restore`).
   A backup is a folder, `Documents\CalcSuite\backups\<model>-<date>\`, with a `manifest.json`
   (the calculator, every file with its name, type, size, archived flag and SHA-256, what was
