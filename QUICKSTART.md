@@ -1,6 +1,6 @@
 # Quick start: a program on the calculator in 5 minutes
 
-For the TI-Nspire CX II (CAS), on Windows. You don't need AI for this; the kit also works with an AI coding assistant (see README). The full details are in [README.md](README.md).
+For the TI-Nspire CX II (CAS), on Windows. You don't need AI for this; the kit also works with an AI coding assistant (see [docs/PYTHON_KIT.md](docs/PYTHON_KIT.md)). The full details are there too.
 
 ## Python programs (number crunching, menus, quick tools)
 

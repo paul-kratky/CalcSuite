@@ -13,7 +13,7 @@ program for the calculator first. The PC is only for checking.
    warnings too unless the user has checked that feature on the handheld (`programs/probe.py`).
 3. Where you can, test the logic on the PC with
    `python -I tools/run_on_pc.py programs/<name>.py`. Feed input on stdin, and use
-   `--var/--list/--func/--keys` for TI variables and keys (see README).
+   `--var/--list/--func/--keys` for TI variables and keys (see docs/PYTHON_KIT.md).
 4. Send it or hand it over:
    - **If the user says "send it" (or "flash it", "put it on my calculator"), or says the
      calculator is plugged in:** run `python -I tools/flash.py programs/<name>.py`. It
@@ -25,7 +25,7 @@ program for the calculator first. The PC is only for checking.
      that "send it" will upload it once the calculator is plugged in.
    - If flash.py stops, read its message: checker errors mean fix the program and run it
      again; "No TI-Nspire found" means ask the user to plug in and turn on the handheld;
-     a driver or link error means point the user to README "Troubleshooting". Do not
+     a driver or link error means point the user to docs/PYTHON_KIT.md "Troubleshooting". Do not
      install or change USB drivers yourself, and never run anything that needs admin.
    - `python -I tools/send_to_calc.py --list` shows the connected handheld (name, OS,
      free space); `--ls /` lists My Documents.
