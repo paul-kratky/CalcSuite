@@ -8,9 +8,10 @@ threads, so the window never freezes.
 import os
 import tempfile
 import threading
+import time
 import tkinter as tk
 import webbrowser
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import calc_models
 import md_render
@@ -587,6 +588,8 @@ class ProgramsSection(object):
         self.act.pack(side="left")
         self.info_btn = th.button(bar, "Info page", self.open_info, state="disabled")
         self.info_btn.pack(side="left", padx=(6, 0))
+        th.button(bar, "Get all...", self.get_all).pack(side="right")
+        self.all_dialog = None
         self.status = tk.StringVar(master=self.frame, value="%d programs for the %s" % (
             len(self.items), self.m.calc.title))
         tk.Label(self.frame, textvariable=self.status, bg=th.PANEL, fg=th.DIM, anchor="w",
@@ -637,6 +640,13 @@ class ProgramsSection(object):
     def open_info(self):
         if self.item and self.item.get("info_url"):
             webbrowser.open(self.item["info_url"])
+
+    def get_all(self):
+        d = self.all_dialog
+        if d is not None and d.alive():
+            d.win.lift()
+            return
+        self.all_dialog = GetAllDialog(self)
 
     def act_on(self):
         i = self.item
@@ -746,6 +756,538 @@ def human(n):
         n /= 1024.0
 
 
+def on_tk(widget, fn, *args):
+    """fn(*args) on Tk's thread, from a worker (nothing when the window has gone)"""
+    try:
+        widget.after(0, lambda: fn(*args))
+    except (tk.TclError, RuntimeError):
+        pass
+
+
+def ask_on_tk(widget, fn, alive=lambda: True):
+    """fn() on Tk's thread (a question), waited for from a worker: its answer, or None"""
+    box, ev = {}, threading.Event()
+
+    def run():
+        try:
+            box["r"] = fn()
+        finally:
+            ev.set()
+    on_tk(widget, run)
+    while not ev.wait(0.2):
+        if not alive():
+            return None
+    return box.get("r")
+
+
+def short_error(e):
+    text = str(e) or e.__class__.__name__
+    return text if len(text) < 90 else text[:87] + "..."
+
+
+def progress_style(widget):
+    style = ttk.Style(widget)
+    style.configure("Calc.Horizontal.TProgressbar", background=th.ACCENT, troughcolor=th.PANEL2,
+                    bordercolor=th.PANEL, lightcolor=th.ACCENT, darkcolor=th.ACCENT)
+    return "Calc.Horizontal.TProgressbar"
+
+
+GET_ALL_LIMIT = None  # Test hook: only the first n items in Get all (or CALCSUITE_GET_ALL_LIMIT=n)
+
+
+class GetAllDialog(object):
+    """Get programs > Get all: every item CalcSuite can send by itself, with its size, notes and
+    whether it's on the calculator already, then Send all to the calculator or Save all to the
+    PC. Downloads go one at a time (into the cache) on a worker thread; the calculator is only
+    reached through the tab's link thread (run_batch)."""
+
+    COLS = (("size", "Size", 70), ("notes", "Notes", 250), ("calc", "On the calculator", 110),
+            ("state", "", 150))
+
+    def __init__(self, section):
+        self.sec, self.m = section, section.m
+        self.slug, self.title = self.m.calc.slug, self.m.calc.title
+        items, self.skipped = plib.get_all_plan(plib.load(), self.slug)
+        limit = GET_ALL_LIMIT or os.environ.get("CALCSUITE_GET_ALL_LIMIT")
+        if limit:
+            items = items[:int(limit)]
+        self.items = items
+        self.ids = {i["id"] for i in items}
+        self.rows = {i["id"]: {"files": None, "size": plib.size_hint(i), "measured": False, "ram": 0,
+                               "archive": 0, "error": None, "on_calc": None, "clash": set(),
+                               "state": ""} for i in items}
+        self.missing_folders = set()  # Nspire folders the handheld doesn't have yet
+        self.stop = threading.Event()
+        self.busy = "measure"
+        w = self.win = tk.Toplevel(section.frame)
+        w.title("Get all for the %s" % self.title)
+        w.configure(bg=th.BG)
+        w.geometry("860x620")
+        w.minsize(660, 440)
+        w.protocol("WM_DELETE_WINDOW", self.close)
+        self.gone = False
+        w.bind("<Destroy>", self.destroyed, add="+")
+        tk.Label(w, text="%d programs for the %s that CalcSuite can send by itself. They download "
+                 "one at a time from ticalc.org and GitHub, into CalcSuite's cache (a download is "
+                 "never repeated)." % (len(items), self.title), bg=th.BG, fg=th.FG, anchor="w",
+                 justify="left", wraplength=820).pack(fill="x", padx=12, pady=(12, 6))
+        mid = tk.Frame(w, bg=th.BG)
+        mid.pack(fill="both", expand=True, padx=12)
+        tree = self.tree = ttk.Treeview(mid, columns=[c for c, _t, _w in self.COLS],
+                                        style="Calc.Treeview", selectmode="none")
+        tree.heading("#0", text="Program", anchor="w")
+        tree.column("#0", width=230, anchor="w")
+        for c, text, width in self.COLS:
+            tree.heading(c, text=text, anchor="w")
+            tree.column(c, width=width, anchor="w", stretch=c in ("notes", "state"))
+        sb = ttk.Scrollbar(mid, orient="vertical", command=tree.yview, style="Calc.Vertical.TScrollbar")
+        tree.configure(yscrollcommand=sb.set)
+        tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        tree.tag_configure("warn", foreground=th.ACCENT)
+        tree.tag_configure("ok", foreground=th.MINT)
+        tree.tag_configure("bad", foreground=th.RED)
+        for i in items:
+            tree.insert("", "end", iid=i["id"], text=i["name"])
+            self.draw_row(i)
+        self.fit = tk.Label(w, text="", bg=th.BG, fg=th.DIM, anchor="w", justify="left", wraplength=820)
+        self.fit.pack(fill="x", padx=12, pady=(8, 0))
+        if self.skipped:
+            names = ", ".join(i["name"] for i, _r in self.skipped)
+            tk.Label(w, text="Not in this set (%d): %s. They open their page instead (TI's own "
+                     "apps, Flash apps, installs with steps on the calculator): pick them in the "
+                     "list." % (len(self.skipped), names), bg=th.BG, fg=th.DIM, anchor="w",
+                     justify="left", wraplength=820).pack(fill="x", padx=12, pady=(4, 0))
+        self.bar = ttk.Progressbar(w, style=progress_style(w), mode="determinate", maximum=max(len(items), 1))
+        self.bar.pack(fill="x", padx=12, pady=(8, 0))
+        self.status = tk.StringVar(master=w, value="")
+        tk.Label(w, textvariable=self.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
+                 wraplength=820).pack(fill="x", padx=12, pady=(4, 0))
+        row = tk.Frame(w, bg=th.BG)
+        row.pack(fill="x", padx=12, pady=10)
+        self.send_btn = th.button(row, "Send all to the %s" % self.title, self.send_all, state="disabled")
+        self.send_btn.pack(side="left")
+        self.save_btn = th.button(row, "Save all to the PC...", self.save_all, state="disabled")
+        self.save_btn.pack(side="left", padx=(6, 0))
+        self.stop_btn = th.button(row, "Stop", self.stop_now)
+        self.stop_btn.pack(side="left", padx=(6, 0))
+        th.button(row, "Close", self.close).pack(side="right")
+        self.work(self.measure_work)
+
+    # ---- Plumbing ----
+    def alive(self):
+        """Whether the window is still open (a flag: safe from a worker thread)"""
+        return not self.gone
+
+    def destroyed(self, ev):
+        if ev.widget is self.win:
+            self.gone = True
+
+    def ui(self, fn, *args):
+        if self.alive():
+            on_tk(self.win, fn, *args)
+
+    def say(self, text):
+        self.ui(self.status.set, text)
+
+    def ask(self, fn):
+        return ask_on_tk(self.win, fn, self.alive)
+
+    def work(self, fn, *args):
+        self.stop.clear()
+
+        def run():
+            try:
+                fn(*args)
+            except Exception as e:  # Never leave the dialog stuck as busy
+                self.say("Stopped: %s" % short_error(e))
+            finally:
+                self.ui(self.idle)
+        threading.Thread(target=run, daemon=True).start()
+
+    def idle(self):
+        self.busy = None
+        self.send_btn.configure(state="normal")
+        self.save_btn.configure(state="normal")
+        self.stop_btn.configure(state="disabled")
+        self.show_fit()
+
+    def start(self, what):
+        self.busy = what
+        self.send_btn.configure(state="disabled")
+        self.save_btn.configure(state="disabled")
+        self.stop_btn.configure(state="normal")
+
+    def stop_now(self):
+        if self.busy:
+            self.stop.set()
+            self.say("Stopping after this item...")
+
+    def close(self):
+        self.stop.set()
+        try:
+            self.win.destroy()
+        except tk.TclError:
+            pass
+
+    def set_bar(self, done, total):
+        self.bar.configure(maximum=max(total, 1), value=done)
+
+    # ---- The list ----
+    def draw_row(self, i):
+        if not self.alive():
+            return
+        r = self.rows[i["id"]]
+        if r["measured"]:
+            size = human(r["size"])
+        elif r["size"]:
+            size = "~" + human(r["size"])
+        else:
+            size = "?"
+        flags = plib.item_flags(i, self.slug, self.m.info.get("os"), r["size"], self.ids)
+        notes = "; ".join(t for _l, t in flags)
+        if r["error"]:
+            notes = "couldn't get it: %s" % r["error"] + ("; " + notes if notes else "")
+        calc = {None: "", "no": "no", "yes": "yes", "some": "some files"}[r["on_calc"]]
+        tag = ("bad",) if r["error"] or r["state"].startswith("failed") else (
+            ("ok",) if r["state"].startswith(("sent", "saved")) else
+            ("warn",) if any(l == "warn" for l, _t in flags) or r["on_calc"] in ("yes", "some") else ())
+        self.tree.item(i["id"], values=(size, notes, calc, r["state"]), tags=tag)
+
+    def set_state(self, i, state):
+        self.rows[i["id"]]["state"] = state
+        self.ui(self.draw_row, i)
+
+    def totals(self):
+        ram = sum(r["ram"] for r in self.rows.values())
+        arc = sum(r["archive"] for r in self.rows.values())
+        unknown = [i["name"] for i in self.items if not self.rows[i["id"]]["measured"]]
+        return ram, arc, unknown
+
+    def show_fit(self):
+        if not self.alive():
+            return
+        ram, arc, unknown = self.totals()
+        if not self.m.connected() and not self.m.info:
+            self.fit.configure(text="%s in all. Connect the %s to compare with its free space." % (
+                human(ram + arc), self.title), fg=th.DIM)
+            return
+        ok, text = plib.fit_check(ram, arc, self.m.info, self.slug)
+        if unknown:
+            text += " (%d not measured: %s)" % (len(unknown), ", ".join(unknown[:4]))
+        lead = {True: "Fits. ", False: "Doesn't fit. ", None: ""}[ok]
+        self.fit.configure(text=lead + text, fg=th.MINT if ok else th.ACCENT)
+
+    def set_files(self, i, files):
+        r = self.rows[i["id"]]
+        ram = arc = 0
+        for _n, data, _f in files:
+            where, n = plib.file_place(data, self.slug)
+            if where == "ram":
+                ram += n
+            else:
+                arc += n
+        r.update(files=files, size=ram + arc, ram=ram, archive=arc, measured=True, error=None)
+
+    def get_files(self, i, k, n, verb):
+        """The item's files (cached, or downloaded now): None when they can't be had"""
+        r = self.rows[i["id"]]
+        if r["files"] is not None:
+            return r["files"]
+        files = plib.cached_files(i)
+        if files is None:
+            self.say("%s %d of %d: downloading %s..." % (verb, k + 1, n, i["name"]))
+
+            def progress(done, total):
+                self.say("%s %d of %d: downloading %s, %s%s" % (verb, k + 1, n, i["name"], human(done),
+                                                                " of %s" % human(total) if total else ""))
+            try:
+                files = plib.fetch_files(i, progress)
+            except Exception as e:
+                r["error"] = short_error(e)
+                self.ui(self.draw_row, i)
+                return None
+        self.set_files(i, files)
+        self.ui(self.draw_row, i)
+        return files
+
+    def measure_work(self):
+        n = len(self.items)
+        for k, i in enumerate(self.items):
+            if self.stop.is_set():
+                self.say("Stopped: some sizes aren't known yet (they download when you send or save)")
+                return
+            self.get_files(i, k, n, "Measuring")
+            self.ui(self.set_bar, k + 1, n)
+        else:
+            self.say("Sizes measured.")
+        if self.m.connected():
+            self.say("Checking what's on the %s..." % self.title)
+            if self.list_calc():
+                self.say("Ready. Send all to the %s, or Save all to the PC." % self.title)
+            else:
+                self.say("Couldn't read the %s's list: it's checked again when you send." % self.title)
+        else:
+            self.say("Ready. The %s isn't connected: Save all to the PC works without it." % self.title)
+
+    def list_calc(self):
+        """Marks what's on the calculator already (worker thread). False when it can't tell."""
+        import calc_files as cf
+        if self.slug == "nspire":
+            import calc_manager
+            folders = sorted({f or "/" for r in self.rows.values() for _n, _d, f in (r["files"] or [])})
+            listing = {}
+            self.missing_folders = set()
+            for folder in folders:
+                code, lines = self.m.run_batch([("ls " + folder, None)])[0]
+                if code and not self.m.connected():
+                    return False
+                if code:
+                    self.missing_folders.add(folder)
+                listing[folder] = {calc_manager.shown(e["name"]).lower()
+                                   for e in cf.parse_nspire_ls(lines)} if code == 0 else set()
+            for i in self.items:
+                r = self.rows[i["id"]]
+                if r["files"] is not None:
+                    r["clash"] = set(plib.nspire_clashes([(nm, f) for nm, _d, f in r["files"]], listing))
+                    r["on_calc"] = self.on_calc_word(r)
+                    self.ui(self.draw_row, i)
+            return True
+        import send_ti
+        code, lines = self.m.run_batch([("ls", None)])[0]
+        if code:
+            return False
+        for i in self.items:
+            r = self.rows[i["id"]]
+            if r["files"] is None:
+                continue
+            r["clash"] = set()
+            for nm, data, _f in r["files"]:
+                try:
+                    if send_ti.clashes(send_ti.variables(data, self.slug), lines, self.slug):
+                        r["clash"].add(nm)
+                except ValueError:
+                    pass
+            r["on_calc"] = self.on_calc_word(r)
+            self.ui(self.draw_row, i)
+        return True
+
+    @staticmethod
+    def on_calc_word(r):
+        if not r["clash"]:
+            return "no"
+        return "yes" if len(r["clash"]) == len(r["files"]) else "some"
+
+    # ---- Send all ----
+    def send_all(self):
+        if self.busy:
+            return
+        if not self.m.connected():
+            self.status.set("The %s isn't connected. Save all to the PC works without it." % self.title)
+            return
+        self.start("send")
+        self.work(self.send_work)
+
+    def send_work(self):
+        n = len(self.items)
+        for k, i in enumerate(self.items):  # Anything not measured yet downloads first
+            if self.stop.is_set():
+                self.say("Stopped before sending: nothing was sent")
+                return
+            self.get_files(i, k, n, "Getting")
+        self.say("Checking what's on the %s..." % self.title)
+        if not self.list_calc():
+            self.say("Not sent: couldn't read the %s's list" % self.title)
+            return
+        ready = [i for i in self.items if self.rows[i["id"]]["files"]]
+        if not ready:
+            self.say("Nothing to send: no download worked")
+            return
+        osv = self.m.info.get("os")
+        asm = [i for i in ready if plib.needs_old_os(i, self.slug, osv)[0] is True]
+        clash = [i for i in ready if self.rows[i["id"]]["clash"]]
+        ram, arc, _u = self.totals()
+        ok, fit = plib.fit_check(ram, arc, self.m.info, self.slug)
+        files = sum(len(self.rows[i["id"]]["files"]) for i in ready)
+        msg = "Send %d programs (%d files) to the %s?\n\n%s%s" % (
+            len(ready), files, self.title, fit,
+            "\n\nIt doesn't look like it fits: whatever doesn't fit fails and the rest is sent."
+            if ok is False else "")
+        if not self.ask(lambda: messagebox.askokcancel("Send all?", msg, parent=self.win)):
+            self.say("Not sent")
+            return
+        skip_items = set()
+        if asm:
+            a = self.ask(lambda: messagebox.askyesnocancel(
+                "Assembly programs", "%d of them are assembly programs, which OS %s doesn't run "
+                "without arTIfiCE: %s.\n\nYes: send them too (they run once arTIfiCE is on).\nNo: "
+                "leave them out.\nCancel: send nothing." % (
+                    len(asm), osv, ", ".join(i["name"] for i in asm[:8])), icon="warning", parent=self.win))
+            if a is None:
+                self.say("Not sent")
+                return
+            if a is False:
+                skip_items |= {i["id"] for i in asm}
+        replace = False
+        clash = [i for i in clash if i["id"] not in skip_items]
+        if clash:
+            names = sorted({nm for i in clash for nm in self.rows[i["id"]]["clash"]})
+            a = self.ask(lambda: messagebox.askyesnocancel(
+                "Already on the %s" % self.title, "%d file(s) are on the %s already: %s%s.\n\n"
+                "Yes: replace them all.\nNo: skip those (the calculator keeps its own).\nCancel: "
+                "send nothing." % (len(names), self.title, ", ".join(names[:12]),
+                                   " and %d more" % (len(names) - 12) if len(names) > 12 else ""),
+                icon="warning", parent=self.win))
+            if a is None:
+                self.say("Not sent")
+                return
+            replace = bool(a)
+        self.send_items(ready, skip_items, replace)
+
+    def send_items(self, ready, skip_items, replace):
+        summary = {"sent": [], "partly": [], "failed": [], "skipped": []}
+        reached = []  # The items that got at least one file there
+        made = set()
+        total = len(ready)
+        for k, i in enumerate(ready):
+            r = self.rows[i["id"]]
+            if self.stop.is_set():
+                self.set_state(i, "not sent (stopped)")
+                summary["skipped"].append(i["name"])
+                continue
+            if i["id"] in skip_items:
+                self.set_state(i, "not sent (assembly)")
+                summary["skipped"].append(i["name"])
+                continue
+            if not self.m.connected():
+                self.set_state(i, "failed: not connected")
+                summary["failed"].append("%s: not connected" % i["name"])
+                continue
+            out = os.path.join(plib.CACHE, "files", i["id"])
+            os.makedirs(out, exist_ok=True)
+            sent, errors, kept = 0, [], 0
+            for nm, data, folder in r["files"]:
+                if nm in r["clash"] and not replace:
+                    kept += 1
+                    continue
+                path = os.path.join(out, nm)
+                with open(path, "wb") as f:
+                    f.write(data)
+                self.set_state(i, "sending %s..." % nm)
+
+                def progress(done, size, nm=nm, k=k):
+                    self.say("Sending %d of %d: %s, %d%%" % (k + 1, total, nm,
+                                                            100 * done // size if size else 0))
+                if self.slug == "nspire":
+                    folder = folder or "/"
+                    if folder in self.missing_folders and folder not in made:
+                        self.m.run_batch([("mkdir " + folder, None)])
+                        made.add(folder)
+                    line = "put %s|%s" % (os.path.abspath(path), folder.rstrip("/") + "/" + nm)
+                else:
+                    line = "send " + os.path.abspath(path)
+                code, lines = self.m.run_batch([(line, progress)], timeout=600)[0]
+                if code == 0:
+                    sent += 1
+                else:
+                    err = [l for l in lines if l.startswith("ERR")]
+                    errors.append("%s: %s" % (nm, err[-1][4:] if err else "exit %d" % code))
+            if errors:
+                self.set_state(i, "failed: " + errors[0])
+                (summary["partly"] if sent else summary["failed"]).append("%s (%s)" % (i["name"], errors[0]))
+                if sent:
+                    reached.append(i)
+            elif sent:
+                self.set_state(i, "sent" + (" (%d kept)" % kept if kept else ""))
+                summary["sent"].append(i["name"])
+                reached.append(i)
+            else:
+                self.set_state(i, "not sent (already there)")
+                summary["skipped"].append(i["name"])
+            self.ui(self.set_bar, k + 1, total)
+        after = sorted({"%s: %s" % (i["name"], t) for i in reached
+                        for _l, t in plib.item_flags(i, self.slug, self.m.info.get("os"), ids=self.ids)
+                        if "afterwards" in t or "to install" in t})
+        text = "Sent %d of %d programs to the %s." % (len(summary["sent"]), total, self.title)
+        if summary["partly"]:
+            text += "\n\nPartly sent: " + "; ".join(summary["partly"][:6])
+        if summary["failed"]:
+            text += "\n\nNot sent: " + "; ".join(summary["failed"][:6])
+        if summary["skipped"]:
+            text += "\n\nLeft out: " + ", ".join(summary["skipped"][:10])
+        if after:
+            text += "\n\nThen:\n" + "\n".join(after[:10])
+        self.say(text.split("\n")[0])
+        self.ui(lambda: messagebox.showinfo("Send all", text, parent=self.win) if self.alive() else None)
+        if self.m.manager is not None:
+            self.ui(self.m.manager.refresh)
+
+    # ---- Save all to the PC ----
+    def save_all(self):
+        if self.busy:
+            return
+        start = plib.default_save_folder()
+        try:
+            os.makedirs(start, exist_ok=True)
+        except OSError:
+            start = os.path.expanduser("~")
+        folder = filedialog.askdirectory(parent=self.win, title="Save all into which folder?",
+                                         initialdir=start, mustexist=False)
+        if not folder:
+            return
+        self.start("save")
+        self.work(self.save_work, os.path.normpath(folder))
+
+    def save_work(self, folder):
+        import calc_manager
+        n = len(self.items)
+        saved, same, failed, files_written = [], 0, [], 0
+        for k, i in enumerate(self.items):
+            if self.stop.is_set():
+                self.set_state(i, "not saved (stopped)")
+                continue
+            files = self.get_files(i, k, n, "Saving")
+            if files is None:
+                self.set_state(i, "failed: " + (self.rows[i["id"]]["error"] or "no download"))
+                failed.append(i["name"])
+                continue
+            dest = os.path.join(folder, plib.save_dir_name(i))
+            try:
+                for nm, data, sub in files:
+                    where = dest if not sub or sub == "/" else os.path.join(dest, *sub.strip("/").split("/"))
+                    os.makedirs(where, exist_ok=True)
+                    path = os.path.join(where, nm)
+                    if os.path.isfile(path):
+                        with open(path, "rb") as f:
+                            if f.read() == data:
+                                same += 1
+                                continue
+                        path = calc_manager.unique_path(where, nm)  # Never over a different file
+                    with open(path, "wb") as f:
+                        f.write(data)
+                    files_written += 1
+            except OSError as e:
+                self.set_state(i, "failed: " + short_error(e))
+                failed.append(i["name"])
+                continue
+            self.set_state(i, "saved (%d file%s)" % (len(files), "" if len(files) == 1 else "s"))
+            saved.append(i["name"])
+            self.ui(self.set_bar, k + 1, n)
+        text = "Saved %d of %d programs in %s (%d new files%s)." % (
+            len(saved), n, folder, files_written, ", %d already there" % same if same else "")
+        if failed:
+            text += "\n\nNot saved: " + ", ".join(failed[:10])
+        self.say(text.split("\n")[0])
+
+        def done():
+            if self.alive() and messagebox.askyesno("Save all", text + "\n\nOpen the folder?", parent=self.win):
+                try:
+                    os.startfile(folder)
+                except (OSError, AttributeError):
+                    pass
+        self.ui(done)
+
+
 # ---- Info: About, the clock, Press-to-Test, the connection doctor ----
 class InfoSection(object):
     def __init__(self, panel, parent):
@@ -763,6 +1305,11 @@ class InfoSection(object):
         row.pack(fill="x", pady=(8, 0))
         th.button(row, "Refresh", self.refresh_about).pack(side="left")
         th.button(row, "Reconnect", self.m.reconnect).pack(side="left", padx=(6, 0))
+        heading(inner, "PC copy")
+        self.pcc = tk.Frame(inner, bg=th.PANEL)
+        self.pcc.pack(fill="x")
+        self.pc_dialog = None
+        self.build_pc_copy()
         heading(inner, "Connection doctor")
         self.doctor = tk.Frame(inner, bg=th.PANEL)
         self.doctor.pack(fill="x")
@@ -791,6 +1338,36 @@ class InfoSection(object):
     def refresh_about(self):
         mgr = self.manager()
         mgr.build_about(self.about)
+
+    # ---- PC copy (tools/pc_copy.py; docs/dev/PC_COPY_API.md) ----
+    def build_pc_copy(self):
+        for c in self.pcc.winfo_children():
+            c.destroy()
+        slug = self.m.calc.slug
+        if slug not in PC_COPY:
+            tk.Label(self.pcc, text="Not for the Nspire: reading its ROM needs Ndless on the "
+                     "handheld, which CalcSuite doesn't install.", bg=th.PANEL, fg=th.DIM,
+                     anchor="w", justify="left", wraplength=400).pack(fill="x")
+            return
+        tk.Label(self.pcc, text="A copy of this calculator that runs on the PC, in %s, made from "
+                 "its own ROM." % PC_COPY[slug]["emulator"], bg=th.PANEL, fg=th.FG, anchor="w",
+                 justify="left", wraplength=400).pack(fill="x")
+        row = tk.Frame(self.pcc, bg=th.PANEL)
+        row.pack(fill="x", pady=(6, 0))
+        th.button(row, "Make a PC copy...", lambda: self.pc_copy("make")).pack(side="left")
+        roms = existing_roms(slug)
+        if roms:
+            th.button(row, "Open my PC copy", lambda: self.pc_copy("open")).pack(side="left", padx=(6, 0))
+            tk.Label(self.pcc, text="Latest: %s" % rom_line(roms[0]), bg=th.PANEL, fg=th.DIM,
+                     anchor="w", justify="left", wraplength=400).pack(fill="x", pady=(4, 0))
+        bind_wheel(self.pcc, self.inner)
+
+    def pc_copy(self, mode):
+        d = self.pc_dialog
+        if d is not None and d.alive():
+            d.win.lift()
+            return
+        self.pc_dialog = PcCopyDialog(self, mode)
 
     # ---- The connection doctor ----
     def check(self):
@@ -900,3 +1477,390 @@ class InfoSection(object):
         self.m.reconnect()
         self.check()
 
+
+# ---- PC copy: the dialog behind Info > Make a PC copy / Open my PC copy ----
+PC_COPY = {"ti84": {"model": "84", "emulator": "CEmu", "time": "about 2 minutes",
+                    "dumper": "ZZDUMP", "rest": "the ROMData AppVars"},
+           "ti89": {"model": "89", "emulator": "TiEmu", "time": "about 70 seconds",
+                    "dumper": "main\\romdump", "rest": ""}}
+STAGES = {"connect": "Connecting", "check": "Checking the calculator", "backup": "Backing up",
+          "tidy": "Tidying the archive", "send": "Sending the dump program",
+          "run": "Starting the dump program", "wait": "The dump program is running",
+          "fetch": "Reading the pieces", "dump": "Reading the ROM", "assemble": "Putting it together",
+          "save": "Saving the ROM", "clean": "Cleaning up", "download": "Downloading",
+          "done": "Done", "open": "Opening"}
+RUNNING_STAGES = ("run", "wait", "fetch", "dump")  # The dump program is on the calculator
+
+
+def existing_roms(slug):
+    """pc_copy.list_roms for the model, without making the folders when there's none yet"""
+    import calc_backup as cb
+    if not os.path.isdir(os.path.join(cb.backups_root(), "roms")):
+        return []
+    import pc_copy
+    try:
+        return pc_copy.list_roms(slug)
+    except OSError:
+        return []
+
+
+def rom_line(r):
+    info = r.get("info") or {}
+    return "%s%s (%s)" % (time.strftime("%Y-%m-%d %H:%M", time.localtime(r["made"])),
+                          ", OS %s" % info["os"] if info.get("os") else "", os.path.basename(r["path"]))
+
+
+def show_in_folder(path):
+    import subprocess
+    try:
+        subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
+    except OSError:
+        pass
+
+
+class PcCopyDialog(object):
+    """make: explains, asks, lets go of the tab's link, runs pc_copy.dump_rom on a worker with
+    a progress bar (Cancel between steps), takes the link back, then offers the emulator.
+    open: the newest ROM and the emulator."""
+
+    def __init__(self, section, mode):
+        import pc_copy
+        self.pc = pc_copy
+        self.sec, self.m = section, section.m
+        self.slug, self.title = self.m.calc.slug, self.m.calc.title
+        self.spec = PC_COPY[self.slug]
+        self.cancel = threading.Event()
+        self.running = False
+        w = self.win = tk.Toplevel(section.frame)
+        w.title("PC copy of the %s" % self.title)
+        w.configure(bg=th.BG)
+        w.geometry("640x560")
+        w.minsize(520, 420)
+        w.protocol("WM_DELETE_WINDOW", self.close)
+        self.gone = False
+        w.bind("<Destroy>", self.destroyed, add="+")
+        self.body = None
+        self.status = tk.StringVar(master=w, value="")
+        if mode == "make":
+            self.intro()
+        else:
+            self.open_mode()
+
+    # ---- Plumbing ----
+    def alive(self):
+        """Whether the window is still open (a flag: safe from a worker thread)"""
+        return not self.gone
+
+    def destroyed(self, ev):
+        if ev.widget is self.win:
+            self.gone = True
+
+    def ui(self, fn, *args):
+        if self.alive():
+            on_tk(self.win, fn, *args)
+
+    def fresh(self):
+        if self.body is not None:
+            self.body.destroy()
+        self.body = tk.Frame(self.win, bg=th.BG)
+        self.body.pack(fill="both", expand=True, padx=16, pady=14)
+        return self.body
+
+    def text(self, parent, text, fg=th.FG, bold=False, pady=(0, 6)):
+        lab = tk.Label(parent, text=text, bg=th.BG, fg=fg, anchor="w", justify="left", wraplength=590,
+                       font=(th.FONT, 11 if bold else 9, "bold" if bold else "normal"))
+        lab.pack(fill="x", pady=pady)
+        return lab
+
+    def close(self):
+        if self.running:
+            self.do_cancel()
+            return
+        try:
+            self.win.destroy()
+        except tk.TclError:
+            pass
+
+    # ---- Make: what happens, then Start ----
+    def intro(self):
+        b = self.fresh()
+        s, ti84 = self.spec, self.slug == "ti84"
+        self.text(b, "Make a PC copy of the %s" % self.title, bold=True)
+        self.text(b, "A PC copy is your calculator running on this PC, in %s: the same operating "
+                  "system, with your programs and variables." % s["emulator"])
+        steps = [
+            "CalcSuite backs up the calculator to this PC first: everything in RAM and in the "
+            "archive, like Files > Backup.",
+            ("It tidies the archive (Garbage Collect), sends a small ROM dump program (%s) and "
+             "runs it on the calculator." if ti84 else
+             "It sends a small ROM dump program (%s) and runs it on the calculator.") % s["dumper"],
+            "The program reads the calculator's ROM (its operating system) and hands it to the PC. "
+            "All of it takes %s: leave the calculator and the cable alone meanwhile." % s["time"],
+            "CalcSuite removes the dump program again and checks that everything that was in RAM "
+            "is still there (the backup is there if not).",
+        ]
+        for k, t in enumerate(steps):
+            self.text(b, "%d.  %s" % (k + 1, t), pady=(0, 4))
+        self.text(b, "The ROM stays on this PC (Documents\\CalcSuite\\backups\\roms) and is never "
+                  "uploaded anywhere. It's TI's software: keep it for yourself.", fg=th.DIM, pady=(8, 4))
+        self.text(b, "The screen mirror pauses while it runs (the dump needs the link to itself) and "
+                  "comes back afterwards.%s" % (
+                      " Needs OS 5.4 or older, 66 KB of free RAM and about 1.1 MB of free archive."
+                      if ti84 else ""), fg=th.DIM)
+        tk.Label(b, textvariable=self.status, bg=th.BG, fg=th.ACCENT, anchor="w", justify="left",
+                 wraplength=590).pack(fill="x", pady=(6, 0))
+        row = tk.Frame(b, bg=th.BG)
+        row.pack(fill="x", side="bottom")
+        th.button(row, "Start the PC copy", self.start).pack(side="left")
+        th.button(row, "Cancel", self.close).pack(side="left", padx=(6, 0))
+
+    def start(self):
+        if not self.m.connected():
+            self.status.set("The %s isn't connected: plug it in, switch it on and wait for the "
+                            "mirror, then start." % self.title)
+            return
+        if not messagebox.askokcancel("Start the PC copy?", "Back up the %s, then run the ROM dump "
+                                      "program on it (%s)?" % (self.title, self.spec["time"]),
+                                      parent=self.win):
+            return
+        self.running = True
+        self.cancel.clear()
+        b = self.fresh()
+        self.text(b, "Making the PC copy of the %s" % self.title, bold=True)
+        self.stage = self.text(b, "Letting go of the link...", fg=th.ACCENT, pady=(6, 2))
+        self.line = self.text(b, "", fg=th.FG)
+        self.bar = ttk.Progressbar(b, style=progress_style(b), mode="determinate", maximum=1)
+        self.bar.pack(fill="x", pady=(4, 6))
+        self.bar_mode = "determinate"
+        self.text(b, "Don't touch the calculator or the cable until it says done.", fg=th.DIM)
+        tk.Label(b, textvariable=self.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
+                 wraplength=590).pack(fill="x")
+        row = tk.Frame(b, bg=th.BG)
+        row.pack(fill="x", side="bottom")
+        self.cancel_btn = th.button(row, "Cancel", self.do_cancel)
+        self.cancel_btn.pack(side="left")
+        self.t0 = time.time()
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def do_cancel(self):
+        if not self.running or self.cancel.is_set():
+            return
+        self.cancel.set()
+        self.cancel_btn.configure(state="disabled")
+        self.status.set("Cancelling: CalcSuite stops after this step. Once the dump program runs on "
+                        "the calculator it can't be stopped from the PC: CalcSuite then stops waiting.")
+
+    def report(self, stage, text, done=None, total=None):
+        self.ui(self.show_progress, stage, text, done, total)
+
+    def show_progress(self, stage, text, done, total):
+        if not self.running:
+            return
+        self.stage.configure(text=STAGES.get(stage, stage) + "...")
+        if text:
+            self.line.configure(text=text)
+        if total:
+            if self.bar_mode != "determinate":
+                self.bar.stop()
+                self.bar.configure(mode="determinate")
+                self.bar_mode = "determinate"
+            self.bar.configure(maximum=total, value=min(done or 0, total))
+        elif text and self.bar_mode != "indeterminate":
+            self.bar.configure(mode="indeterminate", value=0)
+            self.bar.start(15)
+            self.bar_mode = "indeterminate"
+        if not self.cancel.is_set():
+            self.status.set("%d s so far (%s in all)" % (time.time() - self.t0, self.spec["time"]))
+
+    def run(self):
+        m = self.m
+        res, err = None, None
+        try:
+            m.release()  # The dump opens its own sessions: the tab's link thread lets go first
+            m.set_status("Making a PC copy of the %s: the mirror is paused" % self.title)
+            t = time.time()
+            while m.session is not None and time.time() - t < 20:
+                time.sleep(0.1)
+            if m.session is not None:
+                raise self.pc.PcCopyError("connect", "the mirror didn't let go of the calculator")
+            time.sleep(0.5)
+            res = self.pc.dump_rom(self.spec["model"], self.report, self.cancel)
+        except Exception as e:  # PcCopyError, Cancelled, or anything unexpected
+            err = e
+        finally:
+            m.reconnect()  # The tab takes the calculator back
+        self.ui(self.finished, res, err)
+
+    def finished(self, res, err):
+        self.running = False
+        try:
+            self.bar.stop()
+        except tk.TclError:
+            pass
+        b = self.fresh()
+        if err is not None:
+            self.failed(b, err)
+        else:
+            self.made(b, res)
+        try:
+            self.sec.build_pc_copy()  # "Open my PC copy" now
+        except tk.TclError:
+            pass
+
+    def failed(self, b, err):
+        pc = self.pc
+        stage = getattr(err, "stage", None)
+        if isinstance(err, pc.Cancelled):
+            self.text(b, "Cancelled", bold=True)
+            self.text(b, "No PC copy was made.")
+        elif isinstance(err, pc.PcCopyError):
+            self.text(b, "The PC copy wasn't made", bold=True)
+            msg = str(err)
+            self.text(b, msg[:1].upper() + msg[1:] + ("" if msg.endswith(".") else "."))
+        else:
+            self.text(b, "The PC copy wasn't made", bold=True)
+            self.text(b, "Something unexpected stopped it: %s" % short_error(err))
+        if stage in RUNNING_STAGES:
+            rest = " and " + self.spec["rest"] if self.spec["rest"] else ""
+            self.text(b, "The dump program had started: %s%s may still be on the calculator. They're "
+                      "CalcSuite's, not yours: delete them in Files once the dump program has "
+                      "finished." % (self.spec["dumper"], rest), fg=th.ACCENT)
+        if stage and stage not in ("connect", "check") and not isinstance(err, pc.Cancelled):
+            self.text(b, "The backup from before is in Documents\\CalcSuite\\backups.", fg=th.DIM)
+        detail = getattr(err, "detail", None) or []
+        if detail:
+            self.text(b, "The tool said: " + " / ".join(str(d) for d in detail[-3:]), fg=th.DIM)
+        self.text(b, "The mirror is connecting again.", fg=th.DIM)
+        row = tk.Frame(b, bg=th.BG)
+        row.pack(fill="x", side="bottom")
+        th.button(row, "Close", self.close).pack(side="left")
+
+    def made(self, b, res):
+        self.text(b, "Your PC copy is made", bold=True)
+        self.text(b, "In %d s. ROM: %s (%s, OS %s)." % (res.get("seconds") or 0, res["rom"],
+                                                         human(res.get("size") or 0), res.get("os") or "?"))
+        if res.get("backup"):
+            self.text(b, "The backup from before: %s" % res["backup"], fg=th.DIM)
+        for n in res.get("notes") or []:
+            if n:
+                self.text(b, n, fg=th.ACCENT)
+        lost = res.get("ram_cleared") or res.get("missing")
+        if lost:
+            self.text(b, "Some of what was in RAM is gone (%s). Restore... puts it back from the "
+                      "backup: you pick what goes back." % (
+                          "all of it" if res.get("ram_cleared") else ", ".join(res["missing"][:8])),
+                      fg=th.ACCENT)
+        self.text(b, "The mirror is connecting again.", fg=th.DIM)
+        self.emulator(b, res["rom"], res.get("backup"), restore=res.get("backup") if lost else None)
+
+    # ---- Open: the newest ROM ----
+    def open_mode(self):
+        b = self.fresh()
+        roms = existing_roms(self.slug)
+        self.text(b, "Your PC copy of the %s" % self.title, bold=True)
+        if not roms:
+            self.text(b, "There's no PC copy yet: Make a PC copy... first.")
+            row = tk.Frame(b, bg=th.BG)
+            row.pack(fill="x", side="bottom")
+            th.button(row, "Close", self.close).pack(side="left")
+            return
+        r = roms[0]
+        self.text(b, "Made %s." % rom_line(r))
+        if len(roms) > 1:
+            self.text(b, "%d copies in all; this is the newest." % len(roms), fg=th.DIM)
+        self.emulator(b, r["path"], (r.get("info") or {}).get("backup"))
+
+    # ---- The emulator ----
+    def emulator(self, b, rom, backup, restore=None):
+        pc = self.pc
+        self.rom, self.backup = rom, backup
+        if self.slug == "ti84":
+            have = pc.cemu_path()
+            self.text(b, "CEmu (GPL-3.0, from its makers on GitHub) runs the copy and gets your "
+                      "programs and variables from the backup.%s" % (
+                          "" if have else " The first time, CalcSuite downloads CEmu 2.0 (about "
+                          "19 MB) and checks it against its SHA-256."), fg=th.DIM, pady=(10, 6))
+            first = ("Open in CEmu", self.open_cemu)
+        elif pc.tiemu_path():
+            self.text(b, "TiEmu is installed: it opens the copy. Your programs aren't sent for you "
+                      "(TiEmu takes one file at a time: use its own Send file; the backup is in "
+                      "Documents\\CalcSuite\\backups).", fg=th.DIM, pady=(10, 6))
+            first = ("Open in TiEmu", self.open_tiemu)
+        else:
+            self.text(b, "TiEmu, the TI-89 emulator, was last released in 2010 (3.03), and its "
+                      "Windows installer is that old, unsigned setup.exe, so CalcSuite doesn't run it "
+                      "for you. CalcSuite can download it (3 MB from SourceForge, checked against "
+                      "its checksums) and show it to you; you run it, then come back to Open my "
+                      "PC copy.", fg=th.DIM, pady=(10, 6))
+            first = ("Download TiEmu's installer", self.get_tiemu)
+        tk.Label(b, textvariable=self.status, bg=th.BG, fg=th.ACCENT, anchor="w", justify="left",
+                 wraplength=590).pack(fill="x")
+        row = tk.Frame(b, bg=th.BG)
+        row.pack(fill="x", side="bottom")
+        self.emu_btn = th.button(row, first[0], first[1])
+        self.emu_btn.pack(side="left")
+        th.button(row, "Show the ROM", lambda: show_in_folder(rom)).pack(side="left", padx=(6, 0))
+        if restore:
+            th.button(row, "Restore...", lambda: self.restore(restore)).pack(side="left", padx=(6, 0))
+        th.button(row, "Close", self.close).pack(side="right")
+
+    def emu_work(self, fn):
+        self.emu_btn.configure(state="disabled")
+
+        def run():
+            try:
+                msg = fn()
+            except Exception as e:
+                msg = short_error(e)
+            self.ui(self.emu_done, msg)
+        threading.Thread(target=run, daemon=True).start()
+
+    def emu_done(self, msg):
+        self.status.set(msg)
+        try:
+            self.emu_btn.configure(state="normal")
+        except tk.TclError:
+            pass
+
+    def dl_report(self, stage, text, done=None, total=None):
+        if text:
+            self.ui(self.status.set, text)
+
+    def open_cemu(self):
+        def go():
+            self.pc.get_emulator("84", self.dl_report)
+            self.pc.open_in_emulator("84", self.rom, self.backup)
+            return "CEmu is opening: it boots the copy and gets your programs from the backup."
+        self.status.set("Getting CEmu ready...")
+        self.emu_work(go)
+
+    def open_tiemu(self):
+        def go():
+            self.pc.open_in_emulator("89", self.rom)
+            return "TiEmu is opening the copy."
+        self.emu_work(go)
+
+    def get_tiemu(self):
+        def go():
+            emu = self.pc.get_emulator("89", self.dl_report)
+            if emu.get("ready"):
+                self.pc.open_in_emulator("89", self.rom)
+                return "TiEmu is opening the copy."
+            show_in_folder(emu["path"])
+            return emu.get("todo") or "Run %s yourself to install TiEmu." % emu["path"]
+        self.status.set("Downloading TiEmu's installer...")
+        self.emu_work(go)
+
+    def restore(self, folder):
+        import calc_backup as cb
+        import calc_manager
+        mgr = self.sec.manager()
+        if not mgr.connected():
+            self.status.set("Wait until the %s is connected again, then press Restore... again." % self.title)
+            return
+        try:
+            man = cb.load(folder)
+        except (OSError, ValueError) as e:
+            self.status.set("The backup can't be read: %s" % short_error(e))
+            return
+        calc_manager.RestoreDialog(mgr, folder, man)

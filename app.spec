@@ -33,7 +33,7 @@ a = Analysis(
            ('tools/third_party_py/tivars/LICENSE', 'tivars')],
     hiddenimports=['tivars', 'calc_backup', 'calc_doctor', 'ui_panels', 'md_render',
                    'program_library', 'key_strip', 'calc_models', 'ui_theme',
-                   'reference'],
+                   'reference', 'pc_copy'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

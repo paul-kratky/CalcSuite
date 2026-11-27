@@ -120,8 +120,10 @@ def download(url, progress=None, cache=CACHE, timeout=30):
 
 
 def _matches(member, pattern):
-    m = member.replace("\\", "/").lower()
-    return fnmatch.fnmatch(m, pattern) or fnmatch.fnmatch(m.rsplit("/", 1)[-1], pattern)
+    """The pattern against the member's path or any tail of it ("dir/*.89?" also matches
+    "top/dir/x.89p": archives often wrap everything in one more folder)"""
+    parts = member.replace("\\", "/").lower().split("/")
+    return any(fnmatch.fnmatch("/".join(parts[k:]), pattern) for k in range(len(parts)))
 
 
 def pick_files(data_or_path, item, file_name=None):
@@ -163,3 +165,150 @@ def pick_files(data_or_path, item, file_name=None):
 def action_text(item):
     return {"download": "Download and send", "page": "Open page",
             "ti_page": "Open TI's page"}.get(item.get("action"), "Open page")
+
+
+# ---- Get all: every item CalcSuite can send by itself (pure; the self-test checks it) ----
+
+LARGE = 500 * 1024   # A set's item this big (on the calculator) gets a note
+
+
+def get_all_plan(items, slug):
+    """(sendable, skipped) for the calculator: sendable are its items CalcSuite downloads by
+    itself, in the list's order; skipped is [(item, reason)] for the rest (TI's own apps, and
+    items that open a page: apps, installs with steps on the calculator)."""
+    sendable, skipped = [], []
+    for i in for_calc(items, slug):
+        act = i.get("action")
+        if act == "ti_page":
+            skipped.append((i, "TI's own app: download it from TI's page (its licence)"))
+        elif act != "download":
+            skipped.append((i, "opens its page: an app, or an install with steps on the calculator"))
+        elif not host_ok(i.get("download_url")):
+            skipped.append((i, "not on ticalc.org or GitHub"))
+        else:
+            sendable.append(i)
+    return sendable, skipped
+
+
+def size_hint(item):
+    """The bytes the item puts on the calculator when the list says so ("2,969 B program",
+    "23,532 B .tns"), else None (a zip's size says little: download it to know)"""
+    import re
+    m = re.search(r"([\d,]+)\s*B\s+(?:program|\.tns)", item.get("size") or "")
+    return int(m.group(1).replace(",", "")) if m else None
+
+
+def file_place(data, slug):
+    """Where a file's variables go: ("ram" | "archive" | "storage", bytes). A TI file says in
+    its header whether it's archived; the Nspire has one storage."""
+    if slug == "nspire":
+        return "storage", len(data)
+    import calc_files as cf
+    try:
+        entries = cf.read_ti8x(data) if slug == "ti84" else cf.read_ti89(data)
+    except ValueError:
+        return "ram", len(data)
+    return ("archive" if all(e[3] for e in entries) else "ram"), len(data)
+
+
+def item_flags(item, slug, os_version, size=None, ids=()):
+    """Short notes for an item of the Get all list: [(level, text)], level "warn" or "note".
+    ids: the ids of the set's items (a dependency that's in the set is fine)."""
+    out = []
+    flag, _note = needs_old_os(item, slug, os_version)
+    if flag:
+        out.append(("warn", "ASM: needs arTIfiCE on OS %s" % os_version))
+    elif flag is None:
+        out.append(("note", "ASM: needs OS 5.4 or older, or arTIfiCE"))
+    for d in item.get("dependencies") or []:
+        dep = d.split(" ")[0]
+        out.append(("note", "uses %s (in this set)" % dep) if dep in ids else ("warn", "needs %s" % d))
+    sh = item.get("special_handling") or ""
+    low = sh.lower()
+    if any((folder or "").strip("/").lower() == "mylib" for _p, folder in item.get("send") or []):
+        out.append(("note", "library: Refresh Libraries afterwards"))
+    if "install()" in sh:
+        out.append(("note", "run install() on the 89 afterwards"))
+    if "runs it once" in low or "run it once" in low:
+        out.append(("note", "run it once on the calculator to install"))
+    if size is not None and size >= LARGE or size is None and (
+            "large" in low or "check memory" in low or "free ram" in low):
+        out.append(("warn", "large: check the free space"))
+    return out
+
+
+def fit_check(ram, archive, info, slug):
+    """Whether the set fits: (ok, text). ram/archive: the bytes going to each (the Nspire's
+    storage counts as archive). info: the mirror's info (ram_free, storage_free). ok is None
+    when it's not known, or when it fits only if some goes to the archive by hand."""
+    def num(k):
+        v = str((info or {}).get(k, ""))
+        return int(v) if v.isdigit() else None
+    store = num("storage_free")
+    total = ram + archive
+    if slug == "nspire":
+        if store is None:
+            return None, "%s in all; the handheld's free space isn't known" % _h(total)
+        return total <= store, "%s in all, %s free on the handheld" % (_h(total), _h(store))
+    free_ram = num("ram_free")
+    if store is None and free_ram is None:
+        return None, "%s in all (RAM %s, archive %s); the free space isn't known" % (
+            _h(total), _h(ram), _h(archive))
+    ok = (free_ram is None or ram <= free_ram) and (store is None or archive <= store)
+    text = "%s in all: to RAM %s (%s free), to the archive %s (%s free)" % (
+        _h(total), _h(ram), _h(free_ram) if free_ram is not None else "?", _h(archive),
+        _h(store) if store is not None else "?")
+    if not ok and free_ram is not None and store is not None and total <= free_ram + store:
+        ok = None
+        text += ". More than the free RAM: archive some as they arrive, or send fewer"
+    return ok, text
+
+
+def _h(n):
+    if n < 1024:
+        return "%d B" % n
+    if n < 1024 * 1024:
+        return "%.1f KB" % (n / 1024.0)
+    return "%.2f MB" % (n / 1048576.0)
+
+
+def nspire_clashes(files, listing):
+    """The names of files ([(name, folder)]) already on the handheld. listing:
+    {folder: set of lower-case names in it}"""
+    return [name for name, folder in files if name.lower() in listing.get(folder or "/", set())]
+
+
+def save_dir_name(item):
+    """A folder name on the PC for an item (its name, safe on Windows)"""
+    import re
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", item.get("name") or "").strip(" .")
+    return name[:80] or item.get("id") or "item"
+
+
+def default_save_folder():
+    return os.path.join(os.path.expanduser("~"), "Documents", "CalcSuite", "library")
+
+
+def fetch_files(item, progress=None, cache=CACHE):
+    """Downloads (or takes from the cache) and picks the item's files: [(name, bytes, folder)].
+    Falls back on alt_download_url when it's on ticalc.org / GitHub. Raises like download()."""
+    try:
+        return pick_files(download(item["download_url"], progress, cache), item)
+    except Exception:
+        alt = item.get("alt_download_url")
+        if not alt or not host_ok(alt):
+            raise
+        return pick_files(download(alt, progress, cache), item)
+
+
+def cached_files(item, cache=CACHE):
+    """The item's files when its download is in the cache already, else None (no network)"""
+    for url in (item.get("download_url"), item.get("alt_download_url")):
+        if url and host_ok(url):
+            p = cache_path(url, cache)
+            if os.path.isfile(p) and os.path.getsize(p) > 0:
+                try:
+                    return pick_files(p, item)
+                except (OSError, ValueError, zipfile.BadZipFile):
+                    return None
+    return None

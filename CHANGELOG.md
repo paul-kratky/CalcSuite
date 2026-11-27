@@ -29,6 +29,19 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   60-400 frames the CX II never answered the request.
 
 ### Added
+- **Get programs > Get all...:** every program CalcSuite can send by itself for the calculator
+  in one list: its size (downloaded one at a time to measure, into the cache), notes (ASM on
+  OS 5.5+ needs arTIfiCE, libraries, large items), whether it's on the calculator already, and
+  the total against the free RAM/archive. **Send all to the calculator** (asks once before
+  replacing: all, skip those, or cancel) or **Save all to the PC** (default
+  `Documents\CalcSuite\library`, never over a different file); progress per item, failures
+  don't stop the rest, a summary at the end. Page-only and TI items are listed as left out.
+- **Info > Make a PC copy...** (84 Plus CE, 89 Titanium): says what happens, asks, pauses the
+  mirror, runs the ROM dump with a progress bar and Cancel, reconnects, then offers **Open in
+  CEmu** (84) or TiEmu's installer to run yourself (89); **Restore...** when RAM items went
+  missing. **Open my PC copy** opens the newest ROM.
+- Get programs: a send pattern also matches inside a zip's wrapping folder (the 89's Control
+  System Toolbox had nothing to send).
 - **A calculator's tab:** the screen big, **Screenshot**, **Copy screen**, **Paste text**,
   **Record**, **Send program...**, **Keyboard** on/off, a **Last key: F5 → GRAPH** line, and a
   side panel: **Files** (the file manager, with Back up / Restore), **Keys**, **Symbols**,

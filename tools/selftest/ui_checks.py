@@ -203,6 +203,102 @@ def library_checks():
     return f
 
 
+def get_all_checks():
+    """Get programs > Get all: which items, their notes, the totals against the free space"""
+    import calc_files as cf
+    import program_library as pl
+    f = 0
+    items = pl.load()
+    for slug in ("nspire", "ti84", "ti89"):
+        send, skip = pl.get_all_plan(items, slug)
+        mine = pl.for_calc(items, slug)
+        f += check(len(send) + len(skip) == len(mine) and send and all(
+            i["action"] == "download" and pl.host_ok(i["download_url"]) for i in send),
+            "Get all (%s): %d to send, %d left out, nothing lost" % (slug, len(send), len(skip)))
+        f += check(all(i["action"] != "download" for i, _r in skip) and all(r for _i, r in skip),
+                   "Get all (%s): only page and TI items left out, each with a reason" % slug)
+    send84, skip84 = pl.get_all_plan(items, "ti84")
+    ids84 = {i["id"] for i in send84}
+    f += check("ce-khicas" in {i["id"] for i, _r in skip84} and not any(i.get("official") for i in send84),
+               "Get all (ti84): KhiCAS (install steps) and TI's apps aren't sent")
+    fake = [{"id": "a", "calculator": "ti84", "action": "download", "download_url":
+             "https://www.ticalc.org/pub/a.zip", "name": "A"},
+            {"id": "b", "calculator": "ti84", "action": "download", "download_url":
+             "https://example.com/b.zip", "name": "B"},
+            {"id": "c", "calculator": "ti84", "action": "ti_page", "name": "C", "official": True}]
+    s, k = pl.get_all_plan(fake, "ti84")
+    f += check([i["id"] for i in s] == ["a"] and sorted(i["id"] for i, _r in k) == ["b", "c"],
+               "Get all: a download from another site is left out")
+    f += check(pl.size_hint({"size": "71,077 B zip / 2,969 B program"}) == 2969 and
+               pl.size_hint({"size": "568,975 B zip / 23,532 B .tns"}) == 23532 and
+               pl.size_hint({"size": "71,664 B zip"}) is None and pl.size_hint({}) is None,
+               "Get all: sizes from the list only when they're the program's")
+    cesium = next(i for i in send84 if i["id"] == "ce-cesium")
+    fl = pl.item_flags(cesium, "ti84", "5.8.2", 70000, ids84)
+    f += check(("warn", "ASM: needs arTIfiCE on OS 5.8.2") in fl and
+               any("run it once" in t for _l, t in fl), "Get all: ASM on OS 5.8 needs arTIfiCE; Cesium installs once")
+    f += check(not any("ASM" in t for _l, t in pl.item_flags(cesium, "ti84", "5.4.0", 70000, ids84)),
+               "Get all: no ASM flag on OS 5.4")
+    f += check(any(l == "note" and "ASM" in t for l, t in pl.item_flags(cesium, "ti84", None, None, ids84)),
+               "Get all: an unknown OS gets a note, not a warning")
+    cedit = next(i for i in send84 if i["id"] == "ce-cedit")
+    f += check(("note", "uses ce-clibs (in this set)") in pl.item_flags(cedit, "ti84", "5.4.0", 1, ids84)
+               and ("warn", "needs ce-clibs (likely)") in pl.item_flags(cedit, "ti84", "5.4.0", 1, set()),
+               "Get all: a dependency in the set is fine, one outside it is a warning")
+    lib = next(i for i in pl.get_all_plan(items, "nspire")[0] if i["id"] == "nsp-mathlib")
+    f += check(any("Refresh Libraries" in t for _l, t in pl.item_flags(lib, "nspire", None, 10)),
+               "Get all: Nspire libraries say Refresh Libraries")
+    f += check(any(t.startswith("large") for _l, t in pl.item_flags({}, "ti89", None, 600 * 1024)) and
+               not pl.item_flags({}, "ti89", None, 10 * 1024), "Get all: a large item is flagged")
+    big = {"special_handling": "Large: check memory first."}
+    f += check(pl.item_flags(big, "ti89", None, None) and not pl.item_flags(big, "ti89", None, 20000),
+               "Get all: the list's 'large' counts until the item is measured")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("cst-1.3/cst-1.3.89g/cst.89p", b"p")
+        z.writestr("cst-1.3/cst-1.3-tools/kerno31/KerNO.89z", b"z")
+    got = pl.pick_files(buf.getvalue(), {"calculator": "ti89", "send": [["cst-1.3.89g/*.89?", None]]})
+    f += check([n for n, _d, _f in got] == ["cst.89p"], "Program library: a pattern matches inside a wrapping folder")
+    prog = cf.ti8x_bytes([(0x05, b"ZZA", 0, False, b"\x01" * 100)])
+    arch = cf.ti8x_bytes([(0x15, b"ZZB", 0, True, b"\x02" * 300)])
+    f += check(pl.file_place(prog, "ti84") == ("ram", len(prog)) and
+               pl.file_place(arch, "ti84") == ("archive", len(arch)) and
+               pl.file_place(cf.ti89_bytes(0x12, b"main", b"zzc", True, b"\x00" * 40), "ti89")[0] == "archive"
+               and pl.file_place(b"x" * 9, "nspire") == ("storage", 9),
+               "Get all: a TI file's header says RAM or archive")
+    info = {"ram_free": "150000", "storage_free": "3000000"}
+    f += check(pl.fit_check(100000, 2000000, info, "ti84")[0] is True and
+               pl.fit_check(200000, 100000, info, "ti84")[0] is None and
+               pl.fit_check(100000, 4000000, info, "ti84")[0] is False and
+               pl.fit_check(1, 1, {}, "ti84")[0] is None,
+               "Get all: RAM and archive totals against the free space")
+    f += check(pl.fit_check(0, 900, {"storage_free": "1000"}, "nspire")[0] is True and
+               pl.fit_check(0, 1100, {"storage_free": "1000"}, "nspire")[0] is False,
+               "Get all: the Nspire's storage")
+    f += check(pl.nspire_clashes([("Bode.tns", "/"), ("lib.tns", "/MyLib"), ("x.tns", "/")],
+                                 {"/": {"bode.tns"}, "/MyLib": set()}) == ["Bode.tns"],
+               "Get all: names already on the Nspire (any case)")
+    f += check(pl.save_dir_name({"name": 'KhiCAS (χCAS): "a/b"?'}) == "KhiCAS (χCAS)_ _a_b__" and
+               pl.save_dir_name({"name": " . ", "id": "x"}) == "x", "Get all: safe folder names on the PC")
+    tmp = tempfile.mkdtemp(prefix="calcsuite_getall_")
+    try:
+        item = {"calculator": "ti84", "download_url": "https://www.ticalc.org/pub/zz.zip",
+                "send": [["*.8xp", None]]}
+        f += check(pl.cached_files(item, tmp) is None, "Get all: nothing cached, no network")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("ZZA.8xp", prog)
+            z.writestr("readme.txt", "x")
+        with open(pl.cache_path(item["download_url"], tmp), "wb") as fh:
+            fh.write(buf.getvalue())
+        got = pl.cached_files(item, tmp)
+        f += check(got and [(n, d) for n, d, _f in got] == [("ZZA.8xp", prog)],
+                   "Get all: a cached download gives its files without the network")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return f
+
+
 def strip_checks():
     import key_strip as ks
     f = 0
@@ -255,7 +351,8 @@ def migrate_checks():
 
 def main():
     f = 0
-    for fn in (markdown_checks, key_checks, click_checks, library_checks, strip_checks, migrate_checks):
+    for fn in (markdown_checks, key_checks, click_checks, library_checks, get_all_checks, strip_checks,
+               migrate_checks):
         f += fn()
     return f
 
