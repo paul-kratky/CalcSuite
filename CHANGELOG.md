@@ -17,6 +17,8 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   - **Send program:** pick a `.py` (checked and converted first) or a `.tns`.
   - **Screenshot:** a PNG in `captures/` (the app: `Documents\Nspire Mirror\captures`).
   - It connects by itself when the handheld is plugged in, and again after the cable was out.
+  - One window at a time: a second copy says so and closes (two would take the handheld
+    from each other and both go black).
 - **`tools/screenshot.py`:** the handheld's screen as a PNG (`--scale 3` to enlarge).
 - **`nspire-cli`:** `shot FILE.ppm`, `key HEX`, `keys HEX HEX ...`, and `serve` (one connection,
   commands on stdin), which the mirror and the sender use.

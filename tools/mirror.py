@@ -303,7 +303,24 @@ class Mirror(object):
         self.root.destroy()
 
 
+def already_running():
+    """One window at a time: a second one would take the handheld away from the first (each
+    new connection restarts the handheld's handshake), and both would go black"""
+    if os.name != "nt":
+        return False
+    import ctypes
+    global _mutex  # Kept for the life of the process
+    _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "NspireMirror.single")
+    return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+
+
 def main():
+    if already_running():
+        from tkinter import messagebox
+        r = tk.Tk()
+        r.withdraw()
+        messagebox.showinfo("Nspire Mirror", "Nspire Mirror is already open.")
+        return
     root = tk.Tk()
     Mirror(root)
     root.mainloop()
