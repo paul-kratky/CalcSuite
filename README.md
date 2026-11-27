@@ -9,13 +9,20 @@ paste text into it, screenshots, recordings, and programs sent over USB. For the
 1. **Download** the app (the `.exe`) from the
    [latest release](https://github.com/paul-kratky/CalcSuite/releases/latest). It is one file:
    nothing to install, no Python needed.
-2. **TI-84 Plus CE or TI-89 Titanium: give it a driver, once.** (A TI-Nspire CX II needs
-   nothing; skip this step.) These calculators don't tell Windows which driver to use, so they
-   show up with none. With the calculator plugged in and switched on:
+2. **Give each calculator the WinUSB driver, once.** Windows needs it to let the app talk to
+   the calculator, and TI's calculators don't bring it themselves. With the calculator plugged
+   in and switched on:
    1. Download and run [Zadig](https://zadig.akeo.ie/).
    2. **Options > List All Devices**.
-   3. Pick the calculator: **TI-84 Plus CE** (USB ID `0451 E008`) or **TI-89 Titanium** (USB ID
-      `0451 E004`). The Driver box says `(NONE)`.
+   3. Pick the calculator:
+
+      | Calculator | In Zadig's list | USB ID |
+      | --- | --- | --- |
+      | TI-Nspire CX II (CAS) | TI-Nspire(tm) CX II Handheld | `0451 E022` |
+      | TI-84 Plus CE | TI-84 Plus CE | `0451 E008` |
+      | TI-89 Titanium | TI-89 Titanium | `0451 E004` |
+
+      If its Driver box already says `WinUSB`, it's done: skip to step 3.
    4. Choose **WinUSB** and press **Install Driver**. It takes a minute or two.
 
    ![Zadig with the TI-89 Titanium selected, driver (NONE), WinUSB chosen](docs/img/zadig-ti89t.png)
@@ -59,8 +66,8 @@ Keys that aren't letters, digits or symbols:
 | Problem | Fix |
 | --- | --- |
 | The window says it's looking for the calculator | Switch it on (they sleep after a few minutes), use a data cable (some only charge), close TI's software, try another USB port. |
-| TI-84 Plus CE / TI-89 Titanium never connects | The Zadig step: in Zadig, its Driver box must say WinUSB. |
-| TI's own software no longer sees the 84 / 89 | That's the WinUSB driver. To undo it: Device Manager > the calculator > Uninstall device, with "delete the driver" ticked. |
+| A calculator never connects | The Zadig step: in Zadig, its Driver box must say WinUSB. |
+| TI's own software no longer sees the calculator | That's the WinUSB driver. To undo it: Device Manager > the calculator > Uninstall device, with "delete the driver" ticked. |
 | A key does nothing | Some special keys aren't mapped yet: [open an issue](https://github.com/paul-kratky/CalcSuite/issues) with the key and the calculator. |
 
 ## Writing programs
