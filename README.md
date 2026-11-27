@@ -16,6 +16,25 @@ programs with a button, takes screenshots, and passes your keyboard and mouse wh
 handheld. No terminal, no Python needed. From the source: double-click `Nspire Mirror.bat`.
 What's new: [CHANGELOG.md](CHANGELOG.md).
 
+## TI-84 Plus CE (new)
+
+The mirror app also opens a window for a TI-84 Plus CE: live screen (about 1 frame a second),
+your keyboard as its keys, screenshots and recordings. Sending programs to it isn't built yet.
+
+**One-time driver step (Windows).** The 84 Plus CE doesn't tell Windows which driver to use,
+so it shows up with no driver. Give it the WinUSB driver with [Zadig](https://zadig.akeo.ie/):
+
+1. Plug the calculator in and switch it on.
+2. Run Zadig. Options > **List All Devices**.
+3. Pick **TI-84 Plus CE** (USB ID `0451 E008`).
+4. Choose **WinUSB** and press **Install Driver**.
+
+![Zadig with the TI-84 Plus CE selected and WinUSB chosen](docs/img/zadig-ti84ce.png)
+
+With WinUSB attached, TI Connect CE may no longer see the calculator. To undo it: Device
+Manager > the calculator > Uninstall device, with "delete the driver" ticked. The TI-Nspire
+CX II needs no driver step.
+
 **Licence:** MIT (`LICENSE`), except `tools/nspire_cli/` and the `nspire-cli.exe` built from it,
 which are GPL-3.0-or-later because they link libnspire; `third_party/` projects keep their own
 licences. Not affiliated with Texas Instruments.

@@ -20,6 +20,7 @@ import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CLI = os.path.join(HERE, "bin", "nspire-cli.exe")
+CLI_84 = os.path.join(HERE, "bin", "ti84-cli.exe")  # The TI-84 Plus CE family: same commands
 CONNECT_TIMEOUT_S = 25
 
 REPLUG = ("The handheld didn't answer.\n"
@@ -35,13 +36,14 @@ class LinkError(Exception):
 
 
 class Session(object):
-    def __init__(self, connect_timeout=CONNECT_TIMEOUT_S):
-        if not os.path.isfile(CLI):
-            raise LinkError(1, ["ERR %s is missing: run python -I tools/build_tools.py" % CLI])
+    def __init__(self, connect_timeout=CONNECT_TIMEOUT_S, cli=None):
+        cli = cli or CLI
+        if not os.path.isfile(cli):
+            raise LinkError(1, ["ERR %s is missing: run python -I tools/build_tools.py" % cli])
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        self.p = subprocess.Popen([CLI, "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        self.p = subprocess.Popen([cli, "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True, bufsize=1,
-                                  cwd=os.path.dirname(CLI), creationflags=flags)
+                                  cwd=os.path.dirname(cli), creationflags=flags)
         self.lock = threading.Lock()
         # The handshake: a handheld that already used its connection never answers, so
         # don't wait libnspire's 10 x 60 s
@@ -145,3 +147,16 @@ if __name__ == "__main__":
         print("\n".join(e.lines))
         print(REPLUG)
         sys.exit(e.code)
+
+
+def usb_calculators():
+    """The USB product ids of the TI calculators plugged in now, e.g. {0xe022, 0xe008}.
+    Only lists USB devices: it opens no link."""
+    import re
+    try:
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        p = subprocess.run([CLI, "devices"], capture_output=True, text=True, timeout=15,
+                           cwd=os.path.dirname(CLI), creationflags=flags)
+    except (OSError, subprocess.TimeoutExpired):
+        return set()
+    return set(int(m, 16) for m in re.findall(r"pid=([0-9a-f]{4})", p.stdout))

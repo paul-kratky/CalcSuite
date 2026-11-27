@@ -119,6 +119,18 @@ def build_cli(tc, force):
          "-Wl,-Bdynamic", "-lws2_32", "-o", out], tc)
 
 
+def build_ti84(tc, force):
+    out = os.path.join(BIN, "ti84-cli.exe")
+    if os.path.isfile(out) and not force:
+        print("ti84-cli.exe: already built")
+        return
+    print("Building ti84-cli.exe")
+    usb = find_libusb()
+    run([os.path.join(tc, "gcc.exe"), "-std=gnu11", "-Wall", "-Wextra", "-O2",
+         "-I", os.path.join(usb, "include"), os.path.join(HERE, "ti84_cli", "ti84_cli.c"),
+         os.path.join(usb, "MinGW64", "static", "libusb-1.0.dll.a"), "-o", out], tc)
+
+
 def main(argv):
     force = "--force" in argv
     os.makedirs(BIN, exist_ok=True)
@@ -126,6 +138,7 @@ def main(argv):
     print("Toolchain: " + tc)
     build_luna(tc, force)
     build_cli(tc, force)
+    build_ti84(tc, force)
     print("Done: " + BIN)
     return 0
 

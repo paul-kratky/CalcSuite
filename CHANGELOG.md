@@ -4,6 +4,21 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 ## [Unreleased]
 
+### Added
+- **TI-84 Plus CE in the mirror app:** its own window with the live screen (about 1 frame a
+  second: the calculator sends 150 KB a picture over full-speed USB), the PC keyboard as its
+  keys (F1-F5 are Y= WINDOW ZOOM TRACE GRAPH, F6 MODE, F7 MATH, F8 APPS, F9 PRGM, F10 VARS,
+  F11 STAT, F12 QUIT, Esc CLEAR), screenshots and recordings. It needs the WinUSB driver once
+  (README, with Zadig). Tested on a TI-84 Plus CE: screenshot, typing `1+2` Enter.
+- **`ti84-cli`:** our own small link for TI's DUSB protocol on libusb (info, shot, key, serve).
+- **Record:** a button in each window. Saves a GIF (built in), and an MP4 too when ffmpeg is
+  installed. Up to 3 minutes; a still screen costs nothing.
+- **One window per calculator,** opened when it is plugged in, several at once.
+
+### Not built yet
+- Sending programs to the TI-84 Plus CE (TI-Basic text to `.8xp`).
+- The TI-84 Plus CE window with the Nspire connected at the same time is untested.
+
 ## [1.1.0] - 2026-11-26
 
 ### Added

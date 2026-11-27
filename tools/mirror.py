@@ -1,24 +1,26 @@
-"""Nspire Mirror: the handheld's screen in a window, with your keyboard as its keypad.
+"""Calc Mirror: TI calculators' screens in windows, with your keyboard as their keypad.
 
     python -I tools/mirror.py            (or double-click "Nspire Mirror.bat")
 
-- The picture refreshes as fast as the handheld sends it (a few frames a second).
-- Type on the PC keyboard: letters, digits, + - * / ^ ( ) = , . and Enter, Esc, Tab,
-  Backspace and the arrows go to the handheld. Ctrl+letter is the handheld's ctrl+letter.
-  F1 Home, F2 Menu, F3 Doc, F4 Catalog, F5 Var.
-- Mouse over the picture: the wheel is up/down (Shift+wheel left/right), a click is the
-  centre click key, a double click Enter, a right click the context menu (ctrl+menu), a
-  middle click Menu. The handheld's pointer itself can't be moved from the PC, so a few
-  spots are shortcuts: a click on the X (top right) closes the document (ctrl+W), on the
-  left page arrow goes to the previous page, on the page tabs to the next page.
-- Buttons: Screenshot (a PNG in captures/), Send program (a .py or .tns from the PC),
-  and Keyboard on/off.
+One window opens for each calculator that is plugged in (and for one plugged in later):
+a TI-Nspire CX II, a TI-84 Plus CE. Each window has:
 
-The window connects by itself when the handheld is plugged in and switched on, and again
-after the cable has been out.
+- the live picture (the Nspire about 10 frames a second, the 84 Plus CE about 1);
+- the keyboard: what you type goes to that calculator (see the key list in its status line's
+  tooltip row, or below);
+- Screenshot (a PNG in captures/), Record (a GIF, and an MP4 when ffmpeg is installed),
+  Send program (Nspire: a .py or .tns), Reconnect, and Keyboard on/off.
 
-Key presses use the handheld's key service with codes captured on early Nspire models; a
-CX II on a current OS may ignore some or all of them (the status line says what was sent).
+TI-Nspire keys: letters, digits, symbols, Enter, Esc, Tab, Backspace, arrows; Ctrl+letter;
+F1 Home, F2 Menu, F3 Doc, F4 Catalog, F5 Var. Mouse: wheel = up/down (Shift: left/right),
+click = centre click, double click = Enter, right click = context menu, middle click = Menu;
+a click on the X closes the document, on the page arrow/tabs changes page (the pointer itself
+can't be moved from the PC).
+
+TI-84 Plus CE keys: letters (typed lower case is the calculator's capital), digits, symbols,
+Enter, arrows, Backspace (left + DEL), Delete = DEL, Insert = INS, Esc = CLEAR;
+F1 Y=, F2 WINDOW, F3 ZOOM, F4 TRACE, F5 GRAPH, F6 MODE, F7 MATH, F8 APPS, F9 PRGM, F10 VARS,
+F11 STAT, F12 QUIT. Mouse wheel = up/down.
 """
 
 import os
@@ -32,8 +34,11 @@ from tkinter import filedialog
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "nspire_cli"))
+sys.path.insert(0, os.path.join(HERE, "ti84_cli"))
 import nspire_link  # noqa: E402
 import nspire_keys  # noqa: E402
+import ti84_keys  # noqa: E402
+import recorder  # noqa: E402
 
 import check_nspire  # noqa: E402
 import py2tns  # noqa: E402
@@ -48,74 +53,139 @@ else:
     KIT = os.path.dirname(HERE)
 SCALE = 2
 
-# Tk key names -> handheld key names (nspire_keys.NAMED)
-TK_KEYS = {
-    "Return": "enter", "KP_Enter": "enter", "Escape": "esc", "Tab": "tab",
-    "BackSpace": "backspace", "Left": "left", "Right": "right", "Up": "up", "Down": "down",
-    "F1": "home", "F2": "menu", "F3": "doc", "F4": "catalog", "F5": "var",
-}
+
+class Nspire(object):
+    """The TI-Nspire CX II: what differs from the other calculators"""
+    pid = 0xE022
+    title = "TI-Nspire"
+    slug = "nspire"
+    cli = nspire_link.CLI
+    can_send = True
+    key_fmt = "%06x"
+    tk_keys = {
+        "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["esc"], "Tab": ["tab"],
+        "BackSpace": ["backspace"], "Left": ["left"], "Right": ["right"], "Up": ["up"],
+        "Down": ["down"], "F1": ["home"], "F2": ["menu"], "F3": ["doc"], "F4": ["catalog"],
+        "F5": ["var"],
+    }
+    wheel = ("up", "down", "left", "right")
+    double_click, right_click, middle_click = "enter", "ctrl+menu", "menu"
+
+    @staticmethod
+    def code_for(name):
+        return nspire_keys.code_for(name)
+
+    @staticmethod
+    def click(x, y):
+        """The pointer can't be placed: known spots send the key that does the same job"""
+        if y < 24 and x >= 292:
+            return "ctrl+w"      # The X: close the document
+        if y < 24 and x < 14:
+            return "ctrl+left"   # The left page arrow
+        if y < 24 and x < 100:
+            return "ctrl+right"  # The page tabs and the right arrow: next page
+        return "click"
+
+
+class Ti84(object):
+    """The TI-84 Plus CE family"""
+    pid = 0xE008
+    title = "TI-84 Plus CE"
+    slug = "ti84"
+    cli = nspire_link.CLI_84
+    can_send = False  # Sending programs (TI-Basic to .8xp) isn't built yet
+    key_fmt = "%x"
+    tk_keys = {
+        "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["clear"],
+        "BackSpace": ["left", "del"], "Delete": ["del"], "Insert": ["ins"],
+        "Left": ["left"], "Right": ["right"], "Up": ["up"], "Down": ["down"],
+        "F1": ["y="], "F2": ["window"], "F3": ["zoom"], "F4": ["trace"], "F5": ["graph"],
+        "F6": ["mode"], "F7": ["math"], "F8": ["apps"], "F9": ["prgm"], "F10": ["vars"],
+        "F11": ["stat"], "F12": ["quit"],
+    }
+    wheel = ("up", "down", "left", "right")
+    double_click, right_click, middle_click = "enter", None, None
+
+    @staticmethod
+    def code_for(name):
+        return ti84_keys.code_for(name)
+
+    @staticmethod
+    def click(x, y):
+        return None
+
+
+CALCS = (Nspire, Ti84)
 
 
 class Mirror(object):
-    def __init__(self, root):
-        self.root = root
-        root.title("Nspire Mirror")
-        root.configure(bg="#000000")
+    def __init__(self, win, calc, on_close):
+        self.root = win
+        self.calc = calc
+        self.on_close = on_close
+        win.title(calc.title + " Mirror")
+        win.configure(bg="#000000")
         self.session = None
         self.jobs = []          # Commands for the link thread (key presses, uploads)
         self.jobs_lock = threading.Lock()
         self.running = True
         self.want_reconnect = False
-        self.keys_on = tk.BooleanVar(value=True)
-        self.status = tk.StringVar(value="Connecting...")
+        self.keys_on = tk.BooleanVar(master=win, value=True)
+        self.status = tk.StringVar(master=win, value="Connecting...")
         self.photo = None
-        self.frame_path = os.path.join(tempfile.gettempdir(), "nspire_mirror_%d.ppm" % os.getpid())
+        self.blank = tk.PhotoImage(master=win, width=320 * SCALE, height=240 * SCALE)
+        self.frame_path = os.path.join(tempfile.gettempdir(),
+                                       "calc_mirror_%s_%d.ppm" % (calc.slug, os.getpid()))
         self.frames = 0
         self.t0 = time.time()
+        self.rec = None         # A recorder.Recorder while recording
+        self.rec_lock = threading.Lock()
 
-        self.canvas = tk.Label(root, bg="#000000", width=320 * SCALE, height=240 * SCALE,
-                               image=tk.PhotoImage(width=320 * SCALE, height=240 * SCALE))
+        self.canvas = tk.Label(win, bg="#000000", width=320 * SCALE, height=240 * SCALE,
+                               image=self.blank)
         self.canvas.pack(padx=12, pady=(12, 6))
-        bar = tk.Frame(root, bg="#000000")
+        bar = tk.Frame(win, bg="#000000")
         bar.pack(fill="x", padx=12)
         style = dict(bg="#111113", fg="#ece9e2", activebackground="#1c1c1f",
                      activeforeground="#ffffff", relief="flat", padx=10, pady=6, bd=0)
         tk.Button(bar, text="Screenshot", command=self.screenshot, **style).pack(side="left")
-        tk.Button(bar, text="Send program...", command=self.send_program, **style).pack(
-            side="left", padx=6)
-        tk.Button(bar, text="Reconnect", command=self.reconnect, **style).pack(side="left")
+        self.rec_btn = tk.Button(bar, text="Record", command=self.toggle_record, **style)
+        self.rec_btn.pack(side="left", padx=(6, 0))
+        if calc.can_send:
+            tk.Button(bar, text="Send program...", command=self.send_program, **style).pack(
+                side="left", padx=(6, 0))
+        tk.Button(bar, text="Reconnect", command=self.reconnect, **style).pack(side="left", padx=6)
         tk.Checkbutton(bar, text="Keyboard", variable=self.keys_on, bg="#000000", fg="#ece9e2",
                        selectcolor="#111113", activebackground="#000000",
                        activeforeground="#ffffff").pack(side="right")
-        tk.Label(root, textvariable=self.status, bg="#000000", fg="#9a968d", anchor="w",
+        tk.Label(win, textvariable=self.status, bg="#000000", fg="#9a968d", anchor="w",
                  justify="left", wraplength=320 * SCALE).pack(fill="x", padx=12, pady=(6, 10))
 
-        root.bind("<Key>", self.on_key)
-        # The mouse, as keys (the link has no way to place the handheld's pointer):
-        # wheel = up/down, Shift+wheel = left/right, left click = the centre click key,
-        # right click = the context menu (ctrl+menu), middle click = menu
+        win.bind("<Key>", self.on_key)
         self.canvas.bind("<MouseWheel>", self.on_wheel)
         self.canvas.bind("<Button-1>", self.on_click)
-        self.canvas.bind("<Double-Button-1>", lambda e: self.send_key("enter"))
-        self.canvas.bind("<Button-3>", lambda e: self.send_key("ctrl+menu"))
-        self.canvas.bind("<Button-2>", lambda e: self.send_key("menu"))
-        root.protocol("WM_DELETE_WINDOW", self.quit)
+        for event, name in (("<Double-Button-1>", calc.double_click),
+                            ("<Button-3>", calc.right_click), ("<Button-2>", calc.middle_click)):
+            if name:
+                self.canvas.bind(event, lambda e, n=name: self.send_key(n))
+        win.protocol("WM_DELETE_WINDOW", self.quit)
         threading.Thread(target=self.link_loop, daemon=True).start()
-        self.root.after(100, self.show_frame)
+        self.root.after(1000, self.tick)
 
-    # ---- The link thread: the only one that talks to the handheld ----
+    # ---- The link thread: the only one that talks to the calculator ----
     def link_loop(self):
         while self.running:
             if self.session is None:
                 try:
-                    self.session = nspire_link.Session()
+                    self.session = nspire_link.Session(cli=self.calc.cli)
                     code, lines = self.session.cmd("info")
                     d = nspire_link.info_dict(lines)
-                    self.set_status("Connected: %s, OS %s" % (d.get("name", "?"), d.get("os", "?")))
+                    name = d.get("name", self.calc.title).replace("_", " ")
+                    self.set_status("Connected: %s%s" % (name, ", OS %s" % d["os"] if "os" in d else ""))
                 except nspire_link.LinkError:
                     self.session = None
-                    self.set_status("Looking for the handheld... (plugged in, switched on, "
-                                    "TI's own software closed)")
+                    self.set_status("Looking for the %s... (plugged in, switched on, TI's own "
+                                    "software closed)" % self.calc.title)
                     self.wait_reconnect(2.0)  # Tries again by itself
                     continue
             with self.jobs_lock:
@@ -144,7 +214,10 @@ class Mirror(object):
                 try:
                     os.replace(tmp, self.frame_path)
                     self.frames += 1
-                    self.root.after(0, self.draw_frame)  # Shown at once, not at the next tick
+                    with self.rec_lock:
+                        if self.rec is not None:
+                            self.rec.add(self.frame_path)
+                    self.root.after(0, self.draw_frame)  # Shown at once
                 except OSError:
                     pass
             elif self.link_dead():
@@ -179,13 +252,19 @@ class Mirror(object):
             self.jobs.append((line, note))
 
     def set_status(self, text):
-        self.root.after(0, self.status.set, text)
+        if self.running:
+            try:
+                self.root.after(0, self.status.set, text)
+            except (tk.TclError, RuntimeError):
+                pass
 
     # ---- The window ----
     def draw_frame(self):
         if self.running and os.path.isfile(self.frame_path):
             try:
-                img = tk.PhotoImage(file=self.frame_path)
+                img = tk.PhotoImage(master=self.root, file=self.frame_path)
+                if img.width() < 320:  # The monochrome 84's 96 x 64 screen
+                    img = img.zoom(3, 3)
                 if SCALE > 1:
                     img = img.zoom(SCALE, SCALE)
                 self.photo = img
@@ -193,84 +272,118 @@ class Mirror(object):
             except tk.TclError:
                 pass  # Caught mid-write: the next frame has it
 
-    def show_frame(self):
+    def tick(self):
         if not self.running:
             return
         dt = time.time() - self.t0
-        if dt >= 5 and self.frames:
-            self.root.title("Nspire Mirror  -  %.1f frames/s" % (self.frames / dt))
+        title = self.calc.title + " Mirror"
+        if dt >= 5:
+            if self.frames:
+                self.fps = self.frames / dt
             self.frames, self.t0 = 0, time.time()
-        self.root.after(1000, self.show_frame)
+        if getattr(self, "fps", 0):
+            title += "  -  %.1f frames/s" % self.fps
+        with self.rec_lock:
+            if self.rec is not None:
+                secs = self.rec.seconds()
+                title += "  -  REC %d:%02d" % (secs // 60, secs % 60)
+                if secs >= recorder.MAX_SECONDS:
+                    self.root.after(0, self.toggle_record)
+        self.root.title(title)
+        self.root.after(1000, self.tick)
+
+    def key_names(self, ev):
+        """The calculator key names for a PC key press"""
+        names = self.calc.tk_keys.get(ev.keysym)
+        if names is None and ev.char and ev.char.isprintable():
+            names = [ev.char]
+        if ev.state & 0x4:  # Ctrl
+            key = ev.keysym.lower() if len(ev.keysym) == 1 else (names[0] if names else "")
+            names = ["ctrl+" + key]
+        return names or []
 
     def on_key(self, ev):
         if not self.keys_on.get() or self.session is None:
             return
-        ctrl = bool(ev.state & 0x4)
-        name = TK_KEYS.get(ev.keysym)
-        if name is None and ev.char and ev.char.isprintable():
-            name = ev.char
-        if ctrl:
-            key = ev.keysym.lower() if len(ev.keysym) == 1 else (name or "")
-            name = "ctrl+" + key
-        if not name:
-            return
-        code = nspire_keys.code_for(name)
-        if code is None:
-            self.set_status("No handheld key for %r" % name)
-            return
-        self.queue("key %06x" % code, "Key %s" % name)
+        for name in self.key_names(ev):
+            code = self.calc.code_for(name)
+            if code is None:
+                self.set_status("No %s key for %r" % (self.calc.title, name))
+                return
+            self.queue("key " + self.calc.key_fmt % code, "Key %s" % name)
 
     def send_key(self, name):
-        if not self.keys_on.get() or self.session is None:
+        if not self.keys_on.get() or self.session is None or not name:
             return
-        code = nspire_keys.code_for(name)
+        code = self.calc.code_for(name)
         if code is not None:
-            self.queue("key %06x" % code, "Key %s" % name)
+            self.queue("key " + self.calc.key_fmt % code, "Key %s" % name)
 
     def on_click(self, ev):
-        """The pointer can't be placed, so known spots of the screen send the key that does
-        the same job; anywhere else is the centre click key"""
         ox = (self.canvas.winfo_width() - 320 * SCALE) // 2
         oy = (self.canvas.winfo_height() - 240 * SCALE) // 2
-        x, y = (ev.x - ox) // SCALE, (ev.y - oy) // SCALE
-        if y < 24 and x >= 292:
-            self.send_key("ctrl+w")      # The X: close the document
-        elif y < 24 and x < 14:
-            self.send_key("ctrl+left")   # The left page arrow
-        elif y < 24 and x < 100:
-            self.send_key("ctrl+right")  # The page tabs and the right arrow: next page
-        else:
-            self.send_key("click")
+        self.send_key(self.calc.click((ev.x - ox) // SCALE, (ev.y - oy) // SCALE))
 
     def on_wheel(self, ev):
         if not self.keys_on.get() or self.session is None:
             return
         steps = max(1, min(5, abs(ev.delta) // 120))
+        up, down, left, right = self.calc.wheel
         if ev.state & 0x1:  # Shift: sideways
-            name = "left" if ev.delta > 0 else "right"
+            name = left if ev.delta > 0 else right
         else:
-            name = "up" if ev.delta > 0 else "down"
+            name = up if ev.delta > 0 else down
         with self.jobs_lock:  # A spinning wheel never queues more than a screenful
             if len(self.jobs) > 12:
                 return
         for _ in range(steps):
             self.send_key(name)
 
+    def capture_stem(self):
+        os.makedirs(os.path.join(KIT, "captures"), exist_ok=True)
+        return os.path.join(KIT, "captures", time.strftime(self.calc.slug + "-%Y%m%d-%H%M%S"))
+
     def screenshot(self):
         if not os.path.isfile(self.frame_path):
             self.set_status("No picture yet")
             return
-        os.makedirs(os.path.join(KIT, "captures"), exist_ok=True)
-        out = os.path.join(KIT, "captures", time.strftime("nspire-%Y%m%d-%H%M%S.png"))
+        out = self.capture_stem() + ".png"
         try:
             nspire_link.ppm_to_png(self.frame_path, out, 2)
             self.set_status("Saved %s" % out)
         except (OSError, ValueError) as e:
             self.set_status("Couldn't save: %s" % e)
 
+    def toggle_record(self):
+        with self.rec_lock:
+            rec, self.rec = self.rec, (None if self.rec is not None else recorder.Recorder(SCALE))
+            if rec is None and os.path.isfile(self.frame_path):
+                self.rec.add(self.frame_path)  # The recording starts with what's on screen
+        if rec is None:
+            self.rec_btn.configure(text="Stop", fg="#ff6a5e")
+            self.set_status("Recording (up to %d s)... press Stop to save" % recorder.MAX_SECONDS)
+            return
+        self.rec_btn.configure(text="Record", fg="#ece9e2")
+        if not rec.frames:
+            self.set_status("Nothing was recorded")
+            return
+        self.set_status("Saving the recording...")
+        stem = self.capture_stem()
+
+        def work():
+            try:
+                paths = rec.save(stem)
+                self.set_status("Saved " + " and ".join(os.path.basename(p) for p in paths) +
+                                " in " + os.path.dirname(stem))
+            except Exception as e:  # A recording must never take the window down
+                self.set_status("Couldn't save the recording: %s" % e)
+
+        threading.Thread(target=work, daemon=True).start()
+
     def send_program(self):
         path = filedialog.askopenfilename(
-            title="Send to the handheld", initialdir=os.path.join(KIT, "programs"),
+            parent=self.root, title="Send to the handheld",
+            initialdir=os.path.join(KIT, "programs"),
             filetypes=[("Python programs and TI documents", "*.py *.tns"), ("All files", "*.*")])
         if not path:
             return
@@ -301,11 +414,56 @@ class Mirror(object):
         except OSError:
             pass
         self.root.destroy()
+        self.on_close(self)
+
+
+class App(object):
+    """One window per calculator; watches USB for calculators plugged in later"""
+
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.withdraw()  # Only the calculators' windows show
+        self.windows = {}     # pid -> Mirror
+        self.closed = set()   # Calculators whose window the user closed: not reopened
+        self.found = set()
+        self.first_scan = True
+        threading.Thread(target=self.scan_loop, daemon=True).start()
+        self.root.after(300, self.sync)
+
+    def scan_loop(self):
+        while True:
+            self.found = nspire_link.usb_calculators()
+            self.scanned = True
+            time.sleep(3)
+
+    def sync(self):
+        if getattr(self, "scanned", False):
+            present = [c for c in CALCS if c.pid in self.found]
+            if self.first_scan and not present:
+                present = [Nspire]  # Nothing plugged in yet: a window that waits
+            self.first_scan = False
+            for calc in present:
+                if calc.pid not in self.windows and calc.pid not in self.closed:
+                    win = tk.Toplevel(self.root)
+                    self.windows[calc.pid] = Mirror(win, calc, self.closed_window)
+            for pid in list(self.closed):
+                if pid not in self.found:
+                    self.closed.discard(pid)  # Unplugged: plugging it in again opens it
+        self.root.after(1000, self.sync)
+
+    def closed_window(self, mirror):
+        self.windows.pop(mirror.calc.pid, None)
+        self.closed.add(mirror.calc.pid)
+        if not self.windows:
+            self.root.destroy()
+
+    def run(self):
+        self.root.mainloop()
 
 
 def already_running():
-    """One window at a time: a second one would take the handheld away from the first (each
-    new connection restarts the handheld's handshake), and both would go black"""
+    """One copy at a time: a second one would take the calculators away from the first, and
+    both would go black"""
     if os.name != "nt":
         return False
     import ctypes
@@ -319,11 +477,9 @@ def main():
         from tkinter import messagebox
         r = tk.Tk()
         r.withdraw()
-        messagebox.showinfo("Nspire Mirror", "Nspire Mirror is already open.")
+        messagebox.showinfo("Calc Mirror", "The mirror is already open.")
         return
-    root = tk.Tk()
-    Mirror(root)
-    root.mainloop()
+    App().run()
 
 
 if __name__ == "__main__":
