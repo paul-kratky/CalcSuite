@@ -9,7 +9,8 @@ a TI-Nspire CX II, a TI-84 Plus CE, a TI-89 Titanium. Each window has:
 - the keyboard: what you type goes to that calculator (see the key list in its status line's
   tooltip row, or below);
 - Screenshot (a PNG in captures/), Record (a GIF, and an MP4 when ffmpeg is installed),
-  Send program (Nspire: a .py or .tns), Files... (the calculator manager, calc_manager.py:
+  Send program (Nspire: a .py or .tns; 84 and 89: TI-Basic text or a TI file, send_ti.py),
+  Files... (the calculator manager, calc_manager.py:
   what's on it, downloads, uploads, About this calculator with the OS update check),
   Reconnect, and Keyboard on/off.
 
@@ -24,7 +25,7 @@ Enter, arrows, Backspace (left + DEL), Delete = DEL, Insert = INS, Esc = CLEAR;
 F1 Y=, F2 WINDOW, F3 ZOOM, F4 TRACE, F5 GRAPH, F6 MODE, F7 MATH, F8 APPS, F9 PRGM, F10 VARS,
 F11 STAT, F12 QUIT. Mouse wheel = up/down.
 
-TI-89 Titanium keys (not yet tried on a calculator): letters (lower case as typed), digits,
+TI-89 Titanium keys: letters (lower case as typed), digits,
 symbols, Enter, Esc, arrows, Backspace, Delete = DEL, Insert = INS, Home = HOME; F1-F8 are
 its F1-F8, F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR.
 
@@ -51,6 +52,7 @@ import ti84_keys  # noqa: E402
 import ti89_keys  # noqa: E402
 import recorder  # noqa: E402
 import calc_manager  # noqa: E402
+import send_ti  # noqa: E402
 
 import check_nspire  # noqa: E402
 import py2tns  # noqa: E402
@@ -65,6 +67,7 @@ else:
     KIT = os.path.dirname(HERE)
 SCALE = 2
 PASTE_MAX = 4000  # Characters one paste may type
+KEEPALIVE_S = 60  # A do-nothing key this often while a window is open and idle (0: never)
 
 
 def set_clipboard_image(w, h, rgb, scale):
@@ -115,6 +118,7 @@ class Nspire(object):
     can_send = True
     key_fmt = "%06x"
     shot_holdoff = 0.15  # Seconds after a key before the next picture (keys go first)
+    keepalive_key = "000000"  # A key code that does nothing (tested: the screen stays the same)
     tk_keys = {
         "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["esc"], "Tab": ["tab"],
         "BackSpace": ["backspace"], "Left": ["left"], "Right": ["right"], "Up": ["up"],
@@ -146,7 +150,7 @@ class Ti84(object):
     title = "TI-84 Plus CE"
     slug = "ti84"
     cli = nspire_link.CLI_84
-    can_send = False  # Sending programs (TI-Basic to .8xp) isn't built yet
+    can_send = True  # TI-Basic text (tokenized on the PC) or a TI file (send_ti.py)
     key_fmt = "%x"
     shot_holdoff = 0.6  # A picture takes ~1.4 s and can't be cut short: never start one mid-typing
     tk_keys = {
@@ -170,12 +174,12 @@ class Ti84(object):
 
 
 class Ti89(object):
-    """The TI-89 Titanium (untested on a calculator so far)"""
+    """The TI-89 Titanium"""
     pid = 0xE004
     title = "TI-89 Titanium"
     slug = "ti89"
     cli = nspire_link.CLI_89
-    can_send = False
+    can_send = True  # TI-Basic text (the 89 tokenizes it when it first runs) or a TI file
     key_fmt = "%x"
     shot_holdoff = 0.6
     zoom = 2  # Its 160 x 100 screen: x 2 here, x SCALE in the window = x 4
@@ -229,6 +233,7 @@ class Mirror(object):
         self.jobs = []          # Commands for the link thread (key presses, uploads)
         self.jobs_lock = threading.Lock()
         self.last_key = 0.0     # When a key was last queued (time.time())
+        self.last_keepalive = time.time()
         self.running = True
         self.want_reconnect = False
         self.keys_on = tk.BooleanVar(master=win, value=True)
@@ -319,6 +324,13 @@ class Mirror(object):
                     break
             if self.session is None:
                 continue
+            # Keep-alive: the calculator switches itself off after a few idle minutes and only a
+            # key press counts as use, so while its window is open a key that does nothing goes
+            # out once a minute when you haven't typed
+            ka = getattr(self.calc, "keepalive_key", None)
+            if ka and KEEPALIVE_S and time.time() - max(self.last_key, self.last_keepalive) >= KEEPALIVE_S:
+                self.last_keepalive = time.time()
+                self.session.cmd("key " + ka)
             # While typing, keys go out as they come and the picture waits: a screenshot can't be
             # interrupted, so a key typed during one waits for all of it (1.4 s on the 84 Plus CE)
             if time.time() - self.last_key < self.calc.shot_holdoff:
@@ -533,6 +545,7 @@ class Mirror(object):
         if rec is None:
             self.rec_btn.configure(text="Stop", fg="#ff6a5e")
             self.set_status("Recording (up to %d s)... press Stop to save" % recorder.MAX_SECONDS)
+            self.offer_ffmpeg()
             return
         self.rec_btn.configure(text="Record", fg="#ece9e2")
         if not rec.frames:
@@ -551,7 +564,42 @@ class Mirror(object):
 
         threading.Thread(target=work, daemon=True).start()
 
+    _ffmpeg_asked = False  # Once per run, for every window
+
+    def offer_ffmpeg(self):
+        """No ffmpeg: offer to download it once, while the recording runs (MP4 needs it; GIF
+        doesn't)"""
+        if recorder.find_ffmpeg() or Mirror._ffmpeg_asked:
+            return
+        Mirror._ffmpeg_asked = True
+        from tkinter import messagebox
+        if not messagebox.askyesno(
+                "MP4 recordings", "Recordings are saved as a GIF. For an MP4 as well, CalcSuite "
+                "needs ffmpeg (free, about %d MB, downloaded once).\n\nDownload it now? It "
+                "downloads while you record.\n\n(No: GIF only. OBS or any screen recorder works "
+                "too.)" % recorder.FFMPEG_DOWNLOAD_MB, parent=self.root):
+            return
+
+        def work():
+            shown = [-1]
+
+            def progress(done, total):
+                pct = done * 100 // total if total else -1
+                if pct != shown[0] and pct % 5 == 0:  # Every 5 %, not every 64 KB
+                    shown[0] = pct
+                    self.set_status("Recording... downloading ffmpeg %d%%" % pct)
+            try:
+                recorder.download_ffmpeg(progress)
+                self.set_status("Recording... ffmpeg is ready: the MP4 comes with the GIF")
+            except Exception as e:  # Never takes the window down; GIF still works
+                self.set_status("Recording... couldn't get ffmpeg (%s): GIF only" % e)
+
+        threading.Thread(target=work, daemon=True).start()
+
     def send_program(self):
+        if self.calc.slug != "nspire":  # The 84 and the 89: TI-Basic text or a TI file
+            send_ti.send_from_window(self, KIT)
+            return
         path = filedialog.askopenfilename(
             parent=self.root, title="Send to the handheld",
             initialdir=os.path.join(KIT, "programs"),

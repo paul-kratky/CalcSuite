@@ -395,6 +395,321 @@ def detokenize_84(data):
     return "".join(out)
 
 
+# ---- TI-Basic text -> a TI-84 Plus program (.8xp) ----
+
+# Spellings a PC keyboard has, for the tokens it hasn't (outside strings only)
+ASCII_84 = {
+    "->": b"\x04", "<=": b"\x6D", ">=": b"\x6E", "!=": b"\x6F", "sqrt(": b"\xBC",
+    "cbrt(": b"\xBD", "pi": b"\xAC", "theta": b"\x5B", "^2": b"\x0D", "^3": b"\x0F",
+    "^-1": b"\x0C", "~": b"\xB0", "10^(": b"\xC1", "sin^-1(": b"\xC3", "cos^-1(": b"\xC5",
+    "tan^-1(": b"\xC7", "sinh^-1(": b"\xC9", "cosh^-1(": b"\xCB", "tanh^-1(": b"\xCD",
+    "|L": b"\xEB", "@": b"\x2C",
+}
+for _d in range(1, 7):
+    ASCII_84["L%d" % _d] = bytes((0x5D, _d - 1))           # L1 = L₁
+for _d in range(10):
+    ASCII_84["Y%d" % _d] = bytes((0x5E, 0x10 + _shift(_d)))  # Y1 = Y₁
+# After these a "-" is a negative sign (the 84's (-) key), not a minus
+_UNARY_AFTER = set("(,{[→=<>≤≥≠+-*/^:\n⁻ᴇ") | {"·", "﹢"}
+_TOK84 = None
+
+
+def _tokens_84():
+    """{text: token bytes}, built from the detokenizer's tables (so the two agree)"""
+    global _TOK84
+    if _TOK84 is not None:
+        return _TOK84
+    t = {}
+    for b, s in _ONE.items():
+        t.setdefault(s, bytes((b,)))
+    for a in TWO_BYTE:
+        for b in range(256):
+            s = _two(a, b)
+            if s:
+                t.setdefault(s, bytes((a, b)))
+    for i in range(26):  # Lower case letters are their own tokens (not the statistics' a, b, n)
+        if chr(97 + i) != "e":  # e is the constant e (its letter: in strings)
+            t[chr(97 + i)] = _lower_84(chr(97 + i))
+    for s, tok in list(t.items()):  # "Disp" without its space (at a line's end)
+        if s.endswith(" ") and s.strip() and s.rstrip() not in t:
+            t[s.rstrip()] = tok
+    t.pop(" ", None)  # Spaces outside strings are dropped
+    _TOK84 = t
+    return t
+
+
+def _lower_84(c):
+    i = ord(c) - 97
+    return bytes((0xBB, 0xB0 + i if i < 11 else 0xBC + i - 11))
+
+
+def tokenize_84(text):
+    """TI-Basic as text (the calculator's own names: Disp, →, ≤, √(, π, ...; or the PC
+    spellings ->, <=, >=, !=, sqrt(, pi, theta, ^2, ^-1, L1, Y1; E in a number for the EE;
+    a leading ':' on a line is dropped) -> the program's tokens. Raises ValueError naming
+    the line of anything it can't turn into a token."""
+    table = _tokens_84()
+    longest = max(len(k) for k in list(table) + list(ASCII_84))
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    lines = [l[1:] if l.startswith(":") else l for l in (x.rstrip() for x in lines)]
+    while lines and not lines[-1]:
+        lines.pop()
+    out = bytearray()
+    for n, line in enumerate(lines, 1):
+        if n > 1:
+            out.append(0x3F)
+        in_str, prev, i = False, None, 0
+        while i < len(line):
+            c = line[i]
+            if in_str and c == '"':
+                out.append(0x2A)
+                in_str, prev, i = False, '"', i + 1
+                continue
+            if in_str and ("a" <= c <= "z" or c == " "):  # A string keeps its letters and spaces
+                out += _lower_84(c) if c != " " else b"\x29"
+                i += 1
+                continue
+            if not in_str:
+                if c == " " and not any(line.startswith(k, i) for k in (" or ", " and ", " xor ",
+                                                                       " nPr ", " nCr ")):
+                    i += 1
+                    continue
+                # 1E5, 2.5E-3: the EE key
+                if c == "E" and prev and (prev[-1].isdigit() or prev[-1] == ".") and i + 1 < len(line) \
+                        and (line[i + 1].isdigit() or line[i + 1] in "-⁻"):
+                    out.append(0x3B)
+                    prev, i = "ᴇ", i + 1
+                    continue
+                if c == "-" and (prev is None or prev[-1] in _UNARY_AFTER or prev.endswith(" ")):
+                    out.append(0xB0)  # A negative number, not a subtraction
+                    prev, i = "⁻", i + 1
+                    continue
+            tok, size = None, 0
+            for k in range(min(longest, len(line) - i), 0, -1):
+                piece = line[i:i + k]
+                if not in_str and piece in ASCII_84:
+                    if piece in ("pi", "theta") and (line[i + k:i + k + 1].isalpha() or
+                                                     (i and line[i - 1].isalpha())):
+                        continue  # Part of a longer word
+                    tok, size = ASCII_84[piece], k
+                    break
+                if piece in table:
+                    tok, size = table[piece], k
+                    break
+            if tok is None:
+                raise ValueError("line %d: %r isn't a TI-84 Plus token or character" % (n, c))
+            out += tok
+            piece = line[i:i + size]
+            if tok == b"\x2A":
+                in_str = True
+            elif tok == b"\x04":
+                in_str = False  # → ends a string too
+            prev, i = piece, i + size
+    return bytes(out)
+
+
+NAME_84 = re.compile(r"^[A-Zθ][A-Z0-9θ]{0,7}$")
+
+
+def name_84_from(stem):
+    """A file name -> a program name the 84 takes (A-Z, 0-9, θ; up to 8; a letter first), or
+    None"""
+    s = re.sub(r"[^A-Z0-9θ]", "", stem.upper().replace("THETA", "θ"))[:8]
+    return s if NAME_84.match(s) else None
+
+
+def program_8xp(text, name, comment="Made by CalcSuite"):
+    """TI-Basic text -> the bytes of a .8xp file (TI's header, the name, the checksum)"""
+    name = name.upper()
+    if not NAME_84.match(name):
+        raise ValueError("%r can't be a TI-84 program name: up to 8 capitals A-Z, digits or θ, "
+                         "a letter first" % name)
+    tokens = tokenize_84(text)
+    if len(tokens) > 65000:
+        raise ValueError("the program is too big (%d bytes)" % len(tokens))
+    data = struct.pack("<H", len(tokens)) + tokens
+    return ti8x_bytes([(0x05, tokenize_name_84(name, 0x05), 0, False, data)], comment)
+
+
+# ---- TI-Basic text -> a TI-89 Titanium program (.89p) ----
+#
+# The 89 keeps a program as text until it first runs, then tokenizes it itself (as one made in
+# its own Program Editor: read back from a TI-89 Titanium, OS 3.10, it holds
+# "(args)\rPrgm\r...\rEndPrgm", 0, a 2-byte cursor offset, then 19 E4 E5 00 00 08 DC). So the
+# PC sends the text in that form and the calculator does the tokenizing: nothing to get wrong
+# in a table of the 89's tokens.
+
+CHARS_89 = {  # Unicode -> the 89's character set (libticonv: ti9x_charset)
+    "→": 0x16, "α": 0x80, "β": 0x81, "Γ": 0x82, "γ": 0x83, "Δ": 0x84, "δ": 0x85, "ε": 0x86,
+    "ζ": 0x87, "θ": 0x88, "λ": 0x89, "ξ": 0x8A, "Π": 0x8B, "π": 0x8C, "ρ": 0x8D, "Σ": 0x8E,
+    "σ": 0x8F, "τ": 0x90, "φ": 0x91, "ψ": 0x92, "Ω": 0x93, "ω": 0x94, "ᴇ": 0x95, "ℯ": 0x96,
+    "𝑖": 0x97, "ʳ": 0x98, "≤": 0x9C, "≠": 0x9D, "≥": 0x9E, "∠": 0x9F, "…": 0xA0, "√": 0xA8,
+    "−": 0xAD, "⁻": 0xAD, "²": 0xB2, "³": 0xB3, "⁻¹": 0xB4, "∂": 0xBC, "∫": 0xBD, "∞": 0xBE,
+    "°": 0xB0,
+}
+ASCII_89 = {"->": 0x16, "<=": 0x9C, ">=": 0x9E, "!=": 0x9D, "/=": 0x9D}
+_WORDS_89 = {"sqrt(": b"\xA8(", "pi": b"\x8C", "theta": b"\x88", "e^(": b"\x96^("}
+NAME_89 = re.compile(r"^[a-z][a-z0-9_]{0,7}$")
+_HEAD_89 = re.compile(r"^\s*(?:define\s+)?([A-Za-z][A-Za-z0-9_]{0,7})\s*\(([^)]*)\)\s*(?:=\s*(prgm|func))?\s*$",
+                      re.I)
+
+
+def _line_89(line, n):
+    """One line of 89 TI-Basic -> the 89's characters"""
+    out, in_str, i = bytearray(), False, 0
+    word = lambda j: 0 <= j < len(line) and (line[j].isalnum() or line[j] == "_")
+    while i < len(line):
+        c = line[i]
+        if c == '"':
+            in_str = not in_str
+        if not in_str:
+            hit = next((k for k in ASCII_89 if line.startswith(k, i)), None)
+            if hit:
+                out.append(ASCII_89[hit])
+                i += len(hit)
+                continue
+            hit = next((k for k in _WORDS_89 if line.startswith(k, i) and not word(i - 1) and
+                        (k.endswith("(") or not word(i + len(k)))), None)
+            if hit:
+                out += _WORDS_89[hit]
+                i += len(hit)
+                continue
+            # 1E5, 2.5E-3: the EE key; a minus after it and at an expression's start: negative
+            if c in "Ee" and out and (chr(out[-1]).isdigit() or out[-1] == 0x2E) and \
+                    i + 1 < len(line) and (line[i + 1].isdigit() or line[i + 1] in "-⁻−"):
+                out.append(0x95)
+                i += 1
+                continue
+            prev = next((b for b in reversed(out) if b != 0x20), None)
+            if c == "-" and (prev is None or prev == 0x95 or chr(prev) in "(,{[=<>+-*/^:|" or
+                             prev in (0x16, 0x9C, 0x9D, 0x9E, 0xAD) or
+                             re.search(r"(?i)(^|[^a-z0-9_])(disp|return|output|if|elseif|while|"
+                                       r"and|or|xor|not)\s*$", out.decode("latin-1"))):
+                out.append(0xAD)
+                i += 1
+                continue
+        if line.startswith("⁻¹", i):
+            out.append(0xB4)
+            i += 2
+            continue
+        if c in CHARS_89:
+            out.append(CHARS_89[c])
+        elif " " <= c <= "~":
+            out.append(ord(c))
+        elif "¡" <= c <= "ÿ" and ord(c) not in (0xA8, 0xAD, 0xB2, 0xB3, 0xB4, 0xB8,
+                                                          0xBC, 0xBD, 0xBE):
+            out.append(ord(c))
+        else:
+            raise ValueError("line %d: %r isn't a TI-89 character" % (n, c))
+        i += 1
+    return bytes(out)
+
+
+def program_89_data(text, name=None, default=None):
+    """TI-Basic text for the 89 -> (name, type 0x12 program or 0x13 function, the variable's
+    data). The text may start with the program's own line, "zztest()" or "zztest(a,b)" (TI's
+    Program Editor shows it), then Prgm ... EndPrgm (or Func ... EndFunc); without them it
+    is the body of a program with no arguments. A leading ':' on a line is dropped. The name:
+    `name`, else the text's own line, else `default`."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    lines = [l[1:] if l.startswith(":") else l for l in (x.rstrip() for x in lines)]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    args, kind = "", None
+    m = _HEAD_89.match(lines[0]) if lines else None
+    if m:
+        name = name or m.group(1)
+        args = m.group(2).replace(" ", "")
+        lines.pop(0)
+        if m.group(3):
+            kind = m.group(3).lower()
+            lines.insert(0, "Prgm" if kind == "prgm" else "Func")
+    first = lines[0].strip().lower() if lines else ""
+    last = lines[-1].strip().lower() if lines else ""
+    if first in ("prgm", "func"):
+        kind = first
+        if last != "end" + first:
+            raise ValueError("the %s has no End%s at its end" % ("program" if kind == "prgm" else
+                                                                 "function", first.capitalize()))
+    else:
+        kind = "prgm"
+        lines = ["Prgm"] + lines + ["EndPrgm"]
+    name = name or default
+    if not name:
+        raise ValueError("no program name: give one, or start the text with name()")
+    name = name.lower()
+    if not NAME_89.match(name):
+        raise ValueError("%r can't be a TI-89 name: up to 8 letters, digits or _, a letter first"
+                         % name)
+    body = ("(%s)" % args).encode("ascii") + b"\r" + b"\r".join(
+        _line_89(l, n) for n, l in enumerate(lines, 2 if m else 1))
+    tail = (b"\x19" if kind == "prgm" else b"\x17") + b"\xE4\xE5\x00\x00\x08\xDC"
+    inner = body + b"\x00" + struct.pack(">H", 0) + tail
+    if len(inner) > 65000:
+        raise ValueError("the program is too big (%d bytes)" % len(inner))
+    return name, (0x12 if kind == "prgm" else 0x13), struct.pack(">H", len(inner)) + inner
+
+
+def name_89_from(stem):
+    """A file name -> a name the 89 takes (lower case, up to 8), or None"""
+    s = re.sub(r"[^a-z0-9_]", "", stem.lower())[:8]
+    return s if NAME_89.match(s) else None
+
+
+def program_89p(text, name=None, folder="main", comment="Made by CalcSuite", default=None):
+    """TI-Basic text -> (name, type, the bytes of a .89p file: .89f for a function)"""
+    name, vtype, data = program_89_data(text, name, default)
+    return name, vtype, ti89_bytes(vtype, folder.encode("ascii"), name.encode("ascii"), False, data,
+                                   comment)
+
+
+def program_89_text(data):
+    """A TI-89 program kept as text (not yet run) -> its text as the Program Editor shows it,
+    or None when the calculator has tokenized it"""
+    if len(data) < 12 or data[-1] != 0xDC or not data[-2] & 0x08:
+        return None
+    end = data.find(b"\x00", 2)
+    if end < 0:
+        return None
+    back = {v: k for k, v in CHARS_89.items()}
+    back[0xAD] = "-"
+    back[0xB4] = "⁻¹"
+    return "".join(back.get(b, chr(b)) for b in data[2:end]).replace("\r", "\n")
+
+
+def read_ti89(blob):
+    """A .89? file -> [(folder bytes, name bytes, type, archived, data)]. Raises ValueError."""
+    if len(blob) < 0x3C or blob[:8] not in (b"**TI89**", b"**TI92P*"):
+        if blob[:8] == b"**TI83F*":
+            raise ValueError("a TI-84 Plus file, not a TI-89 one")
+        raise ValueError("not a TI-89 file")
+    folder = blob[0x0A:0x12].rstrip(b"\x00")
+    n = struct.unpack_from("<H", blob, 0x3A)[0]
+    out, t = [], 0x3C
+    for _ in range(n):
+        if t + 20 > len(blob):
+            raise ValueError("the file is cut short")
+        off, = struct.unpack_from("<I", blob, t)
+        name = blob[t + 4:t + 12].rstrip(b"\x00")
+        vtype, attr = blob[t + 12], blob[t + 13]
+        nxt, = struct.unpack_from("<I", blob, t + 16)
+        t += 16
+        if vtype == 0x1F:
+            folder = name
+            continue
+        if off + 6 > nxt or nxt > len(blob):
+            raise ValueError("a variable in the file can't be read")
+        data = blob[off + 4:nxt - 2]
+        if struct.unpack_from("<H", blob, nxt - 2)[0] != sum(data) & 0xFFFF:
+            raise ValueError("the file's checksum is wrong")
+        out.append((folder or b"main", name, vtype, attr in (2, 3), data))
+    if not out:
+        raise ValueError("no variable in the file")
+    return out
+
+
 # ---- TI's newest OS versions (education.ti.com) ----
 
 OS_PAGES = {

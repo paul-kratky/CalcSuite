@@ -32,18 +32,46 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
     delete (with a question first). Tested on a TI-Nspire CX II CAS, OS 6.40: all of it, and
     a 300 KB file there and back byte for byte (0.9 s down).
   - TI-89 Titanium: its variables by folder and its apps; download as TI files (`.89e`,
-    `.89m`, ...); texts and strings shown as text. Tested on a TI-89 Titanium, OS 3.10: the
-    list and six downloads.
+    `.89m`, ...); texts, strings and programs not yet run shown as text; upload TI files or
+    TI-Basic text; delete. Tested on a TI-89 Titanium, OS 3.10: the list, six downloads, an
+    upload over a program of the same name (after the question), its text, a delete.
   - TI-84 Plus CE: its variables, programs and apps (size, RAM or Archive); download as TI
     files (`.8xp`, `.8xv`, ...) with TI's header and checksum; TI-Basic programs shown as
-    text; upload TI files; delete. Not yet tried on a TI-84 Plus CE.
+    text; upload TI files or TI-Basic text; delete. Tested on a TI-84 Plus CE, OS 5.4.0:
+    an upload of a `.8xp` over a program of the same name (after the question), its text, a
+    delete.
 - **About this calculator:** model, OS, free memory, and whether TI has a newer OS (read from
   TI's download page at most once a day, never blocking the window; "couldn't check" with
   the link when the page can't be read). It never downloads an OS.
 - **`nspire-cli`:** `get`, `rm` and `mv` (download with progress, delete, rename or move).
-  **`ti84-cli`:** `ls`, `get`, `put`, `rm` (the variables of the 84 family and the 89; `put`
-  and `rm` on the 84 only).
+  **`ti84-cli`:** `ls`, `get`, `send FILE`, `put`, `rm` (the variables of the 84 family and
+  the 89; `put` on the 84 only).
 - **App icon** on every window and in the taskbar.
+- **Send program to the TI-84 Plus CE and the TI-89 Titanium:** the **Send program...** button
+  in their windows (and **Upload** in **Files...**) takes TI-Basic typed on the PC (`.txt`,
+  `.tib`, `.bas`) or a ready TI file (`.8xp`, `.8xv`, `.8xl`, ... / `.89p`, `.89e`, ...). It
+  reads the calculator's list first and asks before replacing anything; a text file whose name
+  can't be the program's asks for a name. Progress shows in the status line.
+  - TI-84 Plus CE: the text is turned into the calculator's tokens on the PC (`.8xp` with TI's
+    header and checksum), with the PC spellings (`->`, `<=`, `>=`, `!=`, `sqrt(`, `pi`,
+    `theta`, `^2`, `^-1`, `L1`, `Y1`, `E` in a number for the EE key, `-` as the negative sign
+    where a number starts) or the calculator's own symbols. Checked by a round trip through
+    the viewer's detokenizer (self-test).
+  - TI-89 Titanium: the text goes over the way the 89's own Program Editor keeps a program
+    (read back from a real one), and the 89 tokenizes it when it first runs; `Func` /
+    `EndFunc` makes a function.
+  - Tested on a TI-84 Plus CE, OS 5.4.0 and a TI-89 Titanium, OS 3.10: test programs sent
+    from text (from the window, from Files... and from `tools/send_ti.py`) and as TI files,
+    run on the calculator from the mirror's keys with the right output (loops, If/Then/Else,
+    negatives, EE, `->`, `<=`, `!=`, `sqrt(`, `pi`, a 1.5 KB program in several packets, an
+    89 program of odd size, which takes a different packet size), replaced, deleted; a file
+    for the other calculator is refused with its name.
+- **`tools/send_ti.py`:** the same from the command line: `python -I tools/send_ti.py --calc
+  84|89 FILE [--name NAME] [--replace] [--out FILE]`. It stops when a variable of that name is
+  on the calculator (unless `--replace`) and reads the list again afterwards to check the
+  program arrived.
+
+- **MP4 without installing ffmpeg:** the first time you press Record without ffmpeg, the app offers to download it (about 39 MB, once, from PyPI's imageio-ffmpeg, checked against its SHA-256) into `%LOCALAPPDATA%\CalcSuite\ffmpeg`. Without it you still get the GIF. MP4s use H.264, or ffmpeg's own MPEG-4 when a build has no H.264.
 
 ### Faster
 - **Typing:** while you type, keys go out the moment they're pressed and the next screenshot
@@ -56,13 +84,12 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   from the mirror for a moment each time.
 
 ### Fixed
+- **TI-89 Titanium arrow keys:** they had the TI-92 Plus's codes, so up moved left and down
+  moved right; now the 89's own (up 337, left 338, down 340, right 344). Tested on a TI-89
+  Titanium, OS 3.10.
 - The TI-84 Plus CE's OS version read as `0.5.4.0`; now `5.4.0`.
 - The Nspire's name was cut at the first space ("Connected: TI-Nspire" for a TI-Nspire CX II
   CAS).
-
-### Not built yet
-- Sending programs to the TI-84 Plus CE as TI-Basic text (TI files go with Files... > Upload).
-- Sending programs to the TI-89 Titanium.
 
 ## [0.2.0] - 2026-11-26
 

@@ -1,5 +1,5 @@
-"""Screen recordings from mirror frames: a GIF with nothing installed, an MP4 when ffmpeg is on
-the PC.
+"""Screen recordings from mirror frames: a GIF with nothing installed, an MP4 when ffmpeg is
+there (on the PATH, or downloaded once by the app: download_ffmpeg()).
 
     rec = Recorder(scale=2)
     rec.add(ppm_path)            # once per frame, as they arrive
@@ -9,14 +9,80 @@ Frames are kept as PPM bytes with their arrival time; a frame equal to the one b
 lengthens it, so a still screen costs nothing.
 """
 
+import hashlib
+import json
 import os
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import time
+import urllib.request
+import zipfile
 
 MAX_SECONDS = 180
+
+# ffmpeg fetched on request: the single ffmpeg.exe inside the imageio-ffmpeg wheel on PyPI
+# (BSD-2 package; the ffmpeg build inside is GPL, run as its own program), checked against the
+# SHA-256 PyPI publishes. About 39 MB, once.
+FFMPEG_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "CalcSuite", "ffmpeg")
+PYPI_JSON = "https://pypi.org/pypi/imageio-ffmpeg/json"
+FFMPEG_DOWNLOAD_MB = 39
+
+
+def find_ffmpeg():
+    """ffmpeg on the PATH, else the one downloaded before, else None"""
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    local = os.path.join(FFMPEG_DIR, "ffmpeg.exe")
+    return local if os.path.isfile(local) else None
+
+
+def download_ffmpeg(progress=None, timeout=30):
+    """Downloads ffmpeg.exe into FFMPEG_DIR; returns its path. progress(done_bytes, total_bytes)
+    is called as it comes. Raises OSError / ValueError on any failure (nothing half-written stays)."""
+    tag = "win_amd64" if sys.maxsize > 2 ** 32 else "win32"
+    req = urllib.request.Request(PYPI_JSON, headers={"User-Agent": "CalcSuite"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        meta = json.load(r)
+    wheel = next((f for f in meta["urls"] if f["filename"].endswith(tag + ".whl")), None)
+    if not wheel:
+        raise ValueError("PyPI lists no %s ffmpeg build" % tag)
+    os.makedirs(FFMPEG_DIR, exist_ok=True)
+    tmp = os.path.join(FFMPEG_DIR, "download.part")
+    try:
+        sha = hashlib.sha256()
+        req = urllib.request.Request(wheel["url"], headers={"User-Agent": "CalcSuite"})
+        with urllib.request.urlopen(req, timeout=timeout) as r, open(tmp, "wb") as f:
+            total = int(r.headers.get("Content-Length") or wheel.get("size") or 0)
+            done = 0
+            while True:
+                chunk = r.read(1 << 16)
+                if not chunk:
+                    break
+                f.write(chunk)
+                sha.update(chunk)
+                done += len(chunk)
+                if progress:
+                    progress(done, total)
+        if sha.hexdigest() != wheel["digests"]["sha256"]:
+            raise ValueError("the download doesn't match PyPI's checksum")
+        with zipfile.ZipFile(tmp) as z:
+            exe = next((n for n in z.namelist() if n.endswith(".exe") and "/binaries/ffmpeg" in n), None)
+            if not exe:
+                raise ValueError("no ffmpeg.exe in the download")
+            out = os.path.join(FFMPEG_DIR, "ffmpeg.exe")
+            with z.open(exe) as src, open(out + ".part", "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            os.replace(out + ".part", out)
+        return out
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def read_ppm(path):
@@ -61,7 +127,7 @@ class Recorder(object):
             out.append(max(0.02, nxt - t))
         return out
 
-    def save(self, stem):
+    def save(self, stem, ffmpeg=None):
         """Writes stem.mp4 (when ffmpeg is found) and stem.gif; returns the paths written"""
         if not self.frames:
             return []
@@ -69,7 +135,7 @@ class Recorder(object):
         delays = self._delays(min(end, MAX_SECONDS))
         os.makedirs(os.path.dirname(os.path.abspath(stem)), exist_ok=True)
         written = []
-        ff = shutil.which("ffmpeg")
+        ff = ffmpeg or find_ffmpeg()
         if ff:
             try:
                 written.append(self._mp4(ff, stem + ".mp4", delays))
@@ -94,12 +160,15 @@ class Recorder(object):
             with open(listing, "w") as f:
                 f.write("".join(lines))
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-                            "-i", listing, "-vf",
-                            "scale=iw*%d:ih*%d:flags=neighbor,fps=30,format=yuv420p" % (self.scale, self.scale),
-                            "-c:v", "libx264", "-crf", "16", "-preset", "veryfast",
-                            "-movflags", "+faststart", out],
-                           check=True, timeout=300, creationflags=flags)
+            base = [ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listing,
+                    "-vf", "scale=iw*%d:ih*%d:flags=neighbor,fps=30,format=yuv420p" % (self.scale, self.scale)]
+            try:  # H.264 where the build has it; ffmpeg's own MPEG-4 encoder is in every build
+                subprocess.run(base + ["-c:v", "libx264", "-crf", "16", "-preset", "veryfast",
+                                       "-movflags", "+faststart", out],
+                               check=True, timeout=300, creationflags=flags, capture_output=True)
+            except subprocess.CalledProcessError:
+                subprocess.run(base + ["-c:v", "mpeg4", "-q:v", "2", "-movflags", "+faststart", out],
+                               check=True, timeout=300, creationflags=flags, capture_output=True)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         return out

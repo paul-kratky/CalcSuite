@@ -99,8 +99,81 @@ def main():
     else:
         print("SKIP .tns tests: tools/bin/luna.exe missing (python -I tools/build_tools.py)")
 
-    print("\n%s" % ("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
+    failures += ti_basic_checks()
+    print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
+
+
+TI84_SOURCE = """:ClrHome
+:Disp "HELLO, world"
+:Input "N? ",N
+:For(I,1,N)
+:If I>=2 and I!=5 or not(I<=1)
+:Then
+:Disp sqrt(I),I^2,pi*theta,I^-1
+:Else
+:Output(1,1,-I)
+:End
+:End
+:1.5E-3->A
+:-A+2->B
+:Repeat getKey
+:End
+:L1(1)->C
+:Prompt X,Y
+:While X<=10:X+1->X:End
+:Disp "e is e"
+:Lbl A
+:Goto A"""
+
+
+def ti_basic_checks():
+    """TI-Basic text -> .8xp and .89p (tools/calc_files.py), checked against known bytes and
+    the 84 detokenizer. No calculator needed."""
+    sys.path.insert(0, os.path.join(KIT, "tools"))
+    import calc_files as cf
+    failures = 0
+
+    def check(ok, what):
+        print("%-4s %s" % ("PASS" if ok else "FAIL", what))
+        return 0 if ok else 1
+
+    tok = cf.tokenize_84(TI84_SOURCE)
+    failures += check(tok.startswith(bytes.fromhex("e13fde2a48454c4c4f2b29bbc7bbbfbbc2bbbcbbb32a")),
+                      "84 tokens: ClrHome, Disp, a string with lower case")
+    failures += check(bytes.fromhex("313a353bb03304413f") in tok, "84 tokens: 1.5E-3->A (EE, (-), store)")
+    failures += check(bytes.fromhex("b041703204423f") in tok, "84 tokens: -A+2->B starts with (-)")
+    failures += check(bytes.fromhex("bc49112b490d2bac825b2b490c") in tok,
+                      "84 tokens: sqrt( ^2 pi theta ^-1")
+    text = cf.detokenize_84(tok)
+    failures += check("If I≥2 and I≠5 or not(I≤1)" in text and "1.5ᴇ⁻3→A" in text,
+                      "84 detokenizer reads the tokens back")
+    failures += check(cf.tokenize_84(text) == tok, "84 round trip: tokenize(detokenize(x)) == x")
+    blob = cf.program_8xp(":ClrHome\n:Disp 1+2", "ZZTEST")
+    (t, name, _v, _a, data), = cf.read_ti8x(blob)
+    failures += check(t == 5 and name == b"ZZTEST" and data == bytes.fromhex("0600e13fde317032"),
+                      ".8xp: header, name, length and checksum read back")
+    try:
+        cf.program_8xp("Disp 1", "1BAD")
+        failures += check(False, ".8xp refuses a bad name")
+    except ValueError:
+        failures += check(True, ".8xp refuses a bad name")
+    # The 89: the bytes its own Program Editor stores for this program (read from a TI-89
+    # Titanium, OS 3.10), but for the cursor position (0 here)
+    n, vtype, data = cf.program_89_data("zztest()\nPrgm\nDisp 1+2\nEndPrgm")
+    failures += check((n, vtype, data) == ("zztest", 0x12, bytes.fromhex(
+        "002228290d5072676d0d4469737020312b320d456e645072676d00000019e4e5000008dc")),
+        ".89 program as text, as the 89 keeps it")
+    _n, _t, data = cf.program_89_data("Disp -3,2E-5\nx^2->y\nIf x>=1 and y!=2\nDisp sqrt(pi)", "abc")
+    failures += check(b"Disp \xad3,2\x95\xad5\rx^2\x16y\rIf x\x9e1 and y\x9d2\rDisp \xa8(\x8c)" in data,
+                      ".89 characters: (-), EE, ->, >=, !=, sqrt(, pi")
+    _n, vtype, data = cf.program_89_data("f(x)\nFunc\nReturn x^2\nEndFunc")
+    failures += check(vtype == 0x13 and data.endswith(b"\x17\xe4\xe5\x00\x00\x08\xdc"), ".89 function")
+    name, _t, blob = cf.program_89p("Disp 1", "zztest")
+    (folder, vname, t, _a, d2), = cf.read_ti89(blob)
+    failures += check((folder, vname, t) == (b"main", b"zztest", 0x12) and
+                      cf.program_89_text(d2) == "()\nPrgm\nDisp 1\nEndPrgm", ".89p read back")
+    return failures
 
 
 if __name__ == "__main__":

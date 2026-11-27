@@ -5,7 +5,8 @@ The 89's codes are its OS's (AMS) key codes as TILP's libticalcs lists them (key
 keys89.cc; GPL-2.0-or-later, https://github.com/debrouxl/tilibs): a typed character is its
 own character code (a = 97, A = 65, 1 = 49), the special keys are 257 and up, and 2nd adds
 4096, diamond 8192 (so Y= is diamond + F1 = 8460). ti89-cli sends them high byte first.
-Not yet tried on a calculator.
+Tried on a TI-89 Titanium, OS 3.10: letters, digits, symbols, arrows, Enter, ESC, HOME,
+APPS, CLEAR.
 
 CHAR maps a typed character to its code, NAMED a key name (tools/mirror.py uses them).
 """
@@ -19,7 +20,9 @@ for _c in ("abcdefghijklmnopqrstuvwxyz" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "0123456789
 
 NAMED = {
     "enter": 13, "esc": 264, "backspace": 257, "del": 8449, "ins": 4353, "clear": 263,
-    "left": 337, "up": 338, "right": 340, "down": 344,
+    # The 89's own arrow codes (the TI-92 Plus has 337 left, 338 up, 340 right, 344 down);
+    # tried on a TI-89 Titanium, OS 3.10
+    "up": 337, "left": 338, "down": 340, "right": 344,
     "f1": 268, "f2": 269, "f3": 270, "f4": 271, "f5": 272, "f6": 273, "f7": 274, "f8": 275,
     "home": 277, "mode": 266, "catalog": 278, "apps": 265, "on": 267,
     "quit": 4360, "switch": 4361, "custom": 4373, "entry": 4109, "ans": 4372,

@@ -43,8 +43,8 @@ program can talk to a calculator at a time.
 | **Keyboard** | What you type goes to the calculator. Keys go first: the picture catches up when you pause. |
 | **Paste and copy** | Ctrl+V types the PC clipboard's text into the calculator (new lines are Enter). Ctrl+C copies the calculator's screen to the clipboard as a picture. |
 | **Screenshot** | A PNG in `Documents\Nspire Mirror\captures`. |
-| **Record** | A GIF, and an MP4 too when [ffmpeg](https://ffmpeg.org/) is installed. Up to 3 minutes. |
-| **Send program** | TI-Nspire: a `.py` (checked and converted first) or a `.tns`. |
+| **Record** | Records the calculator's screen straight from the app, up to 3 minutes: always a GIF, and an MP4 too with [ffmpeg](https://ffmpeg.org/). No ffmpeg on your PC? The first time you press Record, the app offers to download it for you (free, about 39 MB, once). Don't want that? Say no and keep the GIF, or record the window with [OBS](https://obsproject.com/) or any other screen recorder. |
+| **Send program** | TI-Nspire: a `.py` (checked and converted first) or a `.tns`. TI-84 Plus CE and TI-89 Titanium: TI-Basic typed on the PC (a `.txt`, `.tib` or `.bas`) or a ready TI file (`.8xp`, `.89p`, ...). It asks before replacing anything on the calculator. [How to write the text](#ti-basic-from-the-pc). |
 | **Mouse** | TI-Nspire: wheel up/down (Shift: left/right), click, double click Enter, right click the context menu. |
 | **Files** | The **Files...** button: what's on the calculator, saved to the PC, sent to it, deleted. Calculator info, and whether TI has a newer OS. |
 
@@ -57,9 +57,37 @@ program can talk to a calculator at a time.
 | --- | --- | --- | --- |
 | Browse | folders and files, with sizes | variables, programs, apps, with sizes and RAM/Archive | variables by folder, apps |
 | Download | any file | as TI files (`.8xp`, `.8xv`, `.8xl`, ...) | as TI files (`.89p`, `.89e`, ...) |
-| Show as text | | TI-Basic programs, strings, equations | texts and strings |
-| Upload | `.py` (checked and converted) or `.tns` | TI files (`.8xp` etc.) | |
-| Delete, new folder, rename | yes (folders must be empty to delete) | delete | |
+| Show as text | | TI-Basic programs, strings, equations | texts, strings, programs not yet run |
+| Upload | `.py` (checked and converted) or `.tns` | TI files (`.8xp` etc.) or TI-Basic text | TI files (`.89p` etc.) or TI-Basic text |
+| Delete, new folder, rename | yes (folders must be empty to delete) | delete | delete |
+
+### TI-Basic from the PC
+
+Write the program in any text editor and send it with **Send program...** (or **Upload** in
+**Files...**, or `python -I tools/send_ti.py --calc 84|89 FILE`, which adds `--name`,
+`--replace` and `--out FILE` to only make the TI file).
+
+- **TI-84 Plus CE:** the app turns the text into the calculator's tokens. Write it as the
+  calculator shows it, or with the PC spellings: `->` for the store arrow, `<=` `>=` `!=`,
+  `sqrt(`, `pi`, `theta`, `^2`, `^-1`, `L1`, `Y1`, `E` in a number for the EE key, `-` at the
+  start of a number for the negative sign. The symbols work too (`→ ≤ ≥ ≠ √ π θ ² ⁻¹`). A `:`
+  at the start of a line is fine. Spaces only count inside strings. The program is named after
+  the file (`HELLO.txt` is `HELLO`; up to 8 capitals), or the app asks. Run it with PRGM.
+- **TI-89 Titanium:** the program goes over as text, the way the 89's own Program Editor keeps
+  it, and the 89 turns it into its tokens the first time it runs. Start with the program's
+  line and `Prgm` / `EndPrgm` (`Func` / `EndFunc` makes a function), as the 89 shows it:
+
+  ```
+  hello()
+  Prgm
+  ClrIO
+  Disp "Hello"
+  EndPrgm
+  ```
+
+  or write only the body (a program with no arguments, named after the file). The same PC
+  spellings work (`->`, `<=`, `>=`, `!=`, `sqrt(`, `pi`, `theta`). Run it by typing `hello()`.
+  A mistake in the program shows up as the 89's own error when it first runs.
 
 **About this calculator** shows the model, OS version and free memory, and checks TI's website
 once a day for a newer OS: "Up to date", or the new version with a link to TI's download page.

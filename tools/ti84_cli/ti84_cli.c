@@ -9,10 +9,13 @@
  *   ti84-cli [--model M] serve          one connection, commands on stdin, one per line:
  *                                       info | shot FILE | key HEX | keys HEX HEX ... |
  *                                       ls | get TYPE FOLDERHEX NAMEHEX SIZE LOCAL |
+ *                                       send FILE (a TI file: .8xp .8xv ... or .89p .89e ...) |
  *                                       put TYPE ARCH VERSION NAMEHEX LOCAL (84 only) |
- *                                       rm TYPE NAMEHEX (84 only) | quit
+ *                                       rm TYPE NAMEHEX [FOLDERHEX] (the 89 needs it) | quit
  *                                       each ends with "END <code>" (as nspire-cli serve does);
- *                                       names travel as hex, a download prints PROGRESS lines
+ *                                       names travel as hex, transfers print PROGRESS lines
+ *   ti84-cli [--model M] send FILE      send every variable in a TI file (one that has the
+ *                                       name of one on the calculator replaces it)
  *   ti84-cli devices                    list the TI calculators on USB (opens none of them)
  *
  * Which calculator: --model 84ce (USB id 0451:E008), 89t (0451:E004) or auto (the first of
@@ -181,8 +184,9 @@ static int vpkt_send(Link *l, int vtype, const unsigned char *data, uint32_t n) 
     l->vtl_size = n;
     if (n <= first) {
         if (n) memcpy(raw + 6, data, n);
-        if (raw_send(l, RPKT_DATA_LAST, raw, n + 6)) return -1;
-        return recv_ack(l);
+        if (raw_send(l, RPKT_DATA_LAST, raw, n + 6) || recv_ack(l)) return -1;
+        if (l->progress_total) printf("PROGRESS %lu %lu\n", (unsigned long)n, (unsigned long)l->progress_total);
+        return 0;
     }
     memcpy(raw + 6, data, first);
     if (raw_send(l, RPKT_DATA, raw, l->maxlen) || recv_ack(l)) return -1;
@@ -191,6 +195,8 @@ static int vpkt_send(Link *l, int vtype, const unsigned char *data, uint32_t n) 
         uint32_t take = n - off > l->maxlen ? l->maxlen : n - off;
         int last = (off + take == n);
         if (raw_send(l, last ? RPKT_DATA_LAST : RPKT_DATA, data + off, take) || recv_ack(l)) return -1;
+        if (l->progress_total && ((off + take) / 8192 != off / 8192 || last))
+            printf("PROGRESS %lu %lu\n", (unsigned long)(off + take), (unsigned long)l->progress_total);
         off += take;
     }
     return 0;
@@ -262,6 +268,8 @@ static const Model *model_of(uint16_t pid, int want) {
     return NULL;
 }
 
+static int mode_set(Link *l);
+
 static int link_open(Link *l, int want) {
     memset(l, 0, sizeof(*l));
     l->m = &MODELS[want == MODEL_AUTO ? 0 : want];
@@ -326,20 +334,35 @@ static int link_open(Link *l, int want) {
         }
     }
 
-    /* The handshake: agree a buffer size, then "normal mode" */
-    unsigned char b[4] = {0, 0, 0x04, 0x00}; /* 1024 */
+    return mode_set(l);
+}
+
+/* Agrees a raw packet size with the calculator: 0, or -1 if it didn't answer */
+static int buf_size(Link *l, uint32_t want) {
+    unsigned char b[4] = {(unsigned char)(want >> 24), (unsigned char)(want >> 16),
+                          (unsigned char)(want >> 8), (unsigned char)want};
     unsigned char d[RAW_MAX];
     uint32_t n;
     int type;
-    if (raw_send(l, RPKT_BUF_REQ, b, 4) || raw_recv(l, &type, d, &n) || type != RPKT_BUF_ALLOC || n != 4) {
+    if (raw_send(l, RPKT_BUF_REQ, b, 4) || raw_recv(l, &type, d, &n) || type != RPKT_BUF_ALLOC || n != 4)
+        return -1;
+    l->maxlen = ((uint32_t)d[0] << 24) | ((uint32_t)d[1] << 16) | ((uint32_t)d[2] << 8) | d[3];
+    if (l->maxlen > l->m->raw_clamp) l->maxlen = l->m->raw_clamp;
+    if (l->maxlen > want) l->maxlen = want;
+    if (l->maxlen < 16) l->maxlen = 250;
+    return 0;
+}
+
+/* The handshake: agree a buffer size, then "normal mode" (libticalcs: dusb_cmd_s_mode_set;
+   the 89 Titanium wants it again before each upload of an even size, calc_89t.cc: is_ready) */
+static int mode_set(Link *l) {
+    if (buf_size(l, 1024)) {
         printf("ERR the calculator did not answer (is it on, at the home screen?)\n");
         return 4;
     }
-    l->maxlen = ((uint32_t)d[0] << 24) | ((uint32_t)d[1] << 16) | ((uint32_t)d[2] << 8) | d[3];
-    if (l->maxlen > l->m->raw_clamp) l->maxlen = l->m->raw_clamp;
-    if (l->maxlen < 64) l->maxlen = 250;
     static const unsigned char mode[10] = {0, 3, 0, 1, 0, 0, 0, 0, 0x07, 0xD0};
     unsigned char *ans = NULL;
+    uint32_t n;
     int vt = 0;
     if (vpkt_send(l, VPKT_PING, mode, sizeof(mode)) || vpkt_recv(l, &vt, &ans, &n)) {
         printf("ERR the mode handshake failed\n");
@@ -827,11 +850,84 @@ static int is_ce(Link *l) {
     return ce;
 }
 
+/* Sends one variable (libticalcs: calc_84p.cc and calc_89t.cc, send_var): the request to send
+   with the variable's attributes, its data, the end. folder is "" on the 84 family. A
+   variable of the same name on the calculator is replaced. Prints PROGRESS lines. */
+static int send_var(Link *l, const unsigned char *folder, unsigned flen, const unsigned char *name,
+                    unsigned nlen, unsigned type, int arch, unsigned version,
+                    const unsigned char *data, uint32_t size) {
+    if (size == 0 || size > 65535 || nlen == 0 || nlen > 39 || flen > 39) {
+        printf("ERR the variable's size (%lu bytes) or name can't be right\n", (unsigned long)size);
+        return 6;
+    }
+    int t89 = l->m->is_89t;
+    /* The 89 Titanium: "normal mode" again before an even size; an odd size is sent in small
+       even raw packets agreed after the request (calc_89t.cc, as TI's own software does) */
+    if (t89 && !(size & 1) && mode_set(l)) return 4;
+    unsigned char req[160];
+    uint32_t j = 0;
+    req[j++] = (unsigned char)flen;
+    if (flen) {
+        memcpy(req + j, folder, flen);
+        req[j + flen] = 0;
+        j += flen + 1;
+    }
+    req[j++] = (unsigned char)nlen;
+    memcpy(req + j, name, nlen);
+    req[j + nlen] = 0;
+    j += nlen + 1;
+    req[j++] = (unsigned char)(size >> 24);
+    req[j++] = (unsigned char)(size >> 16);
+    req[j++] = (unsigned char)(size >> 8);
+    req[j++] = (unsigned char)size;
+    req[j++] = 0x01; /* "Silent" */
+    req[j++] = 0;
+    req[j++] = (unsigned char)(t89 ? 4 : 3);
+    const unsigned char hdr = (unsigned char)(t89 ? 0x0C : (is_ce(l) ? 0x0F : 0x0B));
+    const unsigned char attrs[] = {
+        0, AID_VAR_TYPE, 0, 4, 0xF0, hdr, 0, (unsigned char)type,
+        0, AID_ARCHIVED, 0, 1, (unsigned char)(arch ? 1 : 0),
+        0, AID_VAR_VERSION, 0, 4, 0, 0, 0, (unsigned char)(t89 ? 0 : version),
+        0, AID_LOCKED, 0, 1, 0}; /* The 89 only: the last attribute */
+    uint32_t alen = sizeof(attrs) - (t89 ? 0 : 5);
+    memcpy(req + j, attrs, alen);
+    j += alen;
+    if (vpkt_send(l, VPKT_RTS, req, j)) {
+        printf("ERR send: no answer\n");
+        return 4;
+    }
+    if (expect_ack(l, "send (no room, or a name the calculator doesn't take?)")) return 4;
+    if (t89 && (size & 1)) {
+        uint32_t pkt = (size / 10) & ~1u;
+        if (pkt < 0x3A) pkt = 0x3A;
+        if (pkt > 1022) pkt = 1022;
+        if (buf_size(l, pkt)) {
+            printf("ERR send: the calculator didn't agree a packet size\n");
+            return 4;
+        }
+    }
+    l->progress_total = size;
+    int r = vpkt_send(l, VPKT_VAR_CNTS, data, size);
+    l->progress_total = 0;
+    if (r) {
+        printf("ERR send: the data didn't go\n");
+        return 4;
+    }
+    if (expect_ack(l, "send")) return 4;
+    if (vpkt_send(l, VPKT_EOT, NULL, 0)) {
+        printf("ERR send: no answer at the end\n");
+        return 4;
+    }
+    sleep_ms(50); /* libticalcs: "needed" */
+    if (t89 && (size & 1) && mode_set(l)) return 4; /* Back to full-size packets */
+    return 0;
+}
+
 /* "put TYPE ARCH VERSION NAMEHEX LOCAL": LOCAL holds the variable's data (from a TI file, as
-   the Python side reads it). The 84 family only. */
+   the Python side reads it). The 84 family only (the 89 needs a folder: use send). */
 static int do_put(Link *l, char *arg) {
     if (l->m->is_89t) {
-        printf("ERR sending to the TI-89 Titanium isn't built yet\n");
+        printf("ERR put is for the 84 family: send a .89? file with send\n");
         return 1;
     }
     char *tok[5];
@@ -870,68 +966,271 @@ static int do_put(Link *l, char *arg) {
         return 6;
     }
     fclose(f);
-    unsigned char req[96];
-    uint32_t j = 0;
-    req[j++] = 0; /* No folder */
-    req[j++] = (unsigned char)nlen;
-    memcpy(req + j, name, (size_t)nlen + 1);
-    j += (uint32_t)nlen + 1;
-    req[j++] = (unsigned char)(size >> 24);
-    req[j++] = (unsigned char)(size >> 16);
-    req[j++] = (unsigned char)(size >> 8);
-    req[j++] = (unsigned char)size;
-    req[j++] = 0x01; /* "Silent" */
-    req[j++] = 0;
-    req[j++] = 3;
-    const unsigned char attrs[] = {
-        0, AID_VAR_TYPE, 0, 4, 0xF0, (unsigned char)(is_ce(l) ? 0x0F : 0x0B), 0,
-        (unsigned char)strtoul(tok[0], NULL, 16),
-        0, AID_ARCHIVED, 0, 1, (unsigned char)(atoi(tok[1]) ? 1 : 0),
-        0, AID_VAR_VERSION, 0, 4, 0, 0, 0, (unsigned char)strtoul(tok[2], NULL, 10)};
-    memcpy(req + j, attrs, sizeof(attrs));
-    j += sizeof(attrs);
-    int r = 4;
-    if (vpkt_send(l, VPKT_RTS, req, j)) {
-        printf("ERR put: no answer\n");
-        goto done;
-    }
-    if (expect_ack(l, "put (no room, or a name the calculator doesn't take?)")) goto done;
-    if (vpkt_send(l, VPKT_VAR_CNTS, data, (uint32_t)size)) {
-        printf("ERR put: the data didn't go\n");
-        goto done;
-    }
-    if (expect_ack(l, "put")) goto done;
-    if (vpkt_send(l, VPKT_EOT, NULL, 0)) {
-        printf("ERR put: no answer at the end\n");
-        goto done;
-    }
-    printf("OK sent %ld bytes\n", size);
-    r = 0;
-done:
+    int r = send_var(l, (const unsigned char *)"", 0, name, (unsigned)nlen,
+                     (unsigned)strtoul(tok[0], NULL, 16), atoi(tok[1]),
+                     (unsigned)strtoul(tok[2], NULL, 10), data, (uint32_t)size);
+    if (!r) printf("OK sent %ld bytes\n", size);
     free(data);
     return r;
 }
 
-/* "rm TYPE NAMEHEX": deletes a variable (the 84 family only) */
+/* ---- TI files (libtifiles: files8x.cc, files9x.cc) ---- */
+
+static uint16_t le16(const unsigned char *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+static uint32_t le32(const unsigned char *p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+/* Appends s (UTF-8) to out; 0 if it fits */
+static int put_str(unsigned char *out, unsigned *n, unsigned cap, const char *s) {
+    size_t k = strlen(s);
+    if (*n + k >= cap) return -1;
+    memcpy(out + *n, s, k);
+    *n += (unsigned)k;
+    return 0;
+}
+
+/* A subscript digit in UTF-8: U+2080 + d */
+static int put_sub(unsigned char *out, unsigned *n, unsigned cap, int d) {
+    char s[4] = {(char)0xE2, (char)0x82, (char)(0x80 + d), 0};
+    return put_str(out, n, cap, s);
+}
+
+/* The 8 bytes of a .8x? file's name -> the name the link wants ("L₁", "Str1", "[A]", "θ" as
+   UTF-8); calc_files.py: detokenize_name_84 does the same */
+static int name84(const unsigned char *raw8, unsigned char *out, unsigned cap) {
+    unsigned char raw[8];
+    unsigned len = 0, n = 0;
+    static const unsigned char toks[] = {0x3C, 0x5C, 0x5D, 0x5E, 0x60, 0x61, 0xAA};
+    int tok = memchr(toks, raw8[0], sizeof(toks)) != NULL;
+    memcpy(raw, raw8, 8);
+    len = 8;
+    while (len > (tok ? 2u : 0u) && raw[len - 1] == 0) len--;
+    if (len == 2 && tok) {
+        unsigned a = raw[0], b = raw[1];
+        int un = b == 9 ? 0 : (int)b + 1;
+        char s[16];
+        if (a == 0x5C && b <= 9) {
+            snprintf(s, sizeof(s), "[%c]", 'A' + b);
+            return put_str(out, &n, cap, s) ? -1 : (int)n;
+        }
+        if (a == 0x5D && b <= 5) return put_str(out, &n, cap, "L") || put_sub(out, &n, cap, b + 1) ? -1 : (int)n;
+        if (a == 0x5E && b >= 0x10 && b <= 0x19)
+            return put_str(out, &n, cap, "Y") || put_sub(out, &n, cap, (b - 0x10) == 9 ? 0 : b - 0x10 + 1) ? -1 : (int)n;
+        if (a == 0x5E && b >= 0x20 && b <= 0x2B)
+            return put_str(out, &n, cap, (b - 0x20) & 1 ? "Y" : "X") ||
+                           put_sub(out, &n, cap, (b - 0x20) / 2 + 1) || put_str(out, &n, cap, "\xE1\xB4\x9B")
+                       ? -1 : (int)n;
+        if (a == 0x5E && b >= 0x40 && b <= 0x45)
+            return put_str(out, &n, cap, "r") || put_sub(out, &n, cap, b - 0x40 + 1) ? -1 : (int)n;
+        if (a == 0x5E && b >= 0x80 && b <= 0x82) {
+            snprintf(s, sizeof(s), "%c", "uvw"[b - 0x80]);
+            return put_str(out, &n, cap, s) ? -1 : (int)n;
+        }
+        const char *word = a == 0x60 ? "Pic" : a == 0x61 ? "GDB" : a == 0xAA ? "Str" : a == 0x3C ? "Image" : NULL;
+        if (word && b <= 9) {
+            snprintf(s, sizeof(s), "%s%d", word, un);
+            return put_str(out, &n, cap, s) ? -1 : (int)n;
+        }
+    }
+    unsigned i = raw[0] == 0x5D ? 1 : 0; /* A named list: its letters */
+    for (; i < len; i++) {
+        if (raw[i] == '[') {
+            if (put_str(out, &n, cap, "\xCE\xB8")) return -1; /* theta */
+        } else if (raw[i] >= 0x20 && raw[i] < 0x7F) {
+            if (n + 1 >= cap) return -1;
+            out[n++] = raw[i];
+        } else {
+            return -1;
+        }
+    }
+    return n ? (int)n : -1;
+}
+
+/* Reads a whole local file (up to 1 MB) into a malloc'd buffer */
+static unsigned char *read_file(const char *path, long *size) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    *size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    unsigned char *b = NULL;
+    if (*size > 0 && *size <= (1L << 20)) {
+        b = malloc((size_t)*size);
+        if (b && fread(b, 1, (size_t)*size, f) != (size_t)*size) {
+            free(b);
+            b = NULL;
+        }
+    }
+    fclose(f);
+    return b;
+}
+
+static int sent_line(int t89, const unsigned char *folder, unsigned flen, const unsigned char *name,
+                     unsigned nlen, unsigned type, uint32_t size) {
+    printf("SENT type=%02x size=%lu folder=", type, (unsigned long)size);
+    put_hex(folder, t89 ? flen : 0);
+    printf(" name=");
+    put_hex(name, nlen);
+    printf("\n");
+    return 0;
+}
+
+/* "send FILE": every variable in a TI file (.8xp .8xv .8xl ... for the 84 family; .89p
+   .89e ... for the 89 Titanium). Refuses files for the other calculator, apps, OSes and
+   backups. A variable of the same name is replaced: the caller asks first. */
+static int do_send(Link *l, const char *path) {
+    long fsize = 0;
+    unsigned char *b = read_file(path, &fsize);
+    if (!b) {
+        printf("ERR cannot read %s\n", path);
+        return 6;
+    }
+    int t89 = l->m->is_89t, r = 0, count = 0;
+    const char *other = t89 ? "the TI-84 Plus family" : "the TI-89 Titanium";
+    if (fsize >= 8 && !memcmp(b, "**TIFL**", 8)) {
+        printf("ERR this is an app or an OS (a flash file): those can't be sent here\n");
+        r = 1;
+    } else if (fsize >= 8 && !memcmp(b, "**TI83F*", 8)) {
+        if (t89) {
+            printf("ERR this is a TI-84 Plus file: send it to %s\n", other);
+            r = 1;
+        } else if (fsize < 57) {
+            printf("ERR the file is cut short\n");
+            r = 6;
+        } else {
+            uint32_t blen = le16(b + 53), sum = 0;
+            if (55 + blen + 2 > (uint32_t)fsize) {
+                printf("ERR the file is cut short\n");
+                r = 6;
+            }
+            for (uint32_t i = 0; !r && i < blen; i++) sum += b[55 + i];
+            if (!r && (sum & 0xFFFF) != le16(b + 55 + blen)) {
+                printf("ERR the file's checksum is wrong (damaged file?)\n");
+                r = 6;
+            }
+            const unsigned char *body = b + 55;
+            uint32_t p = 0;
+            while (!r && p + 4 <= blen) {
+                unsigned hlen = le16(body + p), dlen = le16(body + p + 2);
+                if ((hlen != 0x0B && hlen != 0x0D) || p + 2 + hlen + 2 + dlen > blen) {
+                    printf("ERR a variable in the file can't be read\n");
+                    r = 6;
+                    break;
+                }
+                unsigned type = body[p + 4];
+                unsigned version = hlen == 0x0D ? body[p + 13] : 0;
+                int arch = hlen == 0x0D ? (body[p + 14] & 0x80) != 0 : 0;
+                unsigned char name[40];
+                int nlen = name84(body + p + 5, name, sizeof(name));
+                const unsigned char *data = body + p + 2 + hlen + 2;
+                p += 2 + hlen + 2 + dlen;
+                if (type == 0x13 || type == 0x23 || type == 0x24 || type == 0x25 || type == 0x26 ||
+                    type == 0x27) {
+                    printf("ERR backups, apps, certificates and OS files can't be sent here\n");
+                    r = 1;
+                } else if (nlen <= 0) {
+                    printf("ERR a name in the file can't be read\n");
+                    r = 6;
+                } else if (!(r = send_var(l, (const unsigned char *)"", 0, name, (unsigned)nlen,
+                                          type, arch, version, data, dlen))) {
+                    sent_line(0, NULL, 0, name, (unsigned)nlen, type, dlen);
+                    count++;
+                }
+            }
+        }
+    } else if (fsize >= 8 && (!memcmp(b, "**TI89**", 8) || !memcmp(b, "**TI92P*", 8))) {
+        if (!t89) {
+            printf("ERR this is a TI-89 file: send it to %s\n", other);
+            r = 1;
+        } else if (fsize < 0x3C) {
+            printf("ERR the file is cut short\n");
+            r = 6;
+        } else {
+            unsigned char folder[9] = {0};
+            memcpy(folder, b + 0x0A, 8);
+            unsigned n = le16(b + 0x3A);
+            uint32_t t = 0x3C;
+            for (unsigned i = 0; !r && i < n; i++, t += 16) {
+                if (t + 16 + 4 > (uint32_t)fsize) {
+                    printf("ERR the file is cut short\n");
+                    r = 6;
+                    break;
+                }
+                uint32_t off = le32(b + t), next = le32(b + t + 16);
+                unsigned char name[9] = {0};
+                memcpy(name, b + t + 4, 8);
+                unsigned type = b[t + 12], attr = b[t + 13];
+                if (type == 0x1F) { /* A folder: the variables after it are in it */
+                    memcpy(folder, name, 9);
+                    continue;
+                }
+                if (off + 6 > next || next > (uint32_t)fsize) {
+                    printf("ERR a variable in the file can't be read\n");
+                    r = 6;
+                    break;
+                }
+                uint32_t size = next - off - 6, sum = 0;
+                const unsigned char *data = b + off + 4;
+                for (uint32_t k = 0; k < size; k++) sum += data[k];
+                if ((sum & 0xFFFF) != le16(data + size)) {
+                    printf("ERR the file's checksum is wrong (damaged file?)\n");
+                    r = 6;
+                    break;
+                }
+                if (type == 0x1D || type == 0x23 || type == 0x24 || type == 0x18) {
+                    printf("ERR backups, apps and OS files can't be sent here\n");
+                    r = 1;
+                    break;
+                }
+                unsigned flen = (unsigned)strlen((const char *)folder), nlen = (unsigned)strlen((const char *)name);
+                const unsigned char *fold = flen ? folder : (const unsigned char *)"main";
+                if (!flen) flen = 4;
+                if (!(r = send_var(l, fold, flen, name, nlen, type, attr == 2 || attr == 3, 0, data, size))) {
+                    sent_line(1, fold, flen, name, nlen, type, size);
+                    count++;
+                }
+            }
+        }
+    } else if (fsize >= 8 && !memcmp(b, "**TI", 4)) {
+        printf("ERR a file for another calculator (%.8s): this one takes %s files\n", (const char *)b,
+               t89 ? ".89?" : ".8x?");
+        r = 1;
+    } else {
+        printf("ERR not a TI file (%s)\n", path);
+        r = 1;
+    }
+    free(b);
+    if (!r && count == 0) {
+        printf("ERR no variable in the file\n");
+        r = 6;
+    }
+    if (!r) printf("OK sent %d variable(s)\n", count);
+    return r;
+}
+
+/* "rm TYPE NAMEHEX [FOLDERHEX]": deletes a variable (the 89 needs its folder) */
 static int do_rm(Link *l, char *arg) {
-    if (l->m->is_89t) {
-        printf("ERR deleting on the TI-89 Titanium isn't built yet\n");
-        return 1;
-    }
-    char *t = strtok(arg, " "), *h = strtok(NULL, " ");
-    unsigned char name[40];
+    char *t = strtok(arg, " "), *h = strtok(NULL, " "), *fh = strtok(NULL, " ");
+    unsigned char name[40], folder[40];
     int nlen = h ? from_hex(h, name, sizeof(name)) : -1;
-    if (!t || nlen <= 0) {
-        printf("ERR usage: rm TYPE NAMEHEX\n");
+    int flen = fh ? from_hex(fh, folder, sizeof(folder)) : 0;
+    if (!t || nlen <= 0 || flen < 0 || (l->m->is_89t && flen <= 0)) {
+        printf("ERR usage: rm TYPE NAMEHEX%s\n", l->m->is_89t ? " FOLDERHEX" : "");
         return 1;
     }
-    unsigned char req[96];
+    unsigned char req[128];
     uint32_t j = 0;
-    req[j++] = 0;
+    req[j++] = (unsigned char)flen;
+    if (flen) {
+        memcpy(req + j, folder, (size_t)flen + 1);
+        j += (uint32_t)flen + 1;
+    }
     req[j++] = (unsigned char)nlen;
     memcpy(req + j, name, (size_t)nlen + 1);
     j += (uint32_t)nlen + 1;
-    const unsigned char rest[] = {0, 1, 0, AID_DATATYPE, 0, 4, 0xF0, 0x0B, 0,
+    const unsigned char rest[] = {0, 1, 0, AID_DATATYPE, 0, 4, 0xF0,
+                                  (unsigned char)(l->m->is_89t ? 0x0C : 0x0B), 0,
                                   (unsigned char)strtoul(t, NULL, 16),
                                   0x01, /* Past the file protection */
                                   0, 0, 0, 0}; /* No new folder, no new name: delete */
@@ -955,6 +1254,7 @@ static int run_line(Link *l, char *line) {
     if (!strcmp(line, "get") && arg) return do_get(l, arg);
     if (!strcmp(line, "put") && arg) return do_put(l, arg);
     if (!strcmp(line, "rm") && arg) return do_rm(l, arg);
+    if (!strcmp(line, "send") && arg) return do_send(l, arg);
     if ((!strcmp(line, "key") || !strcmp(line, "keys")) && arg) {
         int n = 0;
         for (char *tok = strtok(arg, " "); tok; tok = strtok(NULL, " ")) {
@@ -972,7 +1272,8 @@ static int run_line(Link *l, char *line) {
 }
 
 static int usage(void) {
-    printf("usage: ti84-cli [--model 84ce|89t|auto] info | shot FILE.ppm | key HEXCODE | serve\n"
+    printf("usage: ti84-cli [--model 84ce|89t|auto] info | shot FILE.ppm | key HEXCODE | send FILE |"
+           " serve\n"
            "       ti84-cli devices\n");
     return 1;
 }
@@ -1043,7 +1344,8 @@ int main(int argc, char **argv) {
     }
     if (!strcmp(argv[1], "info") && argc == 2) {
         strcpy(line, "info");
-    } else if ((!strcmp(argv[1], "shot") || !strcmp(argv[1], "key")) && argc == 3) {
+    } else if ((!strcmp(argv[1], "shot") || !strcmp(argv[1], "key") || !strcmp(argv[1], "send")) &&
+               argc == 3) {
         snprintf(line, sizeof(line), "%s %s", argv[1], argv[2]);
     } else {
         return usage();

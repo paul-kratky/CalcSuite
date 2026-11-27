@@ -3,9 +3,9 @@
 - TI-Nspire: browse the folders, download files to the PC, upload (.py checked and turned into
   a .tns, or a .tns), new folder, rename, delete.
 - TI-84 Plus CE: its variables, programs and apps; download as TI files (.8xp etc.), TI-Basic
-  programs shown as text, upload TI files, delete.
-- TI-89 Titanium: its variables by folder; download as TI files (.89p etc.), text and strings
-  shown as text.
+  programs shown as text, upload TI files or TI-Basic text (send_ti.py), delete.
+- TI-89 Titanium: its variables by folder; download as TI files (.89p etc.), text, strings and
+  not-yet-run programs shown as text, upload TI files or TI-Basic text, delete.
 - About this calculator: model, OS, free space, and whether TI has a newer OS.
 
 Every command goes through the Mirror's link thread (Mirror.queue), so the live picture keeps
@@ -66,7 +66,7 @@ class Manager(object):
         self.calc = mirror.calc
         self.slug = mirror.calc.slug
         self.nspire = self.slug == "nspire"
-        self.can_write = self.slug in ("nspire", "ti84")  # The 89: listing and downloads only
+        self.can_write = True  # Uploads and deletes on all three
         self.dest = os.path.join(kit, "from-calc")
         self.cwd = "/"
         self.items = []
@@ -409,17 +409,23 @@ class Manager(object):
             self.status.set("Pick one program, string or text")
             return
         i = sel[0]
-        text_types = cf.TEXT_TYPES_89 if self.slug == "ti89" else cf.TEXT_TYPES_84
+        text_types = cf.TEXT_TYPES_89 + (0x12, 0x13) if self.slug == "ti89" else cf.TEXT_TYPES_84
         if i["type"] not in text_types:
             self.status.set("%s is a %s: only programs, strings, equations and texts show as "
-                            "text%s" % (i["text"], i["kind"].lower(),
-                                        " (TI-89 programs are stored compiled)" if self.slug == "ti89" else ""))
+                            "text" % (i["text"], i["kind"].lower()))
             return
         if i["type"] == 0x06:
             self.status.set("%s is locked: shown anyway" % i["text"])
 
         def ok(raw, info):
-            if self.slug == "ti89":
+            if self.slug == "ti89" and i["type"] in (0x12, 0x13):
+                text = cf.program_89_text(raw)
+                if text is None:  # Run once: the 89 keeps it tokenized, which isn't read here
+                    self.status.set("%s has run on the calculator, so the 89 keeps it compiled: "
+                                    "its text can't be shown here (open it in the 89's Program "
+                                    "Editor)" % i["text"])
+                    return
+            elif self.slug == "ti89":
                 text = cf.ti89_text(i["type"], raw) or ""
             else:
                 text = cf.detokenize_84(raw)
@@ -481,37 +487,30 @@ class Manager(object):
                 self.job("put %s|%s" % (os.path.abspath(tns), self.remote(base)),
                          lambda code, lines, b=base: self.uploaded(b, code, lines), "Uploading %s" % base)
             return
+        # The 84 and the 89: TI files, or TI-Basic text made into a program (send_ti.py). A
+        # variable of the same name is replaced by the send itself, after asking.
+        import send_ti
         paths = filedialog.askopenfilenames(
-            parent=self.win, title="Send TI files to the %s" % self.calc.title,
+            parent=self.win, title="Send to the %s" % self.calc.title,
             initialdir=self.dest,
-            filetypes=[("TI-84 Plus files", "*.8xp *.8xv *.8xl *.8xm *.8xn *.8xs *.8xy *.8xc "
-                        "*.8ci *.8ca *.8xd *.8xg"), ("All files", "*.*")])
+            filetypes=[("TI files and TI-Basic text", send_ti.TI_EXTS[self.slug] + " *.txt *.tib *.bas"),
+                       ("All files", "*.*")])
         for p in paths:
-            try:
-                with open(p, "rb") as f:
-                    entries = cf.read_ti8x(f.read())
-            except (OSError, ValueError) as e:
-                self.status.set("%s: %s" % (os.path.basename(p), e))
+            ti, wanted = send_ti.prepare_asking(p, self.slug, self.win, self.tmp, self.status.set,
+                                                simpledialog)
+            if not ti:
                 continue
-            for vtype, tname, version, archived, data in entries:
-                if vtype in (0x13, 0x17, 0x23, 0x24, 0x25):
-                    self.status.set("%s: backups, groups, apps and OS files can't be sent here"
-                                    % os.path.basename(p))
-                    continue
-                name = cf.detokenize_name_84(tname, vtype)
-                raw = name.encode("utf-8")
-                same = [i for i in self.items if i["name"] == raw and i["type"] == vtype]
-                if same and not messagebox.askyesno(
-                        "Replace?", "%s is already on the calculator. Replace it?" % name, parent=self.win):
-                    continue
-                if same:
-                    self.job("rm %02x %s" % (vtype, cf.to_hex(raw)))
-                tmp = os.path.join(self.tmp, "up%d_%d.bin" % (id(entries), vtype))
-                with open(tmp, "wb") as f:
-                    f.write(data)
-                self.job("put %02x %d %d %s %s" % (vtype, 1 if archived else 0, version,
-                                                    cf.to_hex(raw), tmp),
-                         lambda code, lines, n=name: self.uploaded(n, code, lines), "Sending %s" % name)
+            listing = ["ITEM type=%02x size=%d arch=0 locked=0 folder=%s name=%s"
+                       % (i["type"], i["size"], cf.to_hex(i["folder"]), cf.to_hex(i["name"]))
+                       for i in self.items]
+            same = send_ti.clashes(wanted, listing, self.slug)
+            if same and not messagebox.askyesno(
+                    "Replace?", "%s %s already on the calculator. Replace?" % (
+                        ", ".join(same), "is" if len(same) == 1 else "are"), parent=self.win):
+                continue
+            name = ", ".join(cf.name_text(n) for _f, n, _t in wanted)
+            self.job("send " + os.path.abspath(ti),
+                     lambda code, lines, n=name: self.uploaded(n, code, lines), "Sending %s" % name)
 
     def uploaded(self, name, code, lines):
         if code:
@@ -554,7 +553,7 @@ class Manager(object):
                     self.win.after(400, self.status.set, "Not deleted: " + "; ".join(state["errors"][:3]))
         for i, n in zip(sel, names):
             line = ("rm " + self.remote(i["name"]) if self.nspire
-                    else "rm %02x %s" % (i["type"], cf.to_hex(i["name"])))
+                    else "rm %02x %s %s" % (i["type"], cf.to_hex(i["name"]), cf.to_hex(i["folder"])))
             self.job(line, lambda code, lines, n=n: done(n, code, lines))
 
     def new_folder(self):
