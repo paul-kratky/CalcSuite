@@ -23,6 +23,13 @@ SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "I
 WIDTH = 450
 GUIDES = {"nspire": ("docs", "PYTHON_NSPIRE_GUIDE.md"), "ti84": ("docs", "TIBASIC_84.md"),
           "ti89": ("docs", "TIBASIC_89.md")}
+# Save as PDF: the PDFs in docs/pdf/ (tools/docs_build/make_pdfs.py writes them, same names)
+PDF_GUIDES = {"nspire": "CalcSuite - TI-Nspire CX II Python guide.pdf",
+              "ti84": "CalcSuite - TI-84 Plus CE TI-Basic guide.pdf",
+              "ti89": "CalcSuite - TI-89 Titanium TI-Basic guide.pdf"}
+PDF_FUNCTIONS = {"nspire": "CalcSuite - TI-Nspire CX II functions reference.pdf",
+                 "ti84": "CalcSuite - TI-84 Plus CE functions reference.pdf",
+                 "ti89": "CalcSuite - TI-89 Titanium functions reference.pdf"}
 
 
 class SidePanel(object):
@@ -270,6 +277,8 @@ class FunctionsSection(object):
         self.copy_btn.pack(side="left", padx=(6, 0))
         self.copy_ex_btn = th.button(bar, "Copy example", self.copy_example, state="disabled")
         self.copy_ex_btn.pack(side="left", padx=(6, 0))
+        th.button(bar, "Save as PDF", lambda: save_pdf(
+            self.frame, PDF_FUNCTIONS[self.calc.slug], self.status.set)).pack(side="right")
         self.status = tk.StringVar(master=self.frame, value="")
         tk.Label(self.frame, textvariable=self.status, bg=th.PANEL, fg=th.DIM, anchor="w",
                  justify="left", wraplength=410).pack(fill="x", pady=(6, 0))
@@ -437,6 +446,8 @@ class GuideSection(object):
         self.search.pack(side="left", padx=(8, 4), ipady=3)
         self.search.bind("<Return>", lambda e: self.find())
         th.button(top, "Find", self.find, pady=2).pack(side="left")
+        th.button(top, "Save as PDF", lambda: save_pdf(
+            self.frame, PDF_GUIDES[self.m.calc.slug], self.note.set), pady=2).pack(side="right")
         self.found = tk.Label(top, text="", bg=th.PANEL, fg=th.DIM)
         self.found.pack(side="left", padx=6)
         mid = tk.Frame(self.frame, bg=th.PANEL)
@@ -747,6 +758,40 @@ class ProgramsSection(object):
         self.status.set(msg)
         if self.item is not None:
             self.act.configure(state="normal")
+
+
+def save_pdf(widget, name, say):
+    """Save as PDF (Guide, Functions): copies the bundled PDF (docs/pdf/) to a folder the user
+    picks, Documents\\CalcSuite by default, and offers to open it"""
+    import shutil
+    import mirror as mirror_mod
+    src = mirror_mod.resource("docs", "pdf", name)
+    if not os.path.isfile(src):
+        say("The PDF isn't there (%s). Build it: python tools/docs_build/make_pdfs.py" % name)
+        return
+    start = os.path.join(os.path.expanduser("~"), "Documents", "CalcSuite")
+    try:
+        os.makedirs(start, exist_ok=True)
+    except OSError:
+        start = os.path.expanduser("~")
+    folder = filedialog.askdirectory(parent=widget.winfo_toplevel(), title="Save %s in which folder?"
+                                     % name, initialdir=start, mustexist=False)
+    if not folder:
+        return
+    dest = os.path.join(os.path.normpath(folder), name)
+    try:
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.copyfile(src, dest)
+    except OSError as e:
+        say("Couldn't save the PDF: %s" % short_error(e))
+        return
+    say("Saved %s" % dest)
+    if messagebox.askyesno("Save as PDF", "Saved:\n%s\n\nOpen it now?" % dest,
+                           parent=widget.winfo_toplevel()):
+        try:
+            os.startfile(dest)
+        except OSError as e:
+            say("Saved, but it didn't open: %s" % short_error(e))
 
 
 def human(n):

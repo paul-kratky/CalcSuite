@@ -1,7 +1,8 @@
 # Builds the release downloads on a clean Windows runner:
 #   CalcSuite.exe               the app (PyInstaller, app.spec)
 #   CalcSuite-tools-win64.zip   the link tools for running from source (unzip into tools/bin/)
-#   SHA256SUMS.txt              SHA-256 of both
+#   CalcSuite-*.pdf             the guides and Functions references as PDFs (docs/pdf/)
+#   SHA256SUMS.txt              SHA-256 of all of them
 # Same steps as a local build: MSYS2 UCRT64 gcc + the pinned libusb release, then
 # tools/build_tools.py --force, the self-test (with luna.exe, so the .tns tests run too) and
 # PyInstaller 6.22.3 on Python 3.11.
@@ -77,6 +78,16 @@ jobs:
       - name: Self-test (with luna.exe, so the .tns tests run)
         run: python -I tools/selftest/run_selftest.py
 
+      # Before PyInstaller: the exe bundles docs/pdf/ for Save as PDF. Edge is on the runner image;
+      # make_pdfs.py finds it (Program Files (x86) or Program Files, else msedge on PATH)
+      - name: Guides and Functions references as PDFs (headless Edge)
+        shell: pwsh
+        run: |
+          $ver = @()
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $ver = @('--version', $env:GITHUB_REF_NAME) }
+          python -I tools/docs_build/make_pdfs.py @ver
+          if ($LASTEXITCODE) { throw "make_pdfs.py failed" }
+
       - name: Build CalcSuite.exe (PyInstaller in a venv)
         shell: pwsh
         run: |
@@ -126,11 +137,20 @@ jobs:
                   z.write(src, name)
               z.writestr("README.txt", readme.replace("\n", "\r\n"))
           os.replace("dist/CalcSuite.exe", "out/CalcSuite.exe")
+          # The PDFs without spaces in their names (GitHub turns spaces in asset names into dots)
+          import glob, shutil
+          pdfs = []
+          for src in sorted(glob.glob("docs/pdf/*.pdf")):
+              name = os.path.basename(src).replace(" - ", "-").replace(" ", "-")
+              shutil.copyfile(src, os.path.join("out", name))
+              pdfs.append(name)
+          if not pdfs:
+              raise SystemExit("No PDFs in docs/pdf")
           lines = []
-          for name in ["CalcSuite.exe", "CalcSuite-tools-win64.zip"]:
+          for name in ["CalcSuite.exe", "CalcSuite-tools-win64.zip"] + pdfs:
               data = open(os.path.join("out", name), "rb").read()
               lines.append("%s  %s\n" % (hashlib.sha256(data).hexdigest(), name))
-              print("%-28s %10d bytes" % (name, len(data)))
+              print("%-56s %10d bytes" % (name, len(data)))
           open("out/SHA256SUMS.txt", "w", newline="\n").write("".join(lines))
           print("".join(lines))
 
@@ -170,6 +190,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $pdfs = (Get-ChildItem out/*.pdf).FullName
+          if (-not $pdfs) { throw "No PDFs in the build artifact" }
           gh release create $env:GITHUB_REF_NAME --draft --verify-tag --title $env:GITHUB_REF_NAME `
-            --notes-file out/notes.md out/CalcSuite.exe out/CalcSuite-tools-win64.zip out/SHA256SUMS.txt
+            --notes-file out/notes.md out/CalcSuite.exe out/CalcSuite-tools-win64.zip out/SHA256SUMS.txt @pdfs
           if ($LASTEXITCODE) { throw "gh release create failed" }
