@@ -1,0 +1,11 @@
+# Dependabot: weekly pull requests when a GitHub Action this repository uses has a new release
+# (they are pinned by commit, so updates don't happen by themselves).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

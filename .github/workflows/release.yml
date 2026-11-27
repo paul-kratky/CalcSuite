@@ -121,10 +121,20 @@ jobs:
       # this commit. Anyone can check a download:
       #   gh attestation verify CalcSuite-<version>-win64.zip -R paul-kratky/CalcSuite
       - name: Attest the zip (where and how it was built)
+        id: attest
         if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: out/CalcSuite-*-win64.zip
+
+      # The attestation's signed Sigstore bundle, also as a release file beside the zip (so the
+      # release itself carries its signature: OpenSSF Scorecard's Signed-Releases looks for it)
+      - name: The signed attestation as a release file
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $zip = (Get-ChildItem out/CalcSuite-*-win64.zip).Name
+          Copy-Item '${{ steps.attest.outputs.bundle-path }}' "out/$zip.sigstore.json"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
@@ -204,6 +214,7 @@ jobs:
         run: |
           $zip = (Get-ChildItem out/CalcSuite-*-win64.zip).FullName
           if (-not $zip) { throw "No zip in the build artifact" }
+          $sig = (Get-ChildItem out/*.sigstore.json -ErrorAction SilentlyContinue).FullName
           gh release create $env:GITHUB_REF_NAME --draft --verify-tag --title $env:GITHUB_REF_NAME `
-            --notes-file out/notes.md $zip out/SHA256SUMS.txt
+            --notes-file out/notes.md $zip out/SHA256SUMS.txt @sig
           if ($LASTEXITCODE) { throw "gh release create failed" }
