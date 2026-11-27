@@ -263,10 +263,16 @@ class FunctionsSection(object):
         grip.bind("<B1-Motion>", self.drag_split)
         grip.bind("<Enter>", lambda e: gline.configure(bg=th.ACCENT))
         grip.bind("<Leave>", lambda e: gline.configure(bg=th.PANEL2))
-        self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=4,
+        box = tk.Frame(self.frame, bg=th.BG)  # The description and its scrollbar
+        box.pack(fill="both", expand=True)
+        self.detail = tk.Text(box, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=4,
                               padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9),
                               cursor="arrow", insertwidth=0)
-        self.detail.pack(fill="both", expand=True)
+        dsb = ttk.Scrollbar(box, orient="vertical", command=self.detail.yview,
+                            style="Calc.Vertical.TScrollbar")
+        self.detail.configure(yscrollcommand=dsb.set)
+        dsb.pack(side="right", fill="y")
+        self.detail.pack(side="left", fill="both", expand=True)
         d = self.detail
         d.tag_configure("name", font=(th.MONO, 12, "bold"), foreground=th.ACCENT)
         d.tag_configure("cat", foreground=th.DIM)
@@ -277,6 +283,8 @@ class FunctionsSection(object):
         d.tag_configure("code", font=(th.MONO, 10))
         d.tag_configure("dim", foreground=th.DIM)
         d.tag_configure("warn", foreground=th.ACCENT)
+        d.tag_configure("hint", foreground=th.DIM, font=(th.FONT, 10), spacing1=4)
+        self.show_hint()
         bar = tk.Frame(self.frame, bg=th.PANEL)
         bar.pack(fill="x", pady=(6, 0))
         self.insert_btn = th.button(bar, "Insert", self.insert, state="disabled")
@@ -356,9 +364,22 @@ class FunctionsSection(object):
             self.insert()
         return "break"
 
+    def show_hint(self):
+        """What the description box says while no command is picked"""
+        d = self.detail
+        d.configure(state="normal")
+        d.delete("1.0", "end")
+        d.insert("end", "Pick a command in the list to see what it does: how to write it, its "
+                 "arguments, what it gives back, an example and the keys that type it.\n\n"
+                 "Double-click it (or Insert) to type it on the calculator. Search above by name "
+                 "or by a word such as \"integral\", or paste code to see the commands it uses.",
+                 "hint")
+        d.configure(state="disabled")
+
     def picked(self):
         sel = self.tree.selection()
         if not sel:
+            self.show_hint()
             return
         e = self.item = self.items[int(sel[0])]
         d = self.detail
@@ -609,13 +630,21 @@ class ProgramsSection(object):
         tree.bind("<<TreeviewSelect>>", lambda e: self.picked())
         tree.bind("<Double-1>", self.double)  # Double click: the same as its button (get it)
         tree.bind("<Return>", lambda e: self.act_on() if self.item and not self.busy else None)
-        self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=11,
+        box = tk.Frame(self.frame, bg=th.BG)  # The description and its scrollbar
+        box.pack(fill="x", pady=(8, 0))
+        self.detail = tk.Text(box, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=11,
                               padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9))
-        self.detail.pack(fill="x", pady=(8, 0))
+        dsb = ttk.Scrollbar(box, orient="vertical", command=self.detail.yview,
+                            style="Calc.Vertical.TScrollbar")
+        self.detail.configure(yscrollcommand=dsb.set)
+        dsb.pack(side="right", fill="y")
+        self.detail.pack(side="left", fill="both", expand=True)
         self.detail.tag_configure("b", font=(th.FONT, 10, "bold"))
         self.detail.tag_configure("dim", foreground=th.DIM)
         self.detail.tag_configure("warn", foreground=th.ACCENT)
         self.detail.tag_configure("link", foreground=th.MINT, underline=True)
+        self.detail.tag_configure("hint", foreground=th.DIM, font=(th.FONT, 10), spacing1=4)
+        self.show_hint()
         bar = tk.Frame(self.frame, bg=th.PANEL)
         bar.pack(fill="x", pady=(6, 0))
         self.act = th.button(bar, "Download and send", self.act_on, state="disabled")
@@ -640,9 +669,21 @@ class ProgramsSection(object):
         self.act_on()
         return "break"
 
+    def show_hint(self):
+        """What the description box says while no program is picked"""
+        d = self.detail
+        d.configure(state="normal")
+        d.delete("1.0", "end")
+        d.insert("end", "Pick a program in the list to see what it does, who made it, its licence "
+                 "and how it gets onto the calculator.\n\nDouble-click it (or the button below) to "
+                 "download it and send it, or to open its page when CalcSuite can't send it itself. "
+                 "Get all... lists everything CalcSuite can send at once.", "hint")
+        d.configure(state="disabled")
+
     def picked(self):
         sel = self.tree.selection()
         if not sel:
+            self.show_hint()
             return
         i = self.item = self.items[int(sel[0])]
         d = self.detail

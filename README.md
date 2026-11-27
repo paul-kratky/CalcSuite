@@ -4,6 +4,7 @@
 [![Latest release](https://img.shields.io/github/v/release/paul-kratky/CalcSuite?label=release)](https://github.com/paul-kratky/CalcSuite/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/paul-kratky/CalcSuite/total)](https://github.com/paul-kratky/CalcSuite/releases)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/paul-kratky/CalcSuite/badge)](https://scorecard.dev/viewer/?uri=github.com/paul-kratky/CalcSuite)
 ![Windows 10/11](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4)
 ![Calculators](https://img.shields.io/badge/calculators-Nspire%20CX%20II%20%C2%B7%2084%20Plus%20CE%20%C2%B7%2089%20Titanium-ff7a3d)
 
@@ -180,8 +181,9 @@ click. How to write the text: [TI-Basic from the PC](#ti-basic-from-the-pc).
 
 ### The program editor
 
-Write TI-84 Plus CE TI-Basic, TI-89 Titanium TI-Basic or Nspire Python in CalcSuite itself
-(`python -I tools/editor.py [file]` opens it on its own). It checks as you type, underlines each
+Write TI-84 Plus CE TI-Basic, TI-89 Titanium TI-Basic or Nspire Python in CalcSuite itself:
+**Program editor...** under a calculator's screen on its tab (`python -I tools/editor.py [file]`
+opens it on its own). It checks as you type, underlines each
 mistake and lists it with its fix (F8 goes to the next one), colours the code like VS Code,
 completes command names (Ctrl+Space) and shows the command's syntax with the current argument
 in bold. **Build** (Ctrl+B) makes the calculator's file (`.8xp`, `.89p`, `.tns`) in

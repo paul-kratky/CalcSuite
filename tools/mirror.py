@@ -89,6 +89,22 @@ FAST_HOLDOFF = 0.15
 FAST_MISSES_WARN = 3
 
 
+def log_error(where):
+    """The current exception, with its traceback, appended to "CalcSuite files/logs/errors.log"
+    (kept under 1 MB): errors inside the window never pass silently"""
+    import traceback
+    try:
+        folder = paths.user_path("logs")
+        path = os.path.join(folder, "errors.log")
+        if os.path.isfile(path) and os.path.getsize(path) > 1024 * 1024:
+            os.replace(path, path + ".old")
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("%s  %s, while %s:\n%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                  APP_NAME, where, traceback.format_exc()))
+    except Exception:
+        pass
+
+
 def _os_tuple(text):
     """"5.4.0" -> (5, 4, 0)"""
     import re
@@ -976,7 +992,7 @@ class Tab(object):
         self.rec_btn.pack(side="left", padx=(6, 0))
         th.button(bar, "Send program...", mirror.send_program).pack(side="left", padx=(6, 0))
         th.button(bar, "Reconnect", mirror.reconnect).pack(side="left", padx=(6, 0))
-        th.button(bar, "Editor...", self.open_editor).pack(side="left", padx=(6, 0))
+        th.button(bar, "Program editor...", self.open_editor).pack(side="left", padx=(6, 0))
         th.check(bar, "Keyboard", mirror.keys_on).pack(side="right")
         if mirror.calc.slug == "ti84":  # Fast mode (experimental): ~7 frames/s on the home screen
             self.fast_var = tk.BooleanVar(master=self.frame, value=False)
@@ -1185,6 +1201,8 @@ class App(object):
         self.found = set()
         self.scanned = False
         self.offered_driver = {}  # pid -> True once the driver setup was offered (offer_driver)
+        self.editor = None        # The Program editor tab's Editor, while it's open
+        self.editor_frame = None
         self.current = "all"  # "all" or a pid
         self.target = None    # The keyboard target on All screens (a pid)
 
@@ -1214,19 +1232,26 @@ class App(object):
     def pump(self):
         """Tk's thread, ~60 times a second: the work other threads asked for, then each
         calculator's newest frame (only the newest: a slow window never falls behind)"""
-        for _ in range(200):
-            try:
-                func, args = _TK_QUEUE.get_nowait()
-            except queue.Empty:
-                break
-            try:
-                func(*args)
-            except Exception:  # One bad request must never stop the window
-                pass
-        for m in list(self.mirrors.values()):
-            if m.latest:
-                m.draw_frame()
-        self.root.after(15, self.pump)
+        try:
+            for _ in range(200):
+                try:
+                    func, args = _TK_QUEUE.get_nowait()
+                except queue.Empty:
+                    break
+                try:
+                    func(*args)
+                except Exception:  # One bad request must never stop the window
+                    log_error("a background result")
+            for m in list(self.mirrors.values()):
+                if m.latest:
+                    try:
+                        m.draw_frame()
+                    except Exception:
+                        m.latest = None
+                        log_error("drawing the %s's screen" % m.calc.title)
+        finally:
+            # Always again: if this stopped, nothing from another thread would reach the window
+            self.root.after(15, self.pump)
 
     @staticmethod
     def order(pid):
@@ -1239,11 +1264,17 @@ class App(object):
         inner = tk.Frame(f, bg=th.PANEL)
         inner.pack(padx=14, pady=(8, 6))
         dot = tk.Canvas(inner, width=10, height=10, bg=th.PANEL, highlightthickness=0)
-        if key != "all":
+        if key not in ("all", "editor"):
             dot.create_oval(1, 1, 9, 9, fill=th.GREY, outline="")
             dot.pack(side="left", padx=(0, 6))
         name = tk.Label(inner, text=text, bg=th.PANEL, fg=th.FG, font=(th.FONT, 10, "bold"))
         name.pack(side="left")
+        if key == "editor":  # The editor's tab closes (asking about unsaved changes first)
+            shut = tk.Label(inner, text="✕", bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9), cursor="hand2")
+            shut.pack(side="right", padx=(10, 0))
+            shut.bind("<Button-1>", lambda e: (self.editor and self.editor.close(), "break")[-1])
+            shut.bind("<Enter>", lambda e: shut.configure(fg=th.ACCENT))
+            shut.bind("<Leave>", lambda e: shut.configure(fg=th.DIM))
         fps = tk.Label(inner, text="", bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9))
         fps.pack(side="left", padx=(8, 0))
         line = tk.Frame(f, bg=th.PANEL, height=2)
@@ -1269,19 +1300,66 @@ class App(object):
                 w[part].configure(bg=th.PANEL2 if sel else th.PANEL)
             w["line"].configure(bg=th.ACCENT if sel else th.PANEL)
         frames = [self.all.frame] + [t.frame for t in self.tabs.values() if not t.popped]
-        want = self.all.frame if key == "all" else self.tabs[key].frame
+        if self.editor is not None:
+            frames.append(self.editor_frame)
+        if key == "editor":
+            want = self.editor_frame
+        else:
+            want = self.all.frame if key == "all" else self.tabs[key].frame
         for f in frames:
             if f is not want:
                 f.pack_forget()
         want.pack(fill="both", expand=True)
-        self.pop_btn.configure(state="normal" if key != "all" else "disabled")
-        if key != "all":
+        self.pop_btn.configure(state="normal" if key in self.tabs else "disabled")
+        if key == "editor":
+            try:
+                self.editor.text.focus_set()
+            except (AttributeError, tk.TclError):
+                pass
+        elif key != "all":
             self.target = key
             self.tabs[key].view.show()
         elif old != "all":
             for t in self.all.tiles.values():
                 t["view"].show()
         self.all.update()
+
+    # ---- The program editor, a tab of this window ----
+    def open_editor_tab(self, initial_target=None, path=None):
+        """Opens (or shows) the Program editor tab, aimed at initial_target (a Mirror or a slug)"""
+        import editor
+        if self.editor is None:
+            self.editor_frame = tk.Frame(self.content, bg=th.BG)
+            self.make_tab_button("editor", "Program editor")
+            self.editor = editor.Editor(self.root, list(self.mirrors.values()), initial_target, path,
+                                        host=self)
+        else:
+            if initial_target is not None:
+                self.editor.set_target(initial_target)
+            if path:
+                self.editor.open_path(path)
+        self.show_tab("editor")
+        return self.editor
+
+    def editor_title(self, text):
+        """The editor's file name (with a dot while unsaved) beside the tab's name"""
+        w = self.tab_widgets.get("editor")
+        if w:
+            w["fps"].configure(text=text)
+
+    def editor_closed(self, ed):
+        if ed is not self.editor:
+            return
+        self.editor = None
+        w = self.tab_widgets.pop("editor", None)
+        if w:
+            w["frame"].destroy()
+        try:
+            self.editor_frame.destroy()
+        except (AttributeError, tk.TclError):
+            pass
+        if self.current == "editor":
+            self.show_tab("all")
 
     def set_target(self, pid):
         self.target = pid

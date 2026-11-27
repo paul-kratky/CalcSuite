@@ -108,6 +108,8 @@ def open_editor(app_or_root, mirrors=(), initial_target=None, path=None):
     the connected calculators (Mirror objects) to offer as targets. initial_target: one of
     them, a slug ("ti84", "ti89", "nspire") or None (no calculator: save only). path: a file
     to open. Returns the Editor."""
+    if hasattr(app_or_root, "open_editor_tab"):  # The main window: the editor is its tab
+        return app_or_root.open_editor_tab(initial_target, path)
     master = getattr(app_or_root, "root", app_or_root)
     return Editor(master, list(mirrors or ()), initial_target, path)
 
@@ -205,8 +207,12 @@ def confirm_close_all(parent=None):
 
 
 class Editor(object):
-    def __init__(self, master, mirrors, initial_target=None, path=None):
+    def __init__(self, master, mirrors, initial_target=None, path=None, host=None):
+        """host: the main window (mirror.App) when the editor is its tab; None: its own window
+        (python tools/editor.py)"""
         self.master = master
+        self.host = host
+        self._key_tag = "EditorKeys%d" % id(self)  # The shortcuts' bind tag in a tab
         self.mirrors = mirrors
         self.path = None           # The text file being edited (never a .8xp)
         self.lang = "ti84"
@@ -221,11 +227,15 @@ class Editor(object):
         self._closed = False
         _OPEN.append(self)
         self.last_queued = []      # For tests: what this window asked the link for
-        self.win = w = tk.Toplevel(master)
-        w.title("Program editor")
-        w.configure(bg=PANEL_BG)
-        w.geometry("1000x720")
-        w.minsize(640, 420)
+        if host is not None:
+            self.win = w = host.editor_frame  # A tab of the main window
+            w.configure(bg=PANEL_BG)
+        else:
+            self.win = w = tk.Toplevel(master)
+            w.title("Program editor")
+            w.configure(bg=PANEL_BG)
+            w.geometry("1000x720")
+            w.minsize(640, 420)
         st = th.style_ttk(w)
         st.configure("Editor.Treeview", background=PANEL_BG, fieldbackground=PANEL_BG, foreground=EDITOR_FG,
                      rowheight=22, borderwidth=0, bordercolor=PANEL_BG, lightcolor=PANEL_BG, darkcolor=PANEL_BG)
@@ -248,10 +258,22 @@ class Editor(object):
             self.open_path(path)
         else:
             self.new(self.lang, ask=False)
-        w.protocol("WM_DELETE_WINDOW", self.close)
+        if host is None:
+            w.protocol("WM_DELETE_WINDOW", self.close)
+            w.after(10, lambda: _dark_title_bar(w))
+        else:
+            self._tag_keys(w)
         w.after(40, self._pump)
-        w.after(10, lambda: _dark_title_bar(w))
         self.text.focus_set()
+
+    def _tag_keys(self, widget):
+        """In a tab, the window-wide shortcuts (Ctrl+S, F5...) are bound to a tag every widget
+        of the editor carries (a Toplevel's own tag does that for the editor's own window)"""
+        tags = list(widget.bindtags())
+        if self._key_tag not in tags:
+            widget.bindtags(tuple(tags[:1] + [self._key_tag] + tags[1:]))
+        for child in widget.winfo_children():
+            self._tag_keys(child)
 
     # ---- Building the window ----
     def _build(self):
@@ -407,6 +429,9 @@ class Editor(object):
         t.bind("<Escape>", lambda e: (self.hide_popup(), self.hide_find(), "break")[-1])
         t.bind("<Control-space>", lambda e: (self.show_completions(force=True), "break")[-1])
         t.bind("<Control-slash>", lambda e: (self.toggle_comment(), "break")[-1])
+        # A word at a time, like VS Code: Ctrl+Backspace before the cursor, Ctrl+Delete after it
+        t.bind("<Control-BackSpace>", lambda e: (self.delete_word(-1), "break")[-1])
+        t.bind("<Control-Delete>", lambda e: (self.delete_word(1), "break")[-1])
         t.bind("<<Paste>>", self._paste)
         t.bind("<Motion>", self._motion)
         t.bind("<Leave>", lambda e: self.hide_hover())
@@ -422,7 +447,10 @@ class Editor(object):
                         ("<F3>", lambda e: self.find_next()), ("<Control-b>", lambda e: self.build()),
                         ("<F8>", lambda e: self.next_problem()),
                         ("<Shift-F8>", lambda e: self.next_problem(back=True))):
-            w.bind(seq, lambda e, fn=fn: (fn(e), "break")[-1])
+            if self.host is None:
+                w.bind(seq, lambda e, fn=fn: (fn(e), "break")[-1])
+            else:
+                w.bind_class(self._key_tag, seq, lambda e, fn=fn: (fn(e), "break")[-1])
 
     def _menu_items(self):
         self.lang_var = tk.StringVar(master=self.win, value="ti84")
@@ -561,6 +589,9 @@ class Editor(object):
     def update_title(self):
         base = os.path.basename(self.path) if self.path else "untitled%s" % cc.EXTS[self.lang]
         star = "• " if self.unsaved() else ""
+        if self.host is not None:
+            self.host.editor_title("%s%s" % (star, base))
+            return
         self.win.title("%s%s - Program editor (%s)" % (star, base, SHORT[self.lang]))
 
     # ---- Events ----
@@ -1061,6 +1092,50 @@ class Editor(object):
             pass
         self.schedule_check()
 
+    def delete_word(self, direction):
+        """Ctrl+Backspace (direction -1) / Ctrl+Delete (+1): a selection goes as a whole;
+        otherwise the spaces next to the cursor, then one word (letters, digits, _) or one run
+        of symbols; at a line's start or end, just the line break. One undo step."""
+        t = self.text
+        if t.tag_ranges("sel"):
+            t.edit_separator()
+            t.delete("sel.first", "sel.last")
+            t.edit_separator()
+            return
+        line = t.get("insert linestart", "insert lineend")
+        col = int(t.index("insert").split(".")[1])
+
+        def is_word(ch):
+            return ch.isalnum() or ch == "_"
+        if direction < 0:
+            if col == 0:
+                start, end = "insert -1c", "insert"  # The line break before
+            else:
+                i = col
+                while i > 0 and line[i - 1] in " \t":
+                    i -= 1
+                if i > 0:
+                    kind = is_word(line[i - 1])
+                    while i > 0 and line[i - 1] not in " \t" and is_word(line[i - 1]) == kind:
+                        i -= 1
+                start, end = "insert linestart +%dc" % i, "insert"
+        else:
+            if col >= len(line):
+                start, end = "insert", "insert +1c"  # The line break after
+            else:
+                i = col
+                while i < len(line) and line[i] in " \t":
+                    i += 1
+                if i < len(line):
+                    kind = is_word(line[i])
+                    while i < len(line) and line[i] not in " \t" and is_word(line[i]) == kind:
+                        i += 1
+                start, end = "insert", "insert linestart +%dc" % i
+        if t.compare(start, "<", end):
+            t.edit_separator()
+            t.delete(start, end)
+            t.edit_separator()
+
     def toggle_comment(self):
         mark = cc.COMMENT[self.lang]
         if not mark:
@@ -1128,8 +1203,11 @@ class Editor(object):
         Cancel. True when it's fine to go on."""
         if not self.unsaved():
             return True
-        self.win.deiconify()
-        self.win.lift()
+        if self.host is not None:
+            self.host.show_tab("editor")
+        else:
+            self.win.deiconify()
+            self.win.lift()
         ans = ask_save(self.win, self.display_name())
         if ans == "save":
             return self.save()
@@ -1281,6 +1359,9 @@ class Editor(object):
             _OPEN.remove(self)
         self.hide_popup()
         self.hide_hover()
+        if self.host is not None:
+            self.host.editor_closed(self)  # Takes the tab away (and its frame)
+            return True
         try:
             self.win.destroy()
         except tk.TclError:
