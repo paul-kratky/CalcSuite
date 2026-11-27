@@ -219,6 +219,7 @@ class Mirror(object):
         self.rec_lock = threading.Lock()
         self.manager = None     # The calculator manager (calc_manager.Manager) when open
         self.info = {}          # The calculator's last "info" answer (name, OS, free space)
+        self.driver_checked = False  # The connection doctor asked once why it won't open
         self.views = []         # ScreenViews showing this calculator
         self.image = None       # The last frame as a PhotoImage, the calculator's own size
         self.latest = None      # The newest frame's PPM bytes, not drawn yet (link thread -> pump)
@@ -260,6 +261,9 @@ class Mirror(object):
                     self.session = None
                     self.set_status("Looking for the %s... (plugged in, switched on, TI's own "
                                     "software closed)" % self.calc.title)
+                    if not self.driver_checked:
+                        self.driver_checked = True
+                        threading.Thread(target=self.check_driver, daemon=True).start()
                     self.wait_reconnect(2.0)  # Tries again by itself
                     continue
             with self.jobs_lock:
@@ -429,6 +433,21 @@ class Mirror(object):
             self.wait_reconnect(2.0)
             return True
         return False
+
+    def check_driver(self):
+        """Link thread helper: a calculator that won't open may have no driver CalcSuite can use
+        (a new PC, or TI's own driver). If so, the app offers to set WinUSB up: Zadig is only
+        the fallback now."""
+        try:
+            import calc_doctor
+            report = calc_doctor.diagnose(probe=False)
+        except Exception:
+            return
+        pid = "%04x" % self.calc.pid
+        for d in report.get("devices", []):
+            if d.get("pid") == pid and d.get("present") and d.get("fix") == "install_winusb":
+                self.app.root.after(0, lambda d=d: self.app.offer_driver(self, d))
+                return
 
     def wait_reconnect(self, seconds):
         """Until the Reconnect button, or `seconds` have passed"""
@@ -1056,7 +1075,7 @@ class AllScreens(object):
         self.empty = tk.Label(self.grid, bg=th.BG, fg=th.DIM, justify="center", font=(th.FONT, 11),
                               text="No calculator is plugged in yet.\n\nPlug one in and switch it on: "
                                    "its screen appears here by itself.\nTI's own software must be "
-                                   "closed, and each calculator needs the WinUSB driver (README).")
+                                   "closed. The first time, CalcSuite offers to set up each calculator's driver.")
         tk.Label(self.frame, text="Click a screen to type on it. Double click opens its tab.",
                  bg=th.BG, fg=th.DIM, anchor="w").pack(fill="x", padx=14, pady=(0, 10))
         self.tiles = {}  # pid -> (frame, view, name label, fps label, outline)
@@ -1142,6 +1161,7 @@ class App(object):
         self.tabs = {}        # pid -> Tab
         self.found = set()
         self.scanned = False
+        self.offered_driver = {}  # pid -> True once the driver setup was offered (offer_driver)
         self.current = "all"  # "all" or a pid
         self.target = None    # The keyboard target on All screens (a pid)
 
@@ -1353,6 +1373,21 @@ class App(object):
         if self.target is None:
             self.target = calc.pid
         self.all.update()
+
+    def offer_driver(self, m, d):
+        """A calculator is plugged in but Windows has no driver CalcSuite can use: its tab opens
+        on Info, and the same check-then-install the Info panel's button runs starts (it shows
+        what will change; Windows asks for admin rights). Once per calculator per session."""
+        tab = self.tabs.get(m.calc.pid)
+        if tab is None or self.offered_driver.get(m.calc.pid):
+            return
+        self.offered_driver[m.calc.pid] = True
+        self.show_tab(m.calc.pid)
+        tab.panel.show("Info")
+        info = tab.panel.sections.get("Info")
+        if info is not None and hasattr(info, "fix"):
+            m.set_status("The %s needs a driver CalcSuite can use: setting it up..." % m.calc.title)
+            info.fix("install", d)
 
     def recording_changed(self, m):
         tab = self.tabs.get(m.calc.pid)
