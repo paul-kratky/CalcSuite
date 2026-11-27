@@ -912,11 +912,13 @@ class Manager(object):
         elif have >= new:
             text, link = "Up to date (%s)." % installed, "TI's page"
         elif self.slug == "ti84" and have < (5, 5, 0) <= new:
-            # An 84 CE that still runs assembly: TI's update takes that away for good (the CE can't
-            # go back to an older OS), so this is a warning, not an offer
-            text, link = ("Keep OS %s. TI's newer OS %s stops assembly and C programs, and the"
-                          " 84 CE can't go back." % (installed, cf.nice_version(self.slug, newest)),
-                          None)
+            # An 84 CE that still runs assembly: TI's update blocks it (the arTIfiCE jailbreak plus
+            # Cesium brings it back, re-run after every RAM reset) and the CE can't go back to an
+            # older OS, so this is a warning, not an offer
+            text, link = ("Keep OS %s if you can: TI's newer OS %s blocks assembly and C programs "
+                          "(the arTIfiCE jailbreak and Cesium bring them back, re-run after every "
+                          "RAM reset), and the 84 CE can't go back to an older OS."
+                          % (installed, cf.nice_version(self.slug, newest)), None)
         else:
             text, link = "TI has OS %s:" % cf.nice_version(self.slug, newest), "download page"
         tk.Label(line, text=text, bg=BG, fg=FG if link else th.ACCENT, wraplength=420,
