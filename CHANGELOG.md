@@ -4,6 +4,8 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-26
+
 ### Added
 - **Nspire Mirror, an app:** the handheld's screen live in a window (about 9 frames a second),
   with no terminal. `Nspire Mirror.exe` is one file that needs no Python; `Nspire Mirror.bat`
