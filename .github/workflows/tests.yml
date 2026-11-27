@@ -1,0 +1,33 @@
+# The kit's self-test on every push and pull request: the checker, the PC runner, the TI file
+# formats and tokenizers (TI-84 through tivars, TI-89), backups, the guides' example programs.
+# No calculator is needed. The .tns tests need tools/bin/luna.exe (built by tools/build_tools.py,
+# not in git), so they are skipped here; they run on a PC with the tools.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'  # tivars needs 3.11+
+
+      - name: Every Python file compiles
+        run: python -I -m compileall -q tools
+
+      - name: Self-test
+        run: python -I tools/selftest/run_selftest.py
+
+      - name: The guides' example programs tokenize
+        run: python -I tools/docs_build/check_examples.py
