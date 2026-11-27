@@ -80,6 +80,17 @@ SCALE = 2
 PASTE_MAX = 4000  # Characters one paste may type
 KEEPALIVE_S = 60  # A do-nothing key this often while a calculator is connected and idle (0: never)
 HISTORY = 8       # Keys the key-history strip shows
+# Fast mode (TI-84 Plus CE): its calculator program, the typing hold-off when a frame takes
+# ~0.15 s instead of 1.4 s, and after how many fallback frames in a row the status says so
+FAST84_PRGM = os.path.join(HERE, "fast84", "CSFAST.8xp")
+FAST_HOLDOFF = 0.15
+FAST_MISSES_WARN = 3
+
+
+def _os_tuple(text):
+    """"5.4.0" -> (5, 4, 0)"""
+    import re
+    return tuple(int(x) for x in re.findall(r"\d+", text or "")[:3])
 
 
 def resource(*parts):
@@ -216,6 +227,12 @@ class Mirror(object):
         self.last_press = tk.StringVar(master=app.root, value="Last key: none yet")
         self.listeners = []     # fn(keysym) called after a key press (the Keys panel)
         self.click_acted = 0.0  # When a single click last pressed keys (double click skips)
+        # Fast mode (the TI-84 Plus CE only, experimental, off until set_fast(True)): see
+        # set_fast() and docs/dev/FAST84_PLAN.md
+        self.fast_state = "off"  # off | starting | on | stopping | lost | error
+        self.fast_note = ""      # The last thing worth telling about it, in plain words
+        self.fast_misses = 0     # Frames in a row Fast mode couldn't give
+        self.fast_listeners = []  # fn(state, note), called on the link thread when it changes
         threading.Thread(target=self.link_loop, daemon=True).start()
 
     # ---- The link thread: the only one that talks to the calculator ----
@@ -282,11 +299,14 @@ class Mirror(object):
                 self.session.cmd("key " + ka)
             # While typing, keys go out as they come and the picture waits: a screenshot can't be
             # interrupted, so a key typed during one waits for all of it (1.4 s on the 84 Plus CE)
-            if time.time() - self.last_key < self.calc.shot_holdoff:
+            fast = self.fast_state == "on"
+            if time.time() - self.last_key < (FAST_HOLDOFF if fast else self.calc.shot_holdoff):
                 time.sleep(0.015)
                 continue
             tmp = self.frame_path + ".new"
-            code, lines = self.session.cmd("shot " + tmp)
+            code, lines = self.session.cmd(("snap " if fast else "shot ") + tmp)
+            if fast:
+                self.fast_result(code, lines)
             if code == 0:
                 try:
                     with open(tmp, "rb") as f:
@@ -313,6 +333,94 @@ class Mirror(object):
                 continue
             else:
                 time.sleep(0.5)
+
+    # ---- Fast mode (TI-84 Plus CE, experimental) ----
+    # A small assembly program (tools/fast84: CSFAST) installs a key hook on the calculator
+    # that compresses the screen into AppVars on request; `snap` reads them in ~0.15 s instead
+    # of the 1.2-1.4 s screenshot. The UI calls set_fast(True/False) and reads fast_status();
+    # changes are reported to fast_listeners (on the link thread: hand window work to Tk).
+    def fast_supported(self):
+        """(True, "") when Fast mode can be offered for this calculator, else (False, why)"""
+        if self.calc.slug != "ti84":
+            return False, "Fast mode is for the TI-84 Plus CE"
+        if not os.path.isfile(FAST84_PRGM):
+            return False, "CSFAST.8xp is missing from tools/fast84"
+        osv = self.info.get("os", "")
+        if osv and _os_tuple(osv) >= (5, 5):
+            return False, ("OS %s doesn't run assembly programs: Fast mode needs arTIfiCE on OS 5.5 "
+                           "or newer" % osv)
+        return True, ""
+
+    def fast_status(self):
+        """{supported, why, state, note, on}: state is off | starting | on | stopping | lost | error"""
+        ok, why = self.fast_supported()
+        return {"supported": ok, "why": why, "state": self.fast_state, "note": self.fast_note,
+                "on": self.fast_state == "on"}
+
+    def set_fast(self, on, done=None):
+        """Turns Fast mode on or off on the calculator (queued on the link thread, a few
+        seconds). done(ok, note) is called on the link thread when it's finished."""
+        ok, why = self.fast_supported()
+        if on and not ok:
+            self._fast_set("error", why)
+            if done is not None:
+                done(False, why)
+            return
+        self._fast_set("starting" if on else "stopping",
+                       "Starting Fast mode on the calculator..." if on else "Turning Fast mode off...")
+
+        def finished(code, lines):
+            last = [l for l in lines if l.startswith(("OK", "ERR"))]
+            text = last[-1][4:].strip() if last and last[-1].startswith("ERR") else ""
+            if on and code == 0:
+                self.fast_misses = 0
+                self._fast_set("on", "Fast mode is on (experimental)")
+            elif on:
+                self._fast_set("error", text or "Fast mode didn't start (exit %d)" % code)
+            elif code == 0:
+                self._fast_set("off", "Fast mode is off; the calculator is as it was")
+            else:
+                self._fast_set("error", text or "Fast mode didn't turn off (exit %d)" % code)
+            if done is not None:
+                done(self.fast_state == ("on" if on else "off"), self.fast_note)
+        self.queue("fast %s %s" % ("on" if on else "off", FAST84_PRGM), None, finished)
+
+    def _fast_set(self, state, note):
+        changed = (state, note) != (self.fast_state, self.fast_note)
+        self.fast_state, self.fast_note = state, note
+        if note:
+            self.set_status(note)
+        if changed:
+            for fn in list(self.fast_listeners):
+                try:
+                    fn(state, note)
+                except Exception:  # A listener's mistake must never stop the link
+                    pass
+
+    def fast_result(self, code, lines):
+        """What a `snap` said: a frame by Fast mode, a fallback shot, or Fast mode gone"""
+        gone = [l for l in lines if l.startswith("FAST gone")]
+        if gone:
+            # CSSNAP isn't there: a RAM reset (or someone deleted it) took Fast mode away
+            self._fast_set("lost", "Fast mode stopped: the calculator no longer has it (was it "
+                                   "reset?). Back to normal screenshots.")
+            return
+        if any(l.startswith("FAST away") for l in lines):
+            # Graph, table, Y=, mode...: reading Fast mode's AppVars there would send the
+            # calculator to its home screen, so these screens come by normal screenshots
+            if self.fast_misses < FAST_MISSES_WARN:
+                self.set_status("Fast mode works on the home screen (and its menus); normal "
+                                "screenshots on this screen")
+            self.fast_misses = FAST_MISSES_WARN
+        elif any(l.startswith("FAST fallback") for l in lines):
+            self.fast_misses += 1
+            if self.fast_misses == FAST_MISSES_WARN:
+                why = [l for l in lines if l.startswith("FAST fallback")][-1][len("FAST fallback "):]
+                self.set_status("Fast mode can't take this screen (%s): normal screenshots meanwhile" % why)
+        elif code == 0:
+            if self.fast_misses >= FAST_MISSES_WARN:
+                self.set_status("Fast mode is back")
+            self.fast_misses = 0
 
     def link_dead(self):
         if self.session is not None and self.session.p.poll() is not None:
@@ -728,8 +836,10 @@ class Mirror(object):
         self.app.show_tab(self.calc.pid)
         self.app.tabs[self.calc.pid].show_section("Files")
 
-    def stop(self):
-        if self.manager is not None and self.manager.alive():
+    def stop(self, tk_side=True):
+        """Ends this calculator's link. tk_side=False: only the part that needs no Tk (App.quit
+        runs that for every calculator at once on worker threads)."""
+        if tk_side and self.manager is not None and self.manager.alive():
             self.manager.close()
         self.running = False
         self.want_reconnect = True
@@ -741,7 +851,7 @@ class Mirror(object):
             except Exception:
                 pass
         if self.session is not None:
-            self.session.close()
+            self.session.close(timeout=0.8)
         try:
             os.remove(self.frame_path)
         except OSError:
@@ -1235,8 +1345,36 @@ class App(object):
         self.root.after(1000, self.tick)
 
     def quit(self):
-        for m in self.mirrors.values():
-            m.stop()
+        """Closes at once: the window goes away first, then every calculator's link stops at the
+        same time (each helper gets 0.8 s to finish what it's doing, then it's ended). Before,
+        each link waited up to 5 s, one after another: closing took many seconds."""
+        mirrors = list(self.mirrors.values())
+        for m in mirrors:  # Tk's part first, on Tk's thread
+            m.running = False
+            if m.manager is not None and m.manager.alive():
+                try:
+                    m.manager.close()
+                except Exception:
+                    pass
+        try:
+            self.root.withdraw()
+            self.root.update_idletasks()
+        except tk.TclError:
+            pass
+        workers = [threading.Thread(target=m.stop, kwargs={"tk_side": False}, daemon=True)
+                   for m in mirrors]
+        for w in workers:
+            w.start()
+        deadline = time.time() + 3.0  # A recording being saved can take longer: it's a daemon
+        for w in workers:
+            w.join(max(0.0, deadline - time.time()))
+        for m in mirrors:  # Anything still running is ended
+            s = m.session
+            if s is not None and s.p.poll() is None:
+                try:
+                    s.p.kill()
+                except OSError:
+                    pass
         self.root.destroy()
 
     def run(self):

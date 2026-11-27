@@ -4,6 +4,27 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 ## [Unreleased]
 
+### Added
+- **The guides as PDFs, dark like the app.** **Save as PDF** in the Guide and Functions panels
+  saves the calculator's guide or its Functions reference (every command by category, with its
+  syntax, arguments, result, example and keys) where you pick (Documents\CalcSuite to start)
+  and offers to open it. `docs/pdf/` has them all, the user guide, quick start and Python kit
+  too; `tools/docs_build/make_pdfs.py` rebuilds them (headless Edge, standard library only:
+  `tools/docs_build/md_to_pdf.py`), and the release build does so and attaches them.
+- **Fast mode for the TI-84 Plus CE (experimental, off by default).** CSFAST
+  (`tools/fast84/csfast.asm`, our own eZ80 assembly, MIT; the prebuilt `CSFAST.8xp` is
+  committed with its SHA-256, `tools/fast84/build.py` rebuilds it byte for byte with the CE
+  toolchain's fasmg) installs a key hook. Two key codes the OS doesn't use make it pack the
+  screen (changed rows only, as runs) into RAM AppVars, read with the normal variable request.
+  Measured on OS 5.4.0: 6.7 fps on a still home screen (0.9 before), 4.6 while typing, a key
+  shows in about 0.32 s (2.2 s before). `ti84-cli` gets `snap FILE` (falls back to `shot` by
+  itself) and `fast status|on|off`; the mirror's API is `Mirror.set_fast(on, done)` and
+  `Mirror.fast_status()`. Home screen (and its menus) only: on the graph, table, Y= and mode screens a variable read
+  would send the calculator home, so those get normal screenshots. Refused on OS 5.5+
+  (assembly needs arTIfiCE there). A reset
+  calculator is noticed and the mirror goes back to normal screenshots. Fast mode off removes
+  the hook and every variable it made.
+
 ### Changed
 - **One window, and the app is called CalcSuite.** A tab strip: **All screens** first (every
   connected calculator's live screen side by side, with its frame rate, Screenshot and

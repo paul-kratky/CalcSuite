@@ -1,6 +1,85 @@
 # CalcSuite: faster TI-84 Plus CE mirroring, and leaving Press-to-Test from the PC
 
-Research only, 2026-11-27. Nothing in C:\CalcSuite was changed and no USB device was opened.
+## What was built (2026-11-27): Fast mode, approach A with changes
+
+Bench: TI-84 Plus CE, OS 5.4.0, Windows 11, backed up first (no crash, no RAM clear in any test).
+
+**Calculator side**: `tools/fast84/csfast.asm` (MIT, plain eZ80, fasmg + the CE toolchain v14.2's
+`commands.alm`/`ez80.alm`; no toolchain library is linked). `CSFAST.8xp` and its `.sha256` are
+committed; `tools/fast84/build.py` (also run by `tools/build_tools.py`, skipped when fasmg isn't
+there) rebuilds it byte for byte; the self-test checks both.
+
+- CSFAST is a toggle. On: the hook's code goes into the archived AppVar **ZZHOOK** (reused when
+  it's already there byte for byte; refused when the archive would need a garbage collect),
+  then RAM AppVars **CSSNAP** (2048 B), **ZZWORK** (3584 B) and as many **ZZSNPA..ZZSNPH**
+  (4096 B each, at most 8) as leave 16 KB free; it sets the **raw key hook** (rawKeyHookPtr,
+  hookflags2 bit 5). It refuses when another program's raw key hook is on. Off: the hook and
+  every one of those variables are removed.
+- Not a timer: frames are **on demand**. The PC presses key code **0x22** (full frame) or
+  **0x23** (changed rows only) with the normal remote-key command; codes 0x21-0x24 do nothing
+  on OS 5.4 without the hook (tested; 0x7D/0x7E, the first idea, open CALC menus). The raw
+  key hook swallows them, so the calculator spends nothing when nobody's mirroring.
+- Taken inside key handling, a picture always had the busy indicator and never the cursor. So
+  the trigger only **arms a one-shot GetCSC hook**, which takes the picture the next time the
+  OS waits for a key, then puts back the GetCSC hook that was there (OS 5.4 has its own, at
+  0x066FC9) and calls it. The key's acknowledgement comes after the picture, so the PC's next
+  request always sees it. 0x24 takes it at once from the raw key hook (the fallback).
+- The hook copies itself into ZZWORK and runs from RAM (from the archive a frame took ~350 ms).
+  Each row is first checksummed (Fletcher over 24-bit words read with `pop`, interrupts off
+  for ~0.2 ms a row; SP and IX come back through self-modified code); only rows whose checksum
+  changed are packed as runs (u8 count-1, u16 colour; two 160-pixel halves).
+- Torn frames: seq_begin/seq_end in the header plus a seq stamp at the end of CSSNAP and at both
+  ends of every chunk. The format is at the top of `csfast.asm`; `tools/fast84/csnap.py` is the
+  reference decoder (and the self-test's encoder).
+- The hook never creates, deletes or resizes a variable (the home screen's edit buffer lives in
+  free RAM: a VAT change from a hook could break it), saves and restores OP1, keeps IY.
+
+**PC side**: `ti84-cli` `snap FILE [full]` (a delta when it holds the previous frame, a full
+frame every 10 s anyway; on any problem it prints `FAST fallback <why>` or `FAST gone <why>`
+and does a normal `shot`), `fast status|on CSFAST.8xp|off [CSFAST.8xp]` (status:
+`INFO fast=on|stale|off`; on: refused on OS 5.5+, sends CSFAST, types Quit Clear Clear prgm C S
+F A S T Enter, checks that frames come; off: runs CSFAST if the hook may be on, then removes
+what's left, our names only). `mirror.py`: `Mirror.set_fast(on, done=None)`,
+`Mirror.fast_status()` -> `{supported, why, state, note, on}` (state off | starting | on |
+stopping | lost | error), `Mirror.fast_supported()`, `Mirror.fast_listeners` (fn(state, note),
+called on the link thread). With state "on" the link loop uses `snap` and a 0.15 s typing
+hold-off instead of 0.6 s; `FAST gone` (a RAM reset) sets "lost" and goes back to `shot`.
+Closing the app leaves Fast mode on the calculator (safe: three key codes the keypad never
+sends); turning it off is an explicit action.
+
+**Measured** (OS 5.4.0, the Mirror link loop run headless):
+
+| Screen | Normal `shot` | Fast mode |
+| --- | --- | --- |
+| Still home screen | 0.90 fps | **6.67 fps** (a delta: trigger ~115 ms incl. ~25 ms OS, CSSNAP read 36 ms) |
+| Typing (1+2 Enter Clear, a key every ~0.6 s) | 0.79 fps, key to picture 2.2 s median | **4.6 fps**, key to picture **0.32 s** median (0.59 s max) |
+| Graph screen | 0.90 fps | 0.83 fps: normal screenshots (see below), the graph stays on screen |
+| Full frame (the first, then every 10 s) | | ~0.35 s (home screen 4.1 KB: CSSNAP + 1 chunk) |
+
+The calculator's own keypad works as before with Fast mode on (the raw key hook adds three
+compares per key). CPU: only when the PC asks (~90 ms per still frame, ~225 ms per full
+frame); nothing while not mirroring.
+
+**Home screen only.** Any variable request (`get`, even `ls`) from the graph, table, Y=, mode
+or window screen makes TI's OS leave that screen for the home screen (measured; menus such
+as MATH, PRGM and the catalog stay). So the hook makes a picture only when cxCurApp is the
+home screen (kQuit); elsewhere it swallows the trigger at once, `snap` sees the key answered
+in under 55 ms (a picture takes 90 ms or more), reads nothing, prints `FAST away` and takes a
+normal shot. `fast status|on|off` list the variables, so they also bring the calculator home.
+
+**Bench notes**: the hook survived the calculator's auto power-off (APD) with Fast mode on;
+closing the mirror in the middle of a `snap` (Mirror.stop) left the calculator working; `fast
+off` left the variable list identical to the one before the first test.
+
+**Risks left**: a garbage collect of the archive moves ZZHOOK while the hook pointer stays (the
+OS skips a hook whose first byte isn't 83h, so most likely the hook just stops; CalcSuite then
+says Fast mode is lost: turn it off and on). An app or shell that takes the raw key hook stops
+Fast mode the same way. Not bench-tested yet: apps (Python), table/catalog in every mode, APD
+while on, a RAM reset while on (the code path exists).
+
+---
+
+The research below came first (2026-11-27, before anything was built).
 Confidence: **High** means a primary source (code or TI documentation) says so. **Medium** means it
 follows from sources but nobody has tested it on this hardware. **Low** is my inference.
 

@@ -6,6 +6,9 @@
     tools/bin/libusb-1.0.dll   copied from the official libusb release (LGPL-2.1)
     tools/bin/calcsuite-driver.exe  USB driver helper on third_party/libwdi (LGPL-3.0+),
                                see tools/driver_helper/ and docs/dev/DOCTOR.md
+    tools/fast84/CSFAST.8xp    the TI-84 Plus CE's Fast mode program (ours, MIT), only when the
+                               CE toolchain's fasmg is there (tools/fast84/build.py); else the
+                               committed .8xp stays
 
     python -I tools/build_tools.py            build what is missing
     python -I tools/build_tools.py --force    rebuild everything
@@ -155,6 +158,15 @@ def build_driver_helper(tc, force):
     mod.build(tc, force, run, BIN, KIT)
 
 
+def build_fast84():
+    """CSFAST.8xp from tools/fast84/csfast.asm with fasmg; skipped without the CE toolchain"""
+    p = subprocess.run([sys.executable, "-I", os.path.join(HERE, "fast84", "build.py")],
+                       capture_output=True, text=True)
+    print((p.stdout + p.stderr).strip())
+    if p.returncode not in (0, 2):
+        sys.exit("ERROR: build step failed")
+
+
 def main(argv):
     force = "--force" in argv
     os.makedirs(BIN, exist_ok=True)
@@ -164,6 +176,7 @@ def main(argv):
     build_cli(tc, force)
     build_ti84(tc, force)
     build_driver_helper(tc, force)
+    build_fast84()
     print("Done: " + BIN)
     return 0
 

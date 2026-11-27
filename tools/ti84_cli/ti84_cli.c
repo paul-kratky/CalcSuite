@@ -737,25 +737,12 @@ static int do_ls(Link *l) {
     return 0;
 }
 
-/* "get TYPE FOLDERHEX NAMEHEX SIZE LOCAL": the variable's data into LOCAL as it is (no TI file
-   header: the Python side writes that). Prints "OK got size=N arch=A version=V". */
-static int do_get(Link *l, char *arg) {
-    char *tok[5];
-    for (int i = 0; i < 4; i++) {
-        tok[i] = strtok(i ? NULL : arg, " ");
-        if (!tok[i]) {
-            printf("ERR usage: get TYPE FOLDERHEX NAMEHEX SIZE LOCAL\n");
-            return 1;
-        }
-    }
-    tok[4] = strtok(NULL, ""); /* The path, spaces and all */
-    unsigned char folder[40], name[40];
-    int flen = from_hex(tok[1], folder, sizeof(folder)), nlen = from_hex(tok[2], name, sizeof(name));
-    if (!tok[4] || flen < 0 || nlen <= 0) {
-        printf("ERR usage: get TYPE FOLDERHEX NAMEHEX SIZE LOCAL\n");
-        return 1;
-    }
-    unsigned type = (unsigned)strtoul(tok[0], NULL, 16);
+/* Downloads one variable into memory (*out, malloc'd; the caller frees it). folder is "" on
+   the 84 family. progress: the total for PROGRESS lines, 0 for none. On an error it prints
+   nothing when quiet (a variable that isn't there is a normal answer for `snap`). */
+static int get_var(Link *l, unsigned type, const unsigned char *folder, int flen,
+                   const unsigned char *name, int nlen, uint32_t progress, int quiet,
+                   unsigned char **out, uint32_t *outn, int *arch_out, unsigned *version_out) {
     static const uint16_t aids84[] = {AID_ARCHIVED, AID_VAR_VERSION, AID_VAR_SIZE};
     static const uint16_t aids89[] = {AID_ARCHIVED, AID_VAR_VERSION, AID_LOCKED};
     const uint16_t *aids = l->m->is_89t ? aids89 : aids84;
@@ -792,21 +779,22 @@ static int do_get(Link *l, char *arg) {
     req[j++] = 0;
     req[j++] = 0;
     if (vpkt_send(l, VPKT_VAR_REQ, req, j)) {
-        printf("ERR get: no answer\n");
+        if (!quiet) printf("ERR get: no answer\n");
         return 4;
     }
     unsigned char *d = NULL;
     uint32_t n = 0;
     int vt = 0;
     if (vpkt_recv(l, &vt, &d, &n)) {
-        printf("ERR get: no answer\n");
+        if (!quiet) printf("ERR get: no answer\n");
         return 4;
     }
     if (vt != VPKT_VAR_HDR) {
-        printf("ERR get: the calculator refused (0x%04x, code 0x%04x)\n", vt,
-               n >= 2 ? (unsigned)((d[0] << 8) | d[1]) : 0u);
+        if (!quiet)
+            printf("ERR get: the calculator refused (0x%04x, code 0x%04x)\n", vt,
+                   n >= 2 ? (unsigned)((d[0] << 8) | d[1]) : 0u);
         free(d);
-        return 4;
+        return 5; /* Not there (or refused): the link is still fine */
     }
     unsigned char f2[40], n2[40];
     unsigned f2l, n2l;
@@ -822,19 +810,51 @@ static int do_get(Link *l, char *arg) {
     }
     free(d);
     d = NULL;
-    l->progress_total = (uint32_t)strtoul(tok[3], NULL, 10);
-    if (!l->progress_total) l->progress_total = 1;
+    l->progress_total = progress;
     int r = vpkt_recv(l, &vt, &d, &n);
     l->progress_total = 0;
     if (r) {
-        printf("ERR get: the data didn't come\n");
+        if (!quiet) printf("ERR get: the data didn't come\n");
         return 4;
     }
     if (vt != VPKT_VAR_CNTS) {
-        printf("ERR get: unexpected answer 0x%04x\n", vt);
+        if (!quiet) printf("ERR get: unexpected answer 0x%04x\n", vt);
         free(d);
         return 4;
     }
+    *out = d;
+    *outn = n;
+    if (arch_out) *arch_out = arch;
+    if (version_out) *version_out = version;
+    return 0;
+}
+
+/* "get TYPE FOLDERHEX NAMEHEX SIZE LOCAL": the variable's data into LOCAL as it is (no TI file
+   header: the Python side writes that). Prints "OK got size=N arch=A version=V". */
+static int do_get(Link *l, char *arg) {
+    char *tok[5];
+    for (int i = 0; i < 4; i++) {
+        tok[i] = strtok(i ? NULL : arg, " ");
+        if (!tok[i]) {
+            printf("ERR usage: get TYPE FOLDERHEX NAMEHEX SIZE LOCAL\n");
+            return 1;
+        }
+    }
+    tok[4] = strtok(NULL, ""); /* The path, spaces and all */
+    unsigned char folder[40], name[40];
+    int flen = from_hex(tok[1], folder, sizeof(folder)), nlen = from_hex(tok[2], name, sizeof(name));
+    if (!tok[4] || flen < 0 || nlen <= 0) {
+        printf("ERR usage: get TYPE FOLDERHEX NAMEHEX SIZE LOCAL\n");
+        return 1;
+    }
+    uint32_t total = (uint32_t)strtoul(tok[3], NULL, 10);
+    unsigned char *d = NULL;
+    uint32_t n = 0;
+    int arch = 0;
+    unsigned version = 0;
+    int r = get_var(l, (unsigned)strtoul(tok[0], NULL, 16), folder, flen, name, nlen, total ? total : 1,
+                    0, &d, &n, &arch, &version);
+    if (r) return r == 5 ? 4 : r;
     FILE *f = fopen(tok[4], "wb");
     if (!f || fwrite(d, 1, n, f) != n) {
         if (f) fclose(f);
@@ -1733,6 +1753,497 @@ static int do_romdump(Link *l, const char *out) {
     return 0;
 }
 
+/* ---- Fast mode for the TI-84 Plus CE (tools/fast84/csfast.asm, docs/dev/FAST84_PLAN.md).
+   CSFAST, a small assembly program, installs a key hook. A remote key the OS doesn't use
+   (0x22 full frame, 0x23 changed rows only) makes the hook compress the screen into RAM
+   AppVars (CSSNAP, then ZZSNPA..ZZSNPH as needed), which are downloaded like any variable.
+   Every check fails over to the normal screenshot. ---- */
+
+#define FAST_TRIG_FULL 0x22
+#define FAST_TRIG_DELTA 0x23
+#define FAST_TRIG_NOW 0x24 /* A frame at once, from the key hook itself (busy indicator, no cursor) */
+#define FAST_SNAP_SIZE 2048
+#define FAST_CHUNK_SIZE 4096
+#define FAST_HDR 16
+#define FAST_BITMAP 30
+#define FAST_SNAP_ROOM (FAST_SNAP_SIZE - FAST_HDR - 2)
+#define FAST_CHUNK_ROOM (FAST_CHUNK_SIZE - 4)
+#define FAST_MAX_CHUNKS 8
+#define FAST_FULL_EVERY_MS 10000 /* A full frame now and then: a row checksum can miss a change */
+#define APPVAR 0x15
+#define FAST_ACK_MIN_MS 55 /* A trigger answered faster than this made no picture (not home) */
+
+static const unsigned char FAST_SNAP_NAME[] = "CSSNAP";
+static const unsigned char FAST_PRGM_NAME[] = "CSFAST";
+
+static struct {
+    int have;                     /* px holds the frame of seq */
+    uint16_t seq;
+    unsigned long long full_at;   /* now_ms() of the last full frame */
+    uint16_t px[320 * 240];
+} g_fast;
+
+static uint16_t rd16(const unsigned char *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+
+static int write_ppm565(const char *path, const uint16_t *px) {
+    static unsigned char rgb[320 * 240 * 3];
+    for (unsigned k = 0; k < 320 * 240; k++) {
+        unsigned v = px[k];
+        unsigned r5 = (v >> 11) & 31, g6 = (v >> 5) & 63, b5 = v & 31;
+        rgb[3 * k] = (unsigned char)((r5 << 3) | (r5 >> 2));
+        rgb[3 * k + 1] = (unsigned char)((g6 << 2) | (g6 >> 4));
+        rgb[3 * k + 2] = (unsigned char)((b5 << 3) | (b5 >> 2));
+    }
+    FILE *f = fopen(path, "wb");
+    if (!f) return -1;
+    fprintf(f, "P6\n320 240\n255\n");
+    int ok = fwrite(rgb, 1, sizeof(rgb), f) == sizeof(rgb);
+    return fclose(f) == 0 && ok ? 0 : -1;
+}
+
+/* An AppVar's content (after its 2-byte size), or a negative code: -5 not there, -4 link */
+static int fast_get(Link *l, const unsigned char *name, unsigned char **out, uint32_t *n) {
+    unsigned char *d = NULL;
+    uint32_t dn = 0;
+    int r = get_var(l, APPVAR, (const unsigned char *)"", 0, name, (int)strlen((const char *)name), 0, 1,
+                    &d, &dn, NULL, NULL);
+    if (r) return r == 5 ? -5 : -4;
+    if (dn < 2 || rd16(d) > dn - 2) {
+        free(d);
+        return -4;
+    }
+    *n = rd16(d);
+    memmove(d, d + 2, *n);
+    *out = d;
+    return 0;
+}
+
+typedef struct {
+    uint16_t seq_begin, seq_end, base;
+    unsigned kind, avail, idle, used;
+    uint32_t length;
+} FastHdr;
+
+static int fast_header(const unsigned char *s, uint32_t n, FastHdr *h) {
+    if (n < FAST_SNAP_SIZE || memcmp(s, "CSN1", 4)) return -1;
+    h->seq_begin = rd16(s + 4);
+    h->seq_end = rd16(s + 6);
+    h->kind = s[8];
+    h->avail = s[9] & 0x0F;
+    h->idle = (s[9] & 0x80) != 0;
+    h->base = rd16(s + 10);
+    h->length = s[12] | ((uint32_t)s[13] << 8) | ((uint32_t)s[14] << 16);
+    h->used = s[15];
+    return 0;
+}
+
+/* Decodes the payload's rows into px (a delta keeps the rows it doesn't send). -1 if broken. */
+static int fast_decode(const unsigned char *p, uint32_t len, int full, uint16_t *px, unsigned *rows) {
+    if (len < FAST_BITMAP) return -1;
+    const unsigned char *bm = p;
+    uint32_t q = FAST_BITMAP;
+    *rows = 0;
+    for (unsigned y = 0; y < 240; y++) {
+        if (!(bm[y >> 3] & (1u << (y & 7)))) {
+            if (full) return -1;
+            continue;
+        }
+        (*rows)++;
+        uint16_t *o = px + y * 320;
+        for (int half = 0; half < 2; half++) {
+            unsigned left = 160;
+            while (left) {
+                if (q + 3 > len) return -1;
+                unsigned cnt = (unsigned)p[q] + 1;
+                uint16_t c = rd16(p + q + 1);
+                q += 3;
+                if (cnt > left) return -1;
+                for (unsigned i = 0; i < cnt; i++) *o++ = c;
+                left -= cnt;
+            }
+        }
+    }
+    return q == len ? 0 : -1;
+}
+
+/* One try at a frame. 0 ok; 1 no new frame (the hook didn't run); 2 torn / doesn't apply (try
+   a full one); 3 the calculator says take a normal shot (too big, not 16 bpp); 6 not on the
+   home screen (nothing read: take a normal shot); -5 Fast mode isn't set up (no CSSNAP); -4
+   link error. */
+static int fast_frame(Link *l, int trig, const char **why, unsigned *rows, uint32_t *bytes,
+                      unsigned *kind) {
+    unsigned long long tk = now_ms();
+    if (do_key(l, (unsigned long)trig)) {
+        *why = "the trigger key failed";
+        return -4;
+    }
+    /* Away from the home screen the hook makes no picture and the key comes back at once
+       (~25 ms; a picture takes ~100 ms or more). Reading CSSNAP there would make the OS leave
+       the graph, table, Y= ... screen for the home screen, so nothing is read. */
+    if (now_ms() - tk < FAST_ACK_MIN_MS) {
+        *why = "not on the home screen";
+        return 6;
+    }
+    unsigned char *s = NULL;
+    uint32_t n = 0;
+    int r = fast_get(l, FAST_SNAP_NAME, &s, &n);
+    if (r) {
+        *why = r == -5 ? "CSSNAP isn't on the calculator" : "CSSNAP didn't come";
+        return r;
+    }
+    FastHdr h;
+    if (fast_header(s, n, &h)) {
+        free(s);
+        *why = "CSSNAP isn't a CalcSuite frame";
+        return -5;
+    }
+    *kind = h.kind;
+    if (h.seq_begin != h.seq_end || rd16(s + FAST_SNAP_SIZE - 2) != h.seq_end) {
+        free(s);
+        *why = "torn frame";
+        return 2;
+    }
+    if (g_fast.have && h.seq_end == g_fast.seq) {
+        free(s);
+        *why = "no new frame (the hook didn't run)";
+        return 1;
+    }
+    if (h.kind == 1) {
+        free(s);
+        g_fast.have = 0;
+        *why = "too much on the screen for Fast mode (or not 16 bpp)";
+        return 3;
+    }
+    if (h.kind != 0 && h.kind != 2) {
+        free(s);
+        *why = h.kind == 4 ? "no frame yet" : "the frame wasn't finished";
+        return 1;
+    }
+    if (h.kind == 2 && (!g_fast.have || h.base != g_fast.seq)) {
+        free(s);
+        *why = "a delta of a frame we don't have";
+        return 2;
+    }
+    uint32_t len = h.length;
+    unsigned need = len <= FAST_SNAP_ROOM ? 0 : (len - FAST_SNAP_ROOM + FAST_CHUNK_ROOM - 1) / FAST_CHUNK_ROOM;
+    if (need > FAST_MAX_CHUNKS || need > h.avail) {
+        free(s);
+        *why = "the frame says it needs more chunks than there are";
+        return 2;
+    }
+    unsigned char *pay = malloc(FAST_SNAP_ROOM + (size_t)need * FAST_CHUNK_ROOM);
+    if (!pay) {
+        free(s);
+        return -4;
+    }
+    memcpy(pay, s + FAST_HDR, FAST_SNAP_ROOM);
+    free(s);
+    for (unsigned k = 0; k < need; k++) {
+        unsigned char name[7] = {'Z', 'Z', 'S', 'N', 'P', (unsigned char)('A' + k), 0};
+        unsigned char *c = NULL;
+        uint32_t cn = 0;
+        r = fast_get(l, name, &c, &cn);
+        if (r) {
+            free(pay);
+            *why = "a ZZSNP chunk didn't come";
+            return r == -5 ? 2 : -4;
+        }
+        if (cn < FAST_CHUNK_SIZE || rd16(c) != h.seq_end || rd16(c + FAST_CHUNK_SIZE - 2) != h.seq_end) {
+            free(c);
+            free(pay);
+            *why = "torn frame (a chunk's stamp)";
+            return 2;
+        }
+        memcpy(pay + FAST_SNAP_ROOM + (size_t)k * FAST_CHUNK_ROOM, c + 2, FAST_CHUNK_ROOM);
+        free(c);
+    }
+    static uint16_t px[320 * 240];
+    if (h.kind == 2) memcpy(px, g_fast.px, sizeof(px));
+    if (fast_decode(pay, len, h.kind == 0, px, rows)) {
+        free(pay);
+        *why = "the frame doesn't decode";
+        return 2;
+    }
+    free(pay);
+    memcpy(g_fast.px, px, sizeof(px));
+    g_fast.have = 1;
+    g_fast.seq = h.seq_end;
+    if (h.kind == 0) g_fast.full_at = now_ms();
+    *bytes = len;
+    return 0;
+}
+
+/* "snap FILE [full]": a frame by Fast mode into FILE (PPM, as shot). Prints
+   "OK snap 320x240 FILE kind=full|delta rows=R bytes=B ms=T"; when Fast mode can't give one,
+   "FAST fallback <why>" ("FAST away" off the home screen: nothing is read there; "FAST gone"
+   when Fast mode isn't set up) and then shot's answer.
+   The exit code is shot's then. */
+static int do_snap(Link *l, char *arg) {
+    if (l->m->is_89t) {
+        printf("ERR Fast mode is for the TI-84 Plus CE\n");
+        return 1;
+    }
+    char *path = arg;
+    int want_full = 0;
+    size_t al = strlen(arg);
+    if (al > 5 && !strcmp(arg + al - 5, " full")) {
+        arg[al - 5] = 0;
+        want_full = 1;
+    }
+    unsigned long long t0 = now_ms();
+    if (!g_fast.have || now_ms() - g_fast.full_at >= FAST_FULL_EVERY_MS) want_full = 1;
+    const char *why = "";
+    unsigned rows = 0, kind = 0;
+    uint32_t bytes = 0;
+    int r = fast_frame(l, want_full ? FAST_TRIG_FULL : FAST_TRIG_DELTA, &why, &rows, &bytes, &kind);
+    if (r == 2) /* Torn, or a delta we can't use: one full frame more */
+        r = fast_frame(l, FAST_TRIG_FULL, &why, &rows, &bytes, &kind);
+    else if (r == 1) /* The GetCSC hook didn't run (not idle?): straight from the key hook */
+        r = fast_frame(l, FAST_TRIG_NOW, &why, &rows, &bytes, &kind);
+    if (r == 0) {
+        if (write_ppm565(path, g_fast.px)) {
+            printf("ERR cannot write %s\n", path);
+            return 6;
+        }
+        printf("OK snap 320x240 %s kind=%s rows=%u bytes=%lu ms=%llu\n", path, kind == 0 ? "full" : "delta",
+               rows, (unsigned long)bytes, now_ms() - t0);
+        return 0;
+    }
+    if (r != 3 && r != 6) g_fast.have = 0; /* 6: no picture was made, the last one still counts */
+    printf("FAST %s %s\n", r == -5 ? "gone" : r == 6 ? "away" : "fallback", why);
+    if (r == -4) return 4;
+    return do_shot(l, path);
+}
+
+/* The OS version (from the parameter request); 0 if it didn't come */
+static int os_version(Link *l, int *maj, int *min, int *pat) {
+    static const uint16_t pid[] = {PID_OS_VERSION};
+    unsigned char *d = NULL;
+    uint32_t n = 0;
+    unsigned sz = 0;
+    if (param_request(l, pid, 1, &d, &n)) return 0;
+    const unsigned char *v = param_value(d, n, PID_OS_VERSION, &sz);
+    int ok = v && sz >= 4;
+    if (ok) {
+        *maj = v[1];
+        *min = v[2];
+        *pat = v[3];
+    }
+    free(d);
+    return ok;
+}
+
+/* Which of our variables are on the calculator: bit 0 CSFAST, 1 CSSNAP, 2 ZZWORK, 3 ZZHOOK,
+   4 any ZZSNP*; and the names of the ZZSNP* ones (for cleaning up) */
+static int fast_list(Link *l, unsigned *have, unsigned char chunks[][9], int *nchunks, long *ram_free) {
+    static const uint16_t aids[] = {AID_VAR_SIZE, AID_VAR_TYPE, AID_ARCHIVED};
+    unsigned char req[4 + 6 + 7] = {0, 0, 0, 3};
+    for (int i = 0; i < 3; i++) {
+        req[4 + 2 * i] = (unsigned char)(aids[i] >> 8);
+        req[5 + 2 * i] = (unsigned char)aids[i];
+    }
+    static const unsigned char tail[7] = {0, 1, 0, 1, 0, 1, 1};
+    memcpy(req + 10, tail, 7);
+    *have = 0;
+    *nchunks = 0;
+    (void)ram_free;
+    if (vpkt_send(l, VPKT_DIR_REQ, req, sizeof(req))) return 4;
+    for (;;) {
+        unsigned char *d = NULL;
+        uint32_t n = 0;
+        int vt = 0;
+        if (vpkt_recv(l, &vt, &d, &n)) return 4;
+        if (vt == VPKT_EOT) {
+            free(d);
+            return 0;
+        }
+        if (vt != VPKT_VAR_HDR) {
+            free(d);
+            return 4;
+        }
+        unsigned char folder[40], name[40];
+        unsigned flen, nlen;
+        Attr a[8];
+        int na;
+        if (!parse_var_header(d, n, folder, &flen, name, &nlen, a, 8, &na)) {
+            const Attr *ty = find_attr(a, na, AID_VAR_TYPE, 4);
+            unsigned t = ty ? ty->data[3] : 0xff;
+            if ((t == 0x05 || t == 0x06) && !strcmp((char *)name, "CSFAST")) *have |= 1;
+            if (t == APPVAR && !strcmp((char *)name, "CSSNAP")) *have |= 2;
+            if (t == APPVAR && !strcmp((char *)name, "ZZWORK")) *have |= 4;
+            if (t == APPVAR && !strcmp((char *)name, "ZZHOOK")) *have |= 8;
+            if (t == APPVAR && nlen == 6 && !memcmp(name, "ZZSNP", 5) && *nchunks < 16) {
+                *have |= 16;
+                memcpy(chunks[(*nchunks)++], name, 7);
+            }
+        }
+        free(d);
+    }
+}
+
+/* Is the hook answering? 1 yes (a new frame came), 0 no, -1 link error. Leaves g_fast as a
+   delta's base no more (the next snap starts with a full frame). */
+static int fast_alive(Link *l) {
+    unsigned char *s = NULL;
+    uint32_t n = 0;
+    FastHdr h0, h1;
+    int r = fast_get(l, FAST_SNAP_NAME, &s, &n);
+    if (r) return r == -5 ? 0 : -1;
+    int ok = fast_header(s, n, &h0) == 0;
+    free(s);
+    if (!ok) return 0;
+    if (do_key(l, FAST_TRIG_DELTA)) return -1;
+    r = fast_get(l, FAST_SNAP_NAME, &s, &n);
+    if (r) return r == -5 ? 0 : -1;
+    ok = fast_header(s, n, &h1) == 0 && h1.seq_end != h0.seq_end;
+    free(s);
+    g_fast.have = 0;
+    return ok;
+}
+
+/* Types prgmCSFAST on the home screen and runs it: Quit, Clear, Clear, the prgm token, the
+   letters, Enter. (The CE's OS doesn't run a program from the link: pc_copy.py does the same
+   for its ROM dumper.) */
+static int fast_run_csfast(Link *l) {
+    static const unsigned long keys[] = {0x40, 0x09, 0x09, 0xDA, 0x9C, 0xAC, 0x9F, 0x9A, 0xAC, 0xAD, 0x05};
+    for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); i++)
+        if (do_key(l, keys[i])) return 4;
+    sleep_ms(300);
+    return 0;
+}
+
+static int fast_send_csfast(Link *l, const char *path) {
+    if (!path || !*path) {
+        printf("ERR fast: give the path of CSFAST.8xp\n");
+        return 1;
+    }
+    int r = do_send(l, path);
+    return r;
+}
+
+static int fast_rm(Link *l, unsigned type, const unsigned char *name) {
+    char hex[40], line[64];
+    for (unsigned i = 0; name[i] && i < 8; i++) sprintf(hex + 2 * i, "%02x", name[i]);
+    snprintf(line, sizeof(line), "%02x %s", type, hex);
+    printf("INFO fast: removing %s\n", (const char *)name);
+    return do_rm(l, line);
+}
+
+/* "fast status|on CSFAST.8xp|off [CSFAST.8xp]" (see the README's Fast mode section) */
+static int do_fast(Link *l, char *arg) {
+    char *sub = strtok(arg, " "), *path = strtok(NULL, "");
+    if (!sub) {
+        printf("ERR usage: fast status | fast on CSFAST.8xp | fast off [CSFAST.8xp]\n");
+        return 1;
+    }
+    if (l->m->is_89t) {
+        printf("ERR Fast mode is for the TI-84 Plus CE\n");
+        return 1;
+    }
+    int maj = 0, min = 0, pat = 0;
+    if (!os_version(l, &maj, &min, &pat)) {
+        printf("ERR fast: the calculator didn't say its OS version\n");
+        return 4;
+    }
+    int new_os = maj > 5 || (maj == 5 && min >= 5);
+    unsigned have = 0;
+    unsigned char chunks[16][9];
+    int nchunks = 0;
+    if (fast_list(l, &have, chunks, &nchunks, NULL)) {
+        printf("ERR fast: the list of variables didn't come\n");
+        return 4;
+    }
+    int alive = (have & 2) ? fast_alive(l) : 0;
+    if (alive < 0) {
+        printf("ERR fast: no answer\n");
+        return 4;
+    }
+    const char *state = alive ? "on" : (have & 2) ? "stale" : "off";
+    if (!strcmp(sub, "status")) {
+        printf("INFO fast=%s os=%d.%d.%d csfast=%d leftovers=%d%s\n", state, maj, min, pat, (have & 1) != 0,
+               (have & ~1u) != 0 && !alive,
+               new_os ? " (OS 5.5 or newer: assembly programs need arTIfiCE)" : "");
+        printf("OK fast %s\n", state);
+        return 0;
+    }
+    if (!strcmp(sub, "on")) {
+        if (alive) {
+            printf("OK fast on (already)\n");
+            return 0;
+        }
+        if (new_os) {
+            printf("ERR fast: OS %d.%d.%d doesn't run assembly programs, so Fast mode can't start. "
+                   "arTIfiCE (with Cesium) brings them back until the next reset; CalcSuite doesn't "
+                   "install it. The normal screenshots go on.\n", maj, min, pat);
+            return 7;
+        }
+        int r = fast_send_csfast(l, path);
+        if (r) return r;
+        /* CSFAST is a toggle: if a hook of ours was there but not answering ("stale"), the
+           first run takes it off and the second puts it on */
+        for (int attempt = 0; attempt < (strcmp(state, "stale") ? 1 : 2); attempt++) {
+            if (fast_run_csfast(l)) {
+                printf("ERR fast: typing prgmCSFAST failed\n");
+                return 4;
+            }
+            int a = fast_alive(l);
+            if (a < 0) {
+                printf("ERR fast: no answer\n");
+                return 4;
+            }
+            if (a) {
+                do_key(l, 0x09); /* Clear "prgmCSFAST / Done" off the home screen */
+                printf("OK fast on\n");
+                return 0;
+            }
+        }
+        printf("ERR fast: CSFAST ran but Fast mode didn't start (the calculator's screen says why: "
+               "not enough RAM (it needs about 40 KB free), the archive full, or another program's "
+               "key hook)\n");
+        return 7;
+    }
+    if (!strcmp(sub, "off")) {
+        if (have && !new_os && (alive || (have & 8))) {
+            /* The hook may be on: CSFAST takes it off (and deletes its AppVars) */
+            if (!(have & 1)) {
+                int r = fast_send_csfast(l, path);
+                if (r) return r;
+            }
+            for (int attempt = 0; attempt < 2; attempt++) {
+                if (fast_run_csfast(l)) {
+                    printf("ERR fast: typing prgmCSFAST failed\n");
+                    return 4;
+                }
+                if (fast_list(l, &have, chunks, &nchunks, NULL)) return 4;
+                if (!(have & 2)) break; /* It took the hook off */
+                /* It wasn't on, so CSFAST just put it on: once more takes it off */
+            }
+            do_key(l, 0x09);
+            if (fast_list(l, &have, chunks, &nchunks, NULL)) return 4;
+            if (have & 2) {
+                printf("ERR fast: CSFAST didn't take Fast mode off; run prgmCSFAST on the calculator\n");
+                return 7;
+            }
+        }
+        /* What's left of ours: only our own names */
+        int r = 0;
+        if (have & 2) r |= fast_rm(l, APPVAR, FAST_SNAP_NAME);
+        if (have & 4) r |= fast_rm(l, APPVAR, (const unsigned char *)"ZZWORK");
+        for (int k = 0; k < nchunks; k++) r |= fast_rm(l, APPVAR, chunks[k]);
+        if (have & 8) r |= fast_rm(l, APPVAR, (const unsigned char *)"ZZHOOK");
+        if (have & 1) r |= fast_rm(l, 0x06, FAST_PRGM_NAME);
+        g_fast.have = 0;
+        if (r) {
+            printf("ERR fast: some of Fast mode's variables couldn't be removed\n");
+            return 4;
+        }
+        printf("OK fast off\n");
+        return 0;
+    }
+    printf("ERR usage: fast status | fast on CSFAST.8xp | fast off [CSFAST.8xp]\n");
+    return 1;
+}
+
 static int run_line(Link *l, char *line) {
     char *arg = strchr(line, ' ');
     if (arg) *arg++ = 0;
@@ -1741,6 +2252,8 @@ static int run_line(Link *l, char *line) {
     if (!strcmp(line, "exec") && arg) return do_exec(l, arg);
     if (!strcmp(line, "romdump") && arg) return do_romdump(l, arg);
     if (!strcmp(line, "shot") && arg) return do_shot(l, arg);
+    if (!strcmp(line, "snap") && arg) return do_snap(l, arg);
+    if (!strcmp(line, "fast") && arg) return do_fast(l, arg);
     if (!strcmp(line, "ls")) return do_ls(l);
     if (!strcmp(line, "get") && arg) return do_get(l, arg);
     if (!strcmp(line, "put") && arg) return do_put(l, arg);

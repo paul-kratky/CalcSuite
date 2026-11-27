@@ -92,12 +92,12 @@ class Session(object):
                 return 4, ["ERR the link has closed"]
             return self._read(on_progress)
 
-    def close(self):
+    def close(self, timeout=5):
         try:
             if self.p.poll() is None:
                 self.p.stdin.write("quit\n")
                 self.p.stdin.flush()
-                self.p.wait(timeout=5)
+                self.p.wait(timeout=timeout)
         except Exception:
             pass
         if self.p.poll() is None:

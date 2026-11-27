@@ -16,6 +16,8 @@ a = Analysis(
            # The Guide panel's guides and the Get programs list
            ('docs/TIBASIC_84.md', 'docs'), ('docs/TIBASIC_89.md', 'docs'),
            ('docs/PYTHON_NSPIRE_GUIDE.md', 'docs'),
+           # Save as PDF in Guide and Functions (tools/docs_build/make_pdfs.py builds them)
+           ('docs/pdf/*.pdf', 'docs/pdf'),
            ('tools/program_library.json', '.'),
            # The Functions panel's reference (tools/reference.py)
            ('tools/reference/ti84.json', 'reference'), ('tools/reference/ti89.json', 'reference'),
@@ -27,6 +29,8 @@ a = Analysis(
            ('tools/rom_dumpers/COPYING.GPL-3.txt', 'rom_dumpers'),
            ('tools/rom_dumpers/LICENSE.CEmu.txt', 'rom_dumpers'),
            ('tools/rom_dumpers/README.md', 'rom_dumpers'),
+           # The TI-84 Plus CE's Fast mode program (ours, MIT; mirror.py FAST84_PRGM)
+           ('tools/fast84/CSFAST.8xp', 'fast84'),
            ('tools/third_party_py/tivars/tokens/8X.xml', 'tivars/tokens'),
            ('tools/third_party_py/tivars/types/json', 'tivars/types/json'),
            ('tools/third_party_py/tivars/types/schema', 'tivars/types/schema'),

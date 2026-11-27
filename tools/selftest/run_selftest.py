@@ -112,6 +112,8 @@ def main():
     failures += ui_checks.main()
     import reference_checks  # The Functions panel's reference: entries, 84 tokens, 89 conversion
     failures += reference_checks.main()
+    import fast84_checks  # The TI-84 Plus CE's Fast mode: frame format, CSFAST.8xp's hash
+    failures += fast84_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 

@@ -108,6 +108,37 @@ panel lists every key for the calculator in front of you.
 | Right click | the context menu | CLEAR | ESC |
 | Middle click | menu | | HOME |
 
+## Fast mode for the TI-84 Plus CE (experimental)
+
+The TI-84 Plus CE's own screenshot takes 1.2-1.4 s, so its picture moves at under 1 frame a
+second. **Fast mode** (off until you turn it on) puts a small program of ours, CSFAST, on the
+calculator. It adds a key hook that, when CalcSuite asks, packs the screen (only the rows that
+changed) into a few AppVars that the link reads in about 0.15 s: about **6-7 frames a second**
+on a still screen and **4-5 while typing**, and a key shows on the PC in about 0.3 s instead of
+2 s. Measured on a TI-84 Plus CE, OS 5.4.0; details in `docs/dev/FAST84_PLAN.md`.
+
+- **Needs OS 5.4 or older** (assembly programs). OS 5.5 and newer block them; arTIfiCE brings
+  them back until the next reset, but CalcSuite doesn't install it. Press-to-Test blocks it too.
+- **What it puts on the calculator** (only these names, nothing of yours is touched): the
+  program CSFAST, the archived AppVar ZZHOOK (the hook's code), and in RAM CSSNAP, ZZWORK and
+  up to eight ZZSNPA-ZZSNPH, about 40 KB of RAM while it's on (it leaves at least 16 KB free).
+- **Turning it off** runs CSFAST again, which removes the hook, and deletes all of the above:
+  the calculator is as it was. Running `prgmCSFAST` on the calculator toggles it too. A RAM
+  reset removes the hook; CalcSuite notices and goes back to normal screenshots.
+- Closing CalcSuite leaves Fast mode on the calculator (closing stays quick). That is safe: the
+  hook only reacts to three key codes the keypad never sends; the calculator works as usual.
+  Turn it off in CalcSuite when you want the RAM back.
+- **Home screen only** (with its menus: MATH, PRGM, the catalog...). On the graph, table, Y=,
+  mode and other screens TI's OS would jump back to the home screen when the link reads a
+  variable, so there CalcSuite takes normal screenshots (under 1 frame a second) and the
+  screen stays as it is. A screen too busy to pack, or a running program, also gets a normal
+  screenshot, by itself.
+- Back up before the first try (Files, Back up): a bug in a hook can crash a calculator, and a
+  crash clears its RAM.
+
+From the command line: `ti84-cli serve`, then `fast status`, `fast on tools/fast84/CSFAST.8xp`,
+`snap FILE.ppm` (a frame; falls back to `shot` by itself), `fast off tools/fast84/CSFAST.8xp`.
+
 ## Screenshots and recordings
 
 **Screenshot** saves a PNG in `Documents\CalcSuite\captures`. **Record** records the screen
@@ -193,6 +224,9 @@ FILE`, which adds `--name`, `--replace` and `--out FILE` to only make the TI fil
 
 The full guides: [TI-84 Plus CE](docs/TIBASIC_84.md), [TI-89 Titanium](docs/TIBASIC_89.md),
 [Python on the Nspire](docs/PYTHON_NSPIRE_GUIDE.md) (the same ones as in the **Guide** panel).
+
+As dark PDFs (also **Save as PDF** in the Guide and Functions panels, and on each release): [TI-84 Plus CE guide](docs/pdf/CalcSuite%20-%20TI-84%20Plus%20CE%20TI-Basic%20guide.pdf), [TI-89 Titanium guide](docs/pdf/CalcSuite%20-%20TI-89%20Titanium%20TI-Basic%20guide.pdf), [Nspire Python guide](docs/pdf/CalcSuite%20-%20TI-Nspire%20CX%20II%20Python%20guide.pdf);
+Functions references [TI-84 Plus CE](docs/pdf/CalcSuite%20-%20TI-84%20Plus%20CE%20functions%20reference.pdf), [TI-89 Titanium](docs/pdf/CalcSuite%20-%20TI-89%20Titanium%20functions%20reference.pdf), [TI-Nspire CX II](docs/pdf/CalcSuite%20-%20TI-Nspire%20CX%20II%20functions%20reference.pdf); [user guide](docs/pdf/CalcSuite%20-%20User%20guide.pdf), [quick start](docs/pdf/CalcSuite%20-%20Quick%20start.pdf), [Python kit](docs/pdf/CalcSuite%20-%20TI-Nspire%20Python%20kit.pdf).
 
 ## If something doesn't work
 
