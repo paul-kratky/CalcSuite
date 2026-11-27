@@ -161,13 +161,16 @@ def main():
                 if not ok:
                     print(out)
                     failures += 1
-        code, out = run([FLASH, os.path.join(PROGRAMS, "quadratic.py"), "--dry-run",
-                         "--out", os.path.join(out_dir, "flash_quadratic.tns")])
-        ok = code == 0 and "DRY RUN OK" in out
-        print("%-4s flash.py --dry-run quadratic.py" % ("PASS" if ok else "FAIL"))
-        if not ok:
-            print(out)
-            failures += 1
+        if os.path.isfile(os.path.join(KIT, "tools", "bin", "nspire-cli.exe")):
+            code, out = run([FLASH, os.path.join(PROGRAMS, "quadratic.py"), "--dry-run",
+                             "--out", os.path.join(out_dir, "flash_quadratic.tns")])
+            ok = code == 0 and "DRY RUN OK" in out
+            print("%-4s flash.py --dry-run quadratic.py" % ("PASS" if ok else "FAIL"))
+            if not ok:
+                print(out)
+                failures += 1
+        else:
+            print("SKIP flash.py --dry-run (tools/bin/nspire-cli.exe isn't built here)")
         code, out = run([FLASH, os.path.join(HERE, "bad_sample.py"), "--dry-run"])
         ok = code != 0 and "STOPPED: the checker" in out
         print("%-4s flash.py stops on checker errors" % ("PASS" if ok else "FAIL"))
