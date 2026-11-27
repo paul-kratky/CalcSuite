@@ -76,8 +76,9 @@ Only what is already there; everything goes through the calculator's own link th
    - TI-84 Plus CE: `keys 40 9 9 da <name>` (Quit, Clear, Clear, the prgm token, the name's
      letters, as `pc_copy.py` starts ZZDUMP), then `keys 5` (Enter; its answer may not come
      while the program runs, so its error doesn't count).
-   - TI-89 Titanium: `home` (as `pc_copy.py`), then `keys <clear> name()` and `keys d` (Enter).
-     A program with arguments gets `name(` typed and waits for you.
+   - TI-89 Titanium: `home` (as `pc_copy.py`), then `keys <home> <clear> name()` and `keys d` (Enter).
+     The HOME key is needed: with the Apps desktop on, `home` leaves the 89 on the desktop,
+     where the typed name picks apps. A program with arguments gets `name(` typed and waits for you.
    - Nspire: not run (it can't be from the PC); the status line says to open it.
 
 Open from calculator (84/89): `ls`, a picker of the programs, then

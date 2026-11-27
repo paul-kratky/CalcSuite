@@ -1486,8 +1486,11 @@ class Editor(object):
         typed, missing = calc.paste_keys(name + ("(" if args else "()"))
         if missing:
             return None
-        clear = calc.code_for("clear")
-        lines = ["home", self._key_line(m, [clear] + typed)]
+        # With the Apps desktop on (the OS 3 default), the link's "home" leaves the 89 on the
+        # desktop, where the typed name picks apps (it opened Table on the bench, 2026-11-27):
+        # the HOME key then goes to the Home screen itself (and does nothing when already there)
+        clear, home = calc.code_for("clear"), calc.code_for("home")
+        lines = ["home", self._key_line(m, [home, clear] + typed)]
         if not args:
             lines.append(self._key_line(m, [calc.code_for("enter")]))
         return lines
