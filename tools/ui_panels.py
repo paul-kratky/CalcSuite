@@ -242,7 +242,7 @@ class FunctionsSection(object):
         mid = tk.Frame(self.frame, bg=th.PANEL)
         mid.pack(fill="both", expand=True)
         tree = self.tree = ttk.Treeview(mid, columns=("what",), style="Calc.Treeview",
-                                        selectmode="browse", height=8)
+                                        selectmode="browse", height=16)
         tree.heading("#0", text="Command", anchor="w")
         tree.column("#0", width=140, anchor="w", stretch=False)
         tree.heading("what", text="What it does", anchor="w")
@@ -255,7 +255,7 @@ class FunctionsSection(object):
         tree.bind("<<TreeviewSelect>>", lambda e: self.picked())
         tree.bind("<Double-1>", self.double)  # Double click: Insert, like its button
         tree.bind("<Return>", lambda e: self.insert())
-        self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=14,
+        self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=8,
                               padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9),
                               cursor="arrow", insertwidth=0)
         self.detail.pack(fill="x", pady=(8, 0))
