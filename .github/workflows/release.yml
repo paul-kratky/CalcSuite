@@ -34,6 +34,10 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write       # The attestation's signing certificate (Sigstore, GitHub's OIDC token)
+      attestations: write  # Stores the attestation with the repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -113,6 +117,15 @@ jobs:
           python -I tools/release_files.py package $ver --libusb $env:LIBUSB_VERSION
           if ($LASTEXITCODE) { throw "release_files.py package failed" }
 
+      # Build provenance: a signed statement that this exact zip was built by this workflow from
+      # this commit. Anyone can check a download:
+      #   gh attestation verify CalcSuite-<version>-win64.zip -R paul-kratky/CalcSuite
+      - name: Attest the zip (where and how it was built)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: out/CalcSuite-*-win64.zip
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: CalcSuite-${{ github.ref_name }}
@@ -142,7 +155,47 @@ jobs:
           m = re.search(r"^## \[%s\][^\n]*\n(.*?)(?=^## \[|\Z)" % re.escape(ver), text, re.M | re.S)
           if not m or not m.group(1).strip():
               sys.exit("CHANGELOG.md has no section '## [%s]'" % ver)
-          open("out/notes.md", "w", encoding="utf-8").write(m.group(1).strip() + "\n")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          notes = m.group(1).strip() + "\n"
+          notes += ("\n### Check your download\n\n"
+                    "- SHA-256: compare with `SHA256SUMS.txt` (PowerShell: "
+                    "`Get-FileHash CalcSuite-%s-win64.zip`).\n"
+                    "- Built by GitHub from this repository's code, not on anyone's PC: with the "
+                    "GitHub CLI, `gh attestation verify CalcSuite-%s-win64.zip -R %s` "
+                    "([build provenance](https://github.com/%s/attestations)).\n"
+                    % (ver, ver, repo, repo))
+          open("out/notes.md", "w", encoding="utf-8").write(notes)
+
+      # VirusTotal: the zip scanned by ~70 antivirus engines, the result and its public page
+      # added to the release notes. Runs only when the repository has a VT_API_KEY secret (a free
+      # VirusTotal account's API key); without it this step says so and the release goes on.
+      - name: VirusTotal scan (when the VT_API_KEY secret is set)
+        shell: pwsh
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          if (-not $env:VT_API_KEY) { "No VT_API_KEY secret: skipped"; exit 0 }
+          $zip = (Get-ChildItem out/CalcSuite-*-win64.zip).FullName
+          $sha = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          $h = @{ 'x-apikey' = $env:VT_API_KEY }
+          $up = curl.exe -s --fail -X POST https://www.virustotal.com/api/v3/files -H "x-apikey: $env:VT_API_KEY" --form "file=@$zip" | ConvertFrom-Json
+          if (-not $up.data.id) { "Upload failed: skipped"; exit 0 }
+          $stats = $null
+          foreach ($i in 1..40) {
+            Start-Sleep 15
+            $a = Invoke-RestMethod "https://www.virustotal.com/api/v3/analyses/$($up.data.id)" -Headers $h
+            if ($a.data.attributes.status -eq 'completed') { $stats = $a.data.attributes.stats; break }
+          }
+          $link = "https://www.virustotal.com/gui/file/$sha"
+          if ($stats) {
+            $engines = $stats.malicious + $stats.suspicious + $stats.undetected + $stats.harmless
+            $flagged = $stats.malicious + $stats.suspicious
+            $line = "- VirusTotal: $flagged of $engines antivirus engines flag it ([the scan]($link))."
+          } else {
+            $line = "- VirusTotal: [the scan]($link) (still running when this release was made)."
+          }
+          $line
+          Add-Content -Path out/notes.md -Value $line -Encoding utf8
 
       - name: Draft release (the owner reviews and publishes it)
         shell: pwsh
