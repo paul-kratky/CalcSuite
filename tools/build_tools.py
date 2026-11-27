@@ -4,6 +4,8 @@
     tools/bin/nspire-cli.exe   USB link to the handheld (third_party/libnspire, GPL-3.0+)
     tools/bin/ti84-cli.exe     USB link to the TI-84 Plus CE and (as ti89-cli.exe) TI-89 Titanium
     tools/bin/libusb-1.0.dll   copied from the official libusb release (LGPL-2.1)
+    tools/bin/calcsuite-driver.exe  USB driver helper on third_party/libwdi (LGPL-3.0+),
+                               see tools/driver_helper/ and docs/dev/DOCTOR.md
 
     python -I tools/build_tools.py            build what is missing
     python -I tools/build_tools.py --force    rebuild everything
@@ -136,6 +138,15 @@ def build_ti84(tc, force):
     print("Copied ti84-cli.exe to ti89-cli.exe")
 
 
+def build_driver_helper(tc, force):
+    import importlib.util
+    path = os.path.join(HERE, "driver_helper", "build_helper.py")
+    spec = importlib.util.spec_from_file_location("build_helper", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.build(tc, force, run, BIN, KIT)
+
+
 def main(argv):
     force = "--force" in argv
     os.makedirs(BIN, exist_ok=True)
@@ -144,6 +155,7 @@ def main(argv):
     build_luna(tc, force)
     build_cli(tc, force)
     build_ti84(tc, force)
+    build_driver_helper(tc, force)
     print("Done: " + BIN)
     return 0
 

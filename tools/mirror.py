@@ -153,6 +153,7 @@ class Ti84(object):
     can_send = True  # TI-Basic text (tokenized on the PC) or a TI file (send_ti.py)
     key_fmt = "%x"
     shot_holdoff = 0.6  # A picture takes ~1.4 s and can't be cut short: never start one mid-typing
+    keepalive_key = "0"  # Key code 0 does nothing (tested: only the blinking cursor differs)
     tk_keys = {
         "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["clear"],
         "BackSpace": ["left", "del"], "Delete": ["del"], "Insert": ["ins"],

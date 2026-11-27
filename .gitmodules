@@ -4,3 +4,6 @@
 [submodule "third_party/luna"]
 	path = third_party/luna
 	url = https://github.com/ndless-nspire/Luna
+[submodule "third_party/libwdi"]
+	path = third_party/libwdi
+	url = https://github.com/pbatard/libwdi

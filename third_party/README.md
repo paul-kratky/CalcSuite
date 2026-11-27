@@ -9,6 +9,7 @@ Fetched 2026-11-26.
 | `luna/` | Luna: converts `.py` (and Lua/XML) to TI-Nspire `.tns` documents | <https://github.com/ndless-nspire/Luna> (git clone) | commit `a9924a9a968954eba9adcc161a58ac607f97ce8c` (master, 2024-09-24; `git describe`: `v2.1-16-ga9924a9`) | MPL-1.1 (`luna/LICENSE`); bundles a modified MiniZip (zlib licence) and Eric Young's DES code (BSD-style, see `DES.h`) |
 | `libnspire/` | libnspire: USB link library for TI-Nspire, including the CX II (NNSE) handshake | <https://github.com/Vogtinator/libnspire> (git clone) | commit `7d7d962ca49ff9017f6f146336c51ef7f2edf4e0` (master, 2022-11-26) | GPL-3.0-or-later (licence header in every source file, `libnspire/COPYING`); the repo also ships `COPYING.LESSER`, and GitHub labels it LGPL-3.0. We treat it as GPL-3.0-or-later. |
 | `libusb-1.0.30/` | libusb Windows binaries (we use `MinGW64/static/libusb-1.0.dll.a`, `MinGW64/dll/libusb-1.0.dll`, `include/libusb.h`) | <https://github.com/libusb/libusb/releases/tag/v1.0.30> asset `libusb-1.0.30.7z` | v1.0.30 (2026-05-17). SHA-256 of the archive `7fb1dfec805b97983763d7d0ae244320da12add1003d4249c96cc4d586398c79`. GPG signature `libusb-1.0.30.7z.asc` checked: good signature from the release key `C681 8737 9B23 DE9E FC46 651E 2C80 FF56 C683 0A0E` (Tormod Volden), as listed in the release's `SIGNING_KEYS.txt` and the repo's `KEYS` file. | LGPL-2.1-or-later |
+| `libwdi/` | libwdi: makes, self-signs and installs a WinUSB driver package for one USB device (the library behind Zadig). Used only by `tools/bin/calcsuite-driver.exe` (`tools/driver_helper/`) | <https://github.com/pbatard/libwdi> (git submodule) | commit `30df0c0e051b0132c4b9ebed8c054bc8eb3aaaec` (master, 2025-07-17; `git describe`: `v1.5.1-4-g30df0c0`), fetched 2026-11-27 | LGPL-3.0-or-later (`libwdi/COPYING-LGPL`, header of every library source; the repo also ships `COPYING`, the GPLv3 text the LGPL builds on). Built with Microsoft's WinUSB co-installers (`WdfCoInstaller01011.dll`, `winusbcoinstaller2.dll`) embedded: those are not in the repo, `tools/driver_helper/fetch_wdk_redist.py` downloads Microsoft's signed `wdfcoinstaller.msi` (WDK 8 redistributable components, SHA-256 `29314207814ce9d5d73695f7e9239539cf37c79e750b9d5ea5a5ef5487a583d6`) into `build/` at build time |
 
 ## Why these and not others
 
@@ -45,6 +46,12 @@ Fetched 2026-11-26.
 - Known libnspire quirk worked around in the CLI: `nspire_file_read()` does not bound
   its copy by the buffer size, so the CLI checks the file size with `nspire_attr()`
   before reading a file back.
+
+- `tools/driver_helper/compat/config.h` stands in for the `config.h` libwdi's `./configure`
+  would write (WinUSB only, x64 only); `tools/driver_helper/build_helper.py` does libwdi's
+  autotools build by hand (installer_x64.exe, embedder.exe, embedded.h, the library). libwdi
+  itself is unmodified. `calcsuite-driver.exe` is LGPL-3.0-or-later and links libwdi
+  statically; its whole source is in this repo, so it can be relinked.
 
 Toolchain used: MSYS2 UCRT64 GCC 16.2.0 with its zlib 1.3.2 (already installed on this
 PC, nothing added). Rebuild with `python -I tools/build_tools.py --force`.
