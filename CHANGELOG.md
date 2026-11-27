@@ -25,6 +25,25 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 - **Copy and paste:** Ctrl+V types the PC clipboard's text into the calculator (new lines are
   Enter, up to 4000 characters); Ctrl+C puts the calculator's screen on the PC clipboard as a
   picture. On the Nspire, Ctrl+Shift+C / Ctrl+Shift+V are the handheld's own copy and paste.
+- **Files on the calculator:** a **Files...** button in each window. The live screen keeps
+  running while it works; long transfers show their progress in the status line.
+  - TI-Nspire: browse the folders (with sizes), download files to the PC (to `from-calc`, or a
+    folder you pick), upload a `.py` (checked and converted) or `.tns`, new folder, rename,
+    delete (with a question first). Tested on a TI-Nspire CX II CAS, OS 6.40: all of it, and
+    a 300 KB file there and back byte for byte (0.9 s down).
+  - TI-89 Titanium: its variables by folder and its apps; download as TI files (`.89e`,
+    `.89m`, ...); texts and strings shown as text. Tested on a TI-89 Titanium, OS 3.10: the
+    list and six downloads.
+  - TI-84 Plus CE: its variables, programs and apps (size, RAM or Archive); download as TI
+    files (`.8xp`, `.8xv`, ...) with TI's header and checksum; TI-Basic programs shown as
+    text; upload TI files; delete. Not yet tried on a TI-84 Plus CE.
+- **About this calculator:** model, OS, free memory, and whether TI has a newer OS (read from
+  TI's download page at most once a day, never blocking the window; "couldn't check" with
+  the link when the page can't be read). It never downloads an OS.
+- **`nspire-cli`:** `get`, `rm` and `mv` (download with progress, delete, rename or move).
+  **`ti84-cli`:** `ls`, `get`, `put`, `rm` (the variables of the 84 family and the 89; `put`
+  and `rm` on the 84 only).
+- **App icon** on every window and in the taskbar.
 
 ### Faster
 - **Typing:** while you type, keys go out the moment they're pressed and the next screenshot
@@ -38,9 +57,11 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 ### Fixed
 - The TI-84 Plus CE's OS version read as `0.5.4.0`; now `5.4.0`.
+- The Nspire's name was cut at the first space ("Connected: TI-Nspire" for a TI-Nspire CX II
+  CAS).
 
 ### Not built yet
-- Sending programs to the TI-84 Plus CE (TI-Basic text to `.8xp`).
+- Sending programs to the TI-84 Plus CE as TI-Basic text (TI files go with Files... > Upload).
 - Sending programs to the TI-89 Titanium.
 
 ## [0.2.0] - 2026-11-26

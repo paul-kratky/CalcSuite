@@ -7,8 +7,12 @@
  *   ti84-cli [--model M] shot FILE.ppm  save the screen as a PPM picture
  *   ti84-cli [--model M] key HEXCODE    press one key (see ti84_keys.py / ti89_keys.py)
  *   ti84-cli [--model M] serve          one connection, commands on stdin, one per line:
- *                                       info | shot FILE | key HEX | keys HEX HEX ... | quit
- *                                       each ends with "END <code>" (as nspire-cli serve does)
+ *                                       info | shot FILE | key HEX | keys HEX HEX ... |
+ *                                       ls | get TYPE FOLDERHEX NAMEHEX SIZE LOCAL |
+ *                                       put TYPE ARCH VERSION NAMEHEX LOCAL (84 only) |
+ *                                       rm TYPE NAMEHEX (84 only) | quit
+ *                                       each ends with "END <code>" (as nspire-cli serve does);
+ *                                       names travel as hex, a download prints PROGRESS lines
  *   ti84-cli devices                    list the TI calculators on USB (opens none of them)
  *
  * Which calculator: --model 84ce (USB id 0451:E008), 89t (0451:E004) or auto (the first of
@@ -44,8 +48,15 @@
 
 enum { RPKT_BUF_REQ = 1, RPKT_BUF_ALLOC = 2, RPKT_DATA = 3, RPKT_DATA_LAST = 4, RPKT_ACK = 5 };
 enum {
-    VPKT_PING = 0x0001, VPKT_PARM_REQ = 0x0007, VPKT_PARM_DATA = 0x0008, VPKT_EXECUTE = 0x0011,
-    VPKT_MODE_SET = 0x0012, VPKT_DATA_ACK = 0xAA00, VPKT_DELAY_ACK = 0xBB00, VPKT_ERROR = 0xEE00
+    VPKT_PING = 0x0001, VPKT_PARM_REQ = 0x0007, VPKT_PARM_DATA = 0x0008, VPKT_DIR_REQ = 0x0009,
+    VPKT_VAR_HDR = 0x000A, VPKT_RTS = 0x000B, VPKT_VAR_REQ = 0x000C, VPKT_VAR_CNTS = 0x000D,
+    VPKT_MODIF_VAR = 0x0010, VPKT_EXECUTE = 0x0011, VPKT_MODE_SET = 0x0012,
+    VPKT_DATA_ACK = 0xAA00, VPKT_DELAY_ACK = 0xBB00, VPKT_EOT = 0xDD00, VPKT_ERROR = 0xEE00
+};
+/* Variable attributes (libticalcs: dusb_cmd.h, DUSB_AID_*) */
+enum {
+    AID_VAR_SIZE = 0x01, AID_VAR_TYPE = 0x02, AID_ARCHIVED = 0x03, AID_APPVAR = 0x05,
+    AID_VAR_VERSION = 0x08, AID_DATATYPE = 0x11, AID_LOCKED = 0x41, AID_ACCESS = 0x42
 };
 enum {
     PID_PRODUCT_NAME = 0x0002, PID_OS_VERSION = 0x000B, PID_FREE_RAM = 0x000E,
@@ -79,6 +90,7 @@ typedef struct {
     uint32_t maxlen;             /* The raw packet payload both sides agreed on */
     unsigned char inbuf[4096];   /* Bytes read from USB, not yet consumed */
     int in_len, in_pos;
+    uint32_t progress_total;     /* Non-zero: vpkt_recv prints "PROGRESS <bytes> <total>" */
 } Link;
 
 static int usb_read_some(Link *l) {
@@ -222,6 +234,9 @@ static int vpkt_recv(Link *l, int *vtype, unsigned char **out, uint32_t *n) {
                 buf = nb;
             }
             memcpy(buf + len, src, rn);
+            if (l->progress_total && (len + rn) / 16384 != len / 16384)
+                printf("PROGRESS %lu %lu\n", (unsigned long)(len + rn),
+                       (unsigned long)l->progress_total);
             len += rn;
             if (send_ack(l)) {
                 free(buf);
@@ -514,11 +529,432 @@ static int do_key(Link *l, unsigned long code) {
     return 0;
 }
 
+/* ---- Variables: list, download, upload, delete (libticalcs: dusb_cmd.cc, calc_84p.cc,
+   calc_89t.cc). Names and folders travel as hex on our command lines: a calculator's names
+   are its own character set, not text the PC can print. ---- */
+
+typedef struct {
+    uint16_t id;
+    int ok;
+    uint16_t size;
+    const unsigned char *data;
+} Attr;
+
+static void put_hex(const unsigned char *s, unsigned n) {
+    if (!n) printf("-");
+    for (unsigned i = 0; i < n; i++) printf("%02x", s[i]);
+}
+
+/* "414243" -> "ABC" (up to cap - 1 bytes, then a 0); "-" is the empty name. -1 if not hex. */
+static int from_hex(const char *hex, unsigned char *out, unsigned cap) {
+    unsigned n = 0;
+    if (!strcmp(hex, "-")) {
+        out[0] = 0;
+        return 0;
+    }
+    for (const char *p = hex; p[0]; p += 2) {
+        unsigned v;
+        if (!p[1] || n + 1 >= cap || sscanf(p, "%2x", &v) != 1) return -1;
+        if (v == 0) return -1; /* A name never has a 0 inside: the packets end names with one */
+        out[n++] = (unsigned char)v;
+    }
+    out[n] = 0;
+    return (int)n;
+}
+
+/* A var header packet: folder, name, then the attributes asked for. 0 ok, -1 malformed. */
+static int parse_var_header(const unsigned char *d, uint32_t n, unsigned char *folder,
+                            unsigned *flen, unsigned char *name, unsigned *nlen, Attr *a,
+                            int max_attr, int *nattr) {
+    uint32_t j = 0;
+    unsigned len;
+    for (int part = 0; part < 2; part++) {
+        unsigned char *dst = part ? name : folder;
+        if (j >= n) return -1;
+        len = d[j++];
+        if (len > 39 || (len && j + len + 1 > n)) return -1;
+        memcpy(dst, d + j, len);
+        dst[len] = 0;
+        if (len) j += len + 1;
+        *(part ? nlen : flen) = len;
+    }
+    if (j + 2 > n) return -1;
+    int na = (d[j] << 8) | d[j + 1];
+    j += 2;
+    *nattr = 0;
+    for (int i = 0; i < na; i++) {
+        if (j + 3 > n) return -1;
+        Attr t = {(uint16_t)((d[j] << 8) | d[j + 1]), d[j + 2] == 0, 0, NULL};
+        j += 3;
+        if (t.ok) {
+            if (j + 2 > n) return -1;
+            t.size = (uint16_t)((d[j] << 8) | d[j + 1]);
+            j += 2;
+            if (j + t.size > n) return -1;
+            t.data = d + j;
+            j += t.size;
+        }
+        if (*nattr < max_attr) a[(*nattr)++] = t;
+    }
+    return 0;
+}
+
+static const Attr *find_attr(const Attr *a, int n, uint16_t id, uint16_t min_size) {
+    for (int i = 0; i < n; i++)
+        if (a[i].id == id && a[i].ok && a[i].size >= min_size) return &a[i];
+    return NULL;
+}
+
+static uint32_t be32(const unsigned char *p) {
+    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
+}
+
+/* An answer that must be the data acknowledgement; prints the calculator's error otherwise */
+static int expect_ack(Link *l, const char *what) {
+    unsigned char *a = NULL;
+    uint32_t n = 0;
+    int vt = 0;
+    if (vpkt_recv(l, &vt, &a, &n)) {
+        printf("ERR %s: no answer\n", what);
+        return 4;
+    }
+    if (vt != VPKT_DATA_ACK) {
+        printf("ERR %s: the calculator said no (0x%04x, code 0x%04x)\n", what, vt,
+               n >= 2 ? (unsigned)((a[0] << 8) | a[1]) : 0u);
+        free(a);
+        return 4;
+    }
+    free(a);
+    return 0;
+}
+
+/* Lists the variables, programs and apps:
+   "ITEM type=05 size=123 arch=1 locked=0 folder=HEX name=HEX" each */
+static int do_ls(Link *l) {
+    static const uint16_t aids84[] = {AID_VAR_SIZE, AID_VAR_TYPE, AID_ARCHIVED};
+    static const uint16_t aids89[] = {AID_VAR_TYPE, AID_ARCHIVED, AID_APPVAR,
+                                      AID_VAR_SIZE, AID_LOCKED, AID_ACCESS};
+    const uint16_t *aids = l->m->is_89t ? aids89 : aids84;
+    const int naids = l->m->is_89t ? 6 : 3;
+    unsigned char req[4 + 2 * 6 + 7];
+    uint32_t j = 0;
+    req[j++] = 0;
+    req[j++] = 0;
+    req[j++] = 0;
+    req[j++] = (unsigned char)naids;
+    for (int i = 0; i < naids; i++) {
+        req[j++] = (unsigned char)(aids[i] >> 8);
+        req[j++] = (unsigned char)aids[i];
+    }
+    static const unsigned char tail[7] = {0, 1, 0, 1, 0, 1, 1};
+    memcpy(req + j, tail, sizeof(tail));
+    j += sizeof(tail);
+    if (vpkt_send(l, VPKT_DIR_REQ, req, j)) {
+        printf("ERR ls: no answer\n");
+        return 4;
+    }
+    int count = 0;
+    for (;;) {
+        unsigned char *d = NULL;
+        uint32_t n = 0;
+        int vt = 0;
+        if (vpkt_recv(l, &vt, &d, &n)) {
+            printf("ERR ls: no answer after %d\n", count);
+            return 4;
+        }
+        if (vt == VPKT_EOT) {
+            free(d);
+            break;
+        }
+        if (vt != VPKT_VAR_HDR) {
+            printf("ERR ls: unexpected answer 0x%04x\n", vt);
+            free(d);
+            return 4;
+        }
+        unsigned char folder[40], name[40];
+        unsigned flen, nlen;
+        Attr a[8];
+        int na;
+        if (parse_var_header(d, n, folder, &flen, name, &nlen, a, 8, &na)) {
+            printf("ERR ls: a listing entry could not be read\n");
+            free(d);
+            return 4;
+        }
+        const Attr *ty = find_attr(a, na, AID_VAR_TYPE, 4);
+        const Attr *sz = find_attr(a, na, AID_VAR_SIZE, 4);
+        const Attr *ar = find_attr(a, na, AID_ARCHIVED, 1);
+        const Attr *lk = find_attr(a, na, AID_LOCKED, 1);
+        printf("ITEM type=%02x size=%lu arch=%d locked=%d folder=", ty ? ty->data[3] : 0xff,
+               sz ? (unsigned long)be32(sz->data) : 0ul, ar ? ar->data[0] != 0 : 0,
+               lk ? lk->data[0] != 0 : 0);
+        put_hex(folder, flen);
+        printf(" name=");
+        put_hex(name, nlen);
+        printf("\n");
+        free(d);
+        count++;
+    }
+    printf("OK %d item(s)\n", count);
+    return 0;
+}
+
+/* "get TYPE FOLDERHEX NAMEHEX SIZE LOCAL": the variable's data into LOCAL as it is (no TI file
+   header: the Python side writes that). Prints "OK got size=N arch=A version=V". */
+static int do_get(Link *l, char *arg) {
+    char *tok[5];
+    for (int i = 0; i < 4; i++) {
+        tok[i] = strtok(i ? NULL : arg, " ");
+        if (!tok[i]) {
+            printf("ERR usage: get TYPE FOLDERHEX NAMEHEX SIZE LOCAL\n");
+            return 1;
+        }
+    }
+    tok[4] = strtok(NULL, ""); /* The path, spaces and all */
+    unsigned char folder[40], name[40];
+    int flen = from_hex(tok[1], folder, sizeof(folder)), nlen = from_hex(tok[2], name, sizeof(name));
+    if (!tok[4] || flen < 0 || nlen <= 0) {
+        printf("ERR usage: get TYPE FOLDERHEX NAMEHEX SIZE LOCAL\n");
+        return 1;
+    }
+    unsigned type = (unsigned)strtoul(tok[0], NULL, 16);
+    static const uint16_t aids84[] = {AID_ARCHIVED, AID_VAR_VERSION, AID_VAR_SIZE};
+    static const uint16_t aids89[] = {AID_ARCHIVED, AID_VAR_VERSION, AID_LOCKED};
+    const uint16_t *aids = l->m->is_89t ? aids89 : aids84;
+    unsigned char req[128];
+    uint32_t j = 0;
+    req[j++] = (unsigned char)flen;
+    if (flen) {
+        memcpy(req + j, folder, (size_t)flen + 1);
+        j += (uint32_t)flen + 1;
+    }
+    req[j++] = (unsigned char)nlen;
+    memcpy(req + j, name, (size_t)nlen + 1);
+    j += (uint32_t)nlen + 1;
+    static const unsigned char any[5] = {0x01, 0xFF, 0xFF, 0xFF, 0xFF};
+    memcpy(req + j, any, 5);
+    j += 5;
+    req[j++] = 0;
+    req[j++] = 3;
+    for (int i = 0; i < 3; i++) {
+        req[j++] = (unsigned char)(aids[i] >> 8);
+        req[j++] = (unsigned char)aids[i];
+    }
+    /* One attribute: the data type (0xF0 0x07 on the 84 family, 0xF0 0x0C on the 89) */
+    req[j++] = 0;
+    req[j++] = 1;
+    req[j++] = 0;
+    req[j++] = AID_DATATYPE;
+    req[j++] = 0;
+    req[j++] = 4;
+    req[j++] = 0xF0;
+    req[j++] = l->m->is_89t ? 0x0C : 0x07;
+    req[j++] = 0x00;
+    req[j++] = (unsigned char)type;
+    req[j++] = 0;
+    req[j++] = 0;
+    if (vpkt_send(l, VPKT_VAR_REQ, req, j)) {
+        printf("ERR get: no answer\n");
+        return 4;
+    }
+    unsigned char *d = NULL;
+    uint32_t n = 0;
+    int vt = 0;
+    if (vpkt_recv(l, &vt, &d, &n)) {
+        printf("ERR get: no answer\n");
+        return 4;
+    }
+    if (vt != VPKT_VAR_HDR) {
+        printf("ERR get: the calculator refused (0x%04x, code 0x%04x)\n", vt,
+               n >= 2 ? (unsigned)((d[0] << 8) | d[1]) : 0u);
+        free(d);
+        return 4;
+    }
+    unsigned char f2[40], n2[40];
+    unsigned f2l, n2l;
+    Attr a[8];
+    int na = 0;
+    int arch = 0;
+    unsigned version = 0;
+    if (parse_var_header(d, n, f2, &f2l, n2, &n2l, a, 8, &na) == 0) {
+        const Attr *ar = find_attr(a, na, AID_ARCHIVED, 1);
+        const Attr *ve = find_attr(a, na, AID_VAR_VERSION, 4);
+        arch = ar ? ar->data[0] != 0 : 0;
+        version = ve ? ve->data[3] : 0;
+    }
+    free(d);
+    d = NULL;
+    l->progress_total = (uint32_t)strtoul(tok[3], NULL, 10);
+    if (!l->progress_total) l->progress_total = 1;
+    int r = vpkt_recv(l, &vt, &d, &n);
+    l->progress_total = 0;
+    if (r) {
+        printf("ERR get: the data didn't come\n");
+        return 4;
+    }
+    if (vt != VPKT_VAR_CNTS) {
+        printf("ERR get: unexpected answer 0x%04x\n", vt);
+        free(d);
+        return 4;
+    }
+    FILE *f = fopen(tok[4], "wb");
+    if (!f || fwrite(d, 1, n, f) != n) {
+        if (f) fclose(f);
+        printf("ERR cannot write %s\n", tok[4]);
+        free(d);
+        return 6;
+    }
+    fclose(f);
+    free(d);
+    printf("OK got size=%lu arch=%d version=%u\n", (unsigned long)n, arch, version);
+    return 0;
+}
+
+/* The VAR_TYPE header byte the 84 family wants on an upload: 0x0F on the CE models, 0x0B on
+   the other USB ones (calc_84p.cc: get_var_type_attr_header_byte) */
+static int is_ce(Link *l) {
+    static const uint16_t pid[] = {PID_PRODUCT_NAME};
+    unsigned char *d = NULL;
+    uint32_t n = 0;
+    int ce = 1; /* What this tool is tested on */
+    if (param_request(l, pid, 1, &d, &n) == 0) {
+        if (n > 7 && d[4] == 0) {
+            ce = 0;
+            for (uint32_t i = 7; i + 1 < n; i++)
+                if (d[i] == 'C' && d[i + 1] == 'E') ce = 1;
+        }
+        free(d);
+    }
+    return ce;
+}
+
+/* "put TYPE ARCH VERSION NAMEHEX LOCAL": LOCAL holds the variable's data (from a TI file, as
+   the Python side reads it). The 84 family only. */
+static int do_put(Link *l, char *arg) {
+    if (l->m->is_89t) {
+        printf("ERR sending to the TI-89 Titanium isn't built yet\n");
+        return 1;
+    }
+    char *tok[5];
+    for (int i = 0; i < 4; i++) {
+        tok[i] = strtok(i ? NULL : arg, " ");
+        if (!tok[i]) {
+            printf("ERR usage: put TYPE ARCH VERSION NAMEHEX LOCAL\n");
+            return 1;
+        }
+    }
+    tok[4] = strtok(NULL, "");
+    unsigned char name[40];
+    int nlen = from_hex(tok[3], name, sizeof(name));
+    if (!tok[4] || nlen <= 0) {
+        printf("ERR usage: put TYPE ARCH VERSION NAMEHEX LOCAL\n");
+        return 1;
+    }
+    FILE *f = fopen(tok[4], "rb");
+    if (!f) {
+        printf("ERR cannot open local file %s\n", tok[4]);
+        return 6;
+    }
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (size <= 0 || size > 65535) {
+        fclose(f);
+        printf("ERR the variable's size (%ld bytes) can't be right\n", size);
+        return 6;
+    }
+    unsigned char *data = malloc((size_t)size);
+    if (!data || fread(data, 1, (size_t)size, f) != (size_t)size) {
+        fclose(f);
+        free(data);
+        printf("ERR cannot read %s\n", tok[4]);
+        return 6;
+    }
+    fclose(f);
+    unsigned char req[96];
+    uint32_t j = 0;
+    req[j++] = 0; /* No folder */
+    req[j++] = (unsigned char)nlen;
+    memcpy(req + j, name, (size_t)nlen + 1);
+    j += (uint32_t)nlen + 1;
+    req[j++] = (unsigned char)(size >> 24);
+    req[j++] = (unsigned char)(size >> 16);
+    req[j++] = (unsigned char)(size >> 8);
+    req[j++] = (unsigned char)size;
+    req[j++] = 0x01; /* "Silent" */
+    req[j++] = 0;
+    req[j++] = 3;
+    const unsigned char attrs[] = {
+        0, AID_VAR_TYPE, 0, 4, 0xF0, (unsigned char)(is_ce(l) ? 0x0F : 0x0B), 0,
+        (unsigned char)strtoul(tok[0], NULL, 16),
+        0, AID_ARCHIVED, 0, 1, (unsigned char)(atoi(tok[1]) ? 1 : 0),
+        0, AID_VAR_VERSION, 0, 4, 0, 0, 0, (unsigned char)strtoul(tok[2], NULL, 10)};
+    memcpy(req + j, attrs, sizeof(attrs));
+    j += sizeof(attrs);
+    int r = 4;
+    if (vpkt_send(l, VPKT_RTS, req, j)) {
+        printf("ERR put: no answer\n");
+        goto done;
+    }
+    if (expect_ack(l, "put (no room, or a name the calculator doesn't take?)")) goto done;
+    if (vpkt_send(l, VPKT_VAR_CNTS, data, (uint32_t)size)) {
+        printf("ERR put: the data didn't go\n");
+        goto done;
+    }
+    if (expect_ack(l, "put")) goto done;
+    if (vpkt_send(l, VPKT_EOT, NULL, 0)) {
+        printf("ERR put: no answer at the end\n");
+        goto done;
+    }
+    printf("OK sent %ld bytes\n", size);
+    r = 0;
+done:
+    free(data);
+    return r;
+}
+
+/* "rm TYPE NAMEHEX": deletes a variable (the 84 family only) */
+static int do_rm(Link *l, char *arg) {
+    if (l->m->is_89t) {
+        printf("ERR deleting on the TI-89 Titanium isn't built yet\n");
+        return 1;
+    }
+    char *t = strtok(arg, " "), *h = strtok(NULL, " ");
+    unsigned char name[40];
+    int nlen = h ? from_hex(h, name, sizeof(name)) : -1;
+    if (!t || nlen <= 0) {
+        printf("ERR usage: rm TYPE NAMEHEX\n");
+        return 1;
+    }
+    unsigned char req[96];
+    uint32_t j = 0;
+    req[j++] = 0;
+    req[j++] = (unsigned char)nlen;
+    memcpy(req + j, name, (size_t)nlen + 1);
+    j += (uint32_t)nlen + 1;
+    const unsigned char rest[] = {0, 1, 0, AID_DATATYPE, 0, 4, 0xF0, 0x0B, 0,
+                                  (unsigned char)strtoul(t, NULL, 16),
+                                  0x01, /* Past the file protection */
+                                  0, 0, 0, 0}; /* No new folder, no new name: delete */
+    memcpy(req + j, rest, sizeof(rest));
+    j += sizeof(rest);
+    if (vpkt_send(l, VPKT_MODIF_VAR, req, j)) {
+        printf("ERR rm: no answer\n");
+        return 4;
+    }
+    if (expect_ack(l, "rm")) return 4;
+    printf("OK removed\n");
+    return 0;
+}
+
 static int run_line(Link *l, char *line) {
     char *arg = strchr(line, ' ');
     if (arg) *arg++ = 0;
     if (!strcmp(line, "info")) return do_info(l);
     if (!strcmp(line, "shot") && arg) return do_shot(l, arg);
+    if (!strcmp(line, "ls")) return do_ls(l);
+    if (!strcmp(line, "get") && arg) return do_get(l, arg);
+    if (!strcmp(line, "put") && arg) return do_put(l, arg);
+    if (!strcmp(line, "rm") && arg) return do_rm(l, arg);
     if ((!strcmp(line, "key") || !strcmp(line, "keys")) && arg) {
         int n = 0;
         for (char *tok = strtok(arg, " "); tok; tok = strtok(NULL, " ")) {

@@ -7,12 +7,17 @@
  *   nspire-cli ls [PATH]          list a folder on the handheld ("/" = My Documents)
  *   nspire-cli mkdir PATH         create a folder (no error if it exists)
  *   nspire-cli put LOCAL REMOTE   upload a file, then read it back and compare
+ *   nspire-cli get REMOTE LOCAL   download a file
+ *   nspire-cli rm PATH            delete a file or an empty folder
+ *   nspire-cli mv SRC DST         rename or move a file or folder
  *   nspire-cli shot FILE.ppm      save the handheld's screen as a PPM picture
  *   nspire-cli key HEXCODE        press one key (a 3-byte code, see nspire_keys.py)
  *   nspire-cli serve              one long connection: commands on stdin, one per line
  *                                 (info | ls PATH | mkdir PATH | put LOCAL|REMOTE |
+ *                                 get REMOTE|LOCAL | rm PATH | mv SRC|DST |
  *                                 shot FILE | key HEX | keys HEX HEX ... | quit); each
- *                                 ends with "END <code>".
+ *                                 ends with "END <code>". A download prints
+ *                                 "PROGRESS <bytes> <total>" lines as it goes.
  *
  * The CX II does its address handshake once per plug-in and is silent after that. Our copy of
  * libnspire's cx2.cpp (cx2_resume.cpp) asks it to start over, so a second run connects too.
@@ -241,6 +246,126 @@ done:
     return ret;
 }
 
+/* Downloads a file. libnspire's nspire_file_read copies past the end of a buffer that is too
+   small, and says nothing until the end; this loop (the same packets: 0x0701, then 0x04, the
+   data, 0xFF00) writes straight to the file and prints "PROGRESS <bytes> <total>" as it goes. */
+static int do_get(nspire_handle_t *h, const char *remote, const char *local) {
+    struct nspire_dir_item it;
+    int r = nspire_attr(h, remote, &it);
+    if (r) {
+        printf("ERR get %s: %s\n", remote, nspire_strerror(r));
+        return 4;
+    }
+    if (it.type == NSPIRE_DIR) {
+        printf("ERR get %s: it is a folder\n", remote);
+        return 1;
+    }
+    FILE *f = fopen(local, "wb");
+    if (!f) {
+        printf("ERR cannot write %s\n", local);
+        return 6;
+    }
+    const size_t cap = packet_max_datasize(h) + 1;
+    uint8_t *buf = malloc(cap > 256 ? cap : 256);
+    if (!buf) {
+        fclose(f);
+        printf("ERR out of memory\n");
+        return 6;
+    }
+    int ret = 4;
+    size_t len = 0, done = 0, last = 0;
+    uint16_t result = 0;
+    uint32_t data_len = 0;
+    if ((r = service_connect(h, 0x4060))) {
+        printf("ERR get %s: %s\n", remote, nspire_strerror(r));
+        free(buf);
+        fclose(f);
+        remove(local);
+        return 4;
+    }
+    if ((r = data_build("hs", buf, cap, &len, 0x0701, remote)) || (r = data_write(h, buf, len)) ||
+        (r = data_read(h, buf, cap - 1, NULL)) ||
+        (r = data_scan("h000000000w", buf, cap - 1, &result, &data_len)))
+        goto end;
+    if (result != 0x0301) {
+        r = -NSPIRE_ERR_NONEXIST;
+        goto end;
+    }
+    if ((r = data_write8(h, 0x04))) goto end;
+    const size_t maxsize = packet_max_datasize(h) - 1;
+    printf("PROGRESS 0 %lu\n", (unsigned long)data_len);
+    while (data_len) {
+        size_t want = maxsize < data_len ? maxsize : data_len, got = 0;
+        if ((r = data_read(h, buf, want + 1, &got))) goto end;
+        if (got < 1 || got - 1 > data_len) {
+            r = -NSPIRE_ERR_INVALID;
+            goto end;
+        }
+        if (fwrite(buf + 1, 1, got - 1, f) != got - 1) {
+            printf("ERR cannot write %s\n", local);
+            ret = 6;
+            r = 0;
+            goto end;
+        }
+        data_len -= (uint32_t)(got - 1);
+        done += got - 1;
+        if (done - last >= 32768) {
+            printf("PROGRESS %lu %lu\n", (unsigned long)done, (unsigned long)(done + data_len));
+            last = done;
+        }
+    }
+    if ((r = data_write16(h, 0xFF00))) goto end;
+    ret = 0;
+end:
+    service_disconnect(h);
+    free(buf);
+    if (fclose(f) && !ret) {
+        printf("ERR cannot write %s\n", local);
+        ret = 6;
+    }
+    if (ret) {
+        if (r) printf("ERR get %s: %s\n", remote, nspire_strerror(r));
+        remove(local);
+        return ret;
+    }
+    printf("OK got %lu bytes %s\n", (unsigned long)done, local);
+    return 0;
+}
+
+/* Deletes a file, or an empty folder */
+static int do_rm(nspire_handle_t *h, const char *path) {
+    struct nspire_dir_item it;
+    int r = nspire_attr(h, path, &it);
+    if (r) {
+        printf("ERR rm %s: %s\n", path, nspire_strerror(r));
+        return 4;
+    }
+    r = it.type == NSPIRE_DIR ? nspire_dir_delete(h, path) : nspire_file_delete(h, path);
+    if (r) {
+        printf("ERR rm %s: %s%s\n", path, nspire_strerror(r),
+               it.type == NSPIRE_DIR ? " (a folder must be empty)" : "");
+        return 4;
+    }
+    printf("OK removed %s\n", path);
+    return 0;
+}
+
+/* Renames or moves a file or folder; refuses to replace one that exists */
+static int do_mv(nspire_handle_t *h, const char *src, const char *dst) {
+    struct nspire_dir_item it;
+    if (nspire_attr(h, dst, &it) == 0) {
+        printf("ERR mv: %s already exists\n", dst);
+        return 4;
+    }
+    int r = nspire_file_move(h, src, dst);
+    if (r) {
+        printf("ERR mv %s: %s\n", src, nspire_strerror(r));
+        return 4;
+    }
+    printf("OK moved %s to %s\n", src, dst);
+    return 0;
+}
+
 /* The screen as a binary PPM (P6, 8-bit RGB): Tk and most viewers read it as it is */
 static int do_shot(nspire_handle_t *h, const char *out) {
     struct nspire_image *img = NULL;
@@ -364,11 +489,14 @@ static int run_line(nspire_handle_t *h, char *line) {
     if (!strcmp(line, "shot") && arg) return do_shot(h, arg);
     if (!strcmp(line, "key") && arg) return do_key(h, strtoul(arg, NULL, 16));
     if (!strcmp(line, "keys") && arg) return do_keys(h, arg);
-    if (!strcmp(line, "put") && arg) {
+    if (!strcmp(line, "rm") && arg) return do_rm(h, arg);
+    if ((!strcmp(line, "put") || !strcmp(line, "get") || !strcmp(line, "mv")) && arg) {
         char *bar = strchr(arg, '|');
         if (bar) {
             *bar++ = 0;
-            return do_put(h, arg, bar);
+            if (!strcmp(line, "put")) return do_put(h, arg, bar);
+            if (!strcmp(line, "get")) return do_get(h, arg, bar);
+            return do_mv(h, arg, bar);
         }
     }
     printf("ERR unknown command\n");
@@ -404,7 +532,7 @@ static int once(char *line) {
 
 static int usage(void) {
     printf("usage: nspire-cli devices | info | ls [PATH] | mkdir PATH | put LOCAL REMOTE |\n"
-           "       shot FILE.ppm | key HEXCODE | serve\n"
+           "       get REMOTE LOCAL | rm PATH | mv SRC DST | shot FILE.ppm | key HEXCODE | serve\n"
            "PATH is on the handheld; \"/\" is the top of My Documents.\n");
     return 1;
 }
@@ -424,8 +552,13 @@ int main(int argc, char **argv) {
         snprintf(line, sizeof(line), "ls %s", argc > 2 ? argv[2] : "/");
         return once(line);
     }
-    if ((!strcmp(c, "mkdir") || !strcmp(c, "shot") || !strcmp(c, "key")) && argc == 3) {
+    if ((!strcmp(c, "mkdir") || !strcmp(c, "shot") || !strcmp(c, "key") || !strcmp(c, "rm")) &&
+        argc == 3) {
         snprintf(line, sizeof(line), "%s %s", c, argv[2]);
+        return once(line);
+    }
+    if ((!strcmp(c, "get") || !strcmp(c, "mv")) && argc == 4) {
+        snprintf(line, sizeof(line), "%s %s|%s", c, argv[2], argv[3]);
         return once(line);
     }
     if (!strcmp(c, "put") && argc == 4) { /* The handheld's details too: one connection */

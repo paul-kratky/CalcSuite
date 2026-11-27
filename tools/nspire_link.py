@@ -44,6 +44,9 @@ class Session(object):
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self.p = subprocess.Popen([cli, "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True, bufsize=1,
+                                  # The PC's code page, as fopen in the tools reads paths;
+                                  # a handheld's UTF-8 names pass through byte for byte
+                                  errors="surrogateescape",
                                   cwd=os.path.dirname(cli), creationflags=flags)
         self.lock = threading.Lock()
         # The handshake: a handheld that already used its connection never answers, so
@@ -58,7 +61,7 @@ class Session(object):
             self.close()
             raise LinkError(code if code > 0 else 4, lines)
 
-    def _read(self):
+    def _read(self, on_progress=None):
         lines = []
         while True:
             line = self.p.stdout.readline()
@@ -67,18 +70,27 @@ class Session(object):
             line = line.rstrip()
             if line.startswith("END "):
                 return int(line[4:]), lines
+            if line.startswith("PROGRESS "):  # "PROGRESS <bytes> <total>" during a transfer
+                if on_progress is not None:
+                    try:
+                        done, total = (int(x) for x in line.split()[1:3])
+                        on_progress(done, total)
+                    except ValueError:
+                        pass
+                continue
             if line:
                 lines.append(line)
 
-    def cmd(self, line):
-        """Send one command; returns (exit code, the lines it printed)"""
+    def cmd(self, line, on_progress=None):
+        """Send one command; returns (exit code, the lines it printed). on_progress(bytes,
+        total) is called for a transfer's progress lines."""
         with self.lock:
             try:
                 self.p.stdin.write(line + "\n")
                 self.p.stdin.flush()
             except (OSError, ValueError):
                 return 4, ["ERR the link has closed"]
-            return self._read()
+            return self._read(on_progress)
 
     def close(self):
         try:
@@ -102,7 +114,9 @@ def info_dict(lines):
     import re
     d = {}
     for l in lines:
-        if l.startswith("INFO "):
+        if l.startswith("INFO name="):  # A name can have spaces: "TI-Nspire CX II CAS"
+            d["name"] = l[10:].strip()
+        elif l.startswith("INFO "):
             for k, v in re.findall(r"(\w+)=(\S+(?: \(\S+\))?)", l[5:]):
                 d[k] = v
     return d

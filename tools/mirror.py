@@ -9,7 +9,9 @@ a TI-Nspire CX II, a TI-84 Plus CE, a TI-89 Titanium. Each window has:
 - the keyboard: what you type goes to that calculator (see the key list in its status line's
   tooltip row, or below);
 - Screenshot (a PNG in captures/), Record (a GIF, and an MP4 when ffmpeg is installed),
-  Send program (Nspire: a .py or .tns), Reconnect, and Keyboard on/off.
+  Send program (Nspire: a .py or .tns), Files... (the calculator manager, calc_manager.py:
+  what's on it, downloads, uploads, About this calculator with the OS update check),
+  Reconnect, and Keyboard on/off.
 
 TI-Nspire keys: letters, digits, symbols, Enter, Esc, Tab, Backspace, arrows; Ctrl+letter;
 F1 Home, F2 Menu, F3 Doc, F4 Catalog, F5 Var. Mouse: wheel = up/down (Shift: left/right),
@@ -48,6 +50,7 @@ import nspire_keys  # noqa: E402
 import ti84_keys  # noqa: E402
 import ti89_keys  # noqa: E402
 import recorder  # noqa: E402
+import calc_manager  # noqa: E402
 
 import check_nspire  # noqa: E402
 import py2tns  # noqa: E402
@@ -199,6 +202,22 @@ class Ti89(object):
 CALCS = (Nspire, Ti84, Ti89)
 
 
+def prepare_for_nspire(path):
+    """A .py checked and turned into a .tns (as tools/flash.py does), a .tns as it is.
+    Returns (the file to send, None) or (None, why not)."""
+    if not path.lower().endswith(".py"):
+        return path, None
+    errors = [f for f in check_nspire.check_file(path, set()) if f.level == "ERROR"]
+    if errors:
+        f = errors[0]
+        more = " (+%d more)" % (len(errors) - 1) if len(errors) > 1 else ""
+        return None, "Not sent, line %d: %s%s. Fix: %s" % (f.line, f.message, more, f.fix)
+    try:
+        return py2tns.convert(path, quiet=True), None
+    except py2tns.TnsError as e:
+        return None, "Not sent: %s" % e
+
+
 class Mirror(object):
     def __init__(self, win, calc, on_close):
         self.root = win
@@ -222,6 +241,8 @@ class Mirror(object):
         self.t0 = time.time()
         self.rec = None         # A recorder.Recorder while recording
         self.rec_lock = threading.Lock()
+        self.manager = None     # The calculator manager (calc_manager.Manager) when open
+        self.info = {}          # The calculator's last "info" answer (name, OS, free space)
 
         self.canvas = tk.Label(win, bg="#000000", width=320 * SCALE, height=240 * SCALE,
                                image=self.blank)
@@ -236,6 +257,8 @@ class Mirror(object):
         if calc.can_send:
             tk.Button(bar, text="Send program...", command=self.send_program, **style).pack(
                 side="left", padx=(6, 0))
+        tk.Button(bar, text="Files...", command=self.open_files, **style).pack(
+            side="left", padx=(6, 0))
         tk.Button(bar, text="Reconnect", command=self.reconnect, **style).pack(side="left", padx=6)
         tk.Checkbutton(bar, text="Keyboard", variable=self.keys_on, bg="#000000", fg="#ece9e2",
                        selectcolor="#111113", activebackground="#000000",
@@ -262,7 +285,8 @@ class Mirror(object):
                     self.session = nspire_link.Session(cli=self.calc.cli)
                     code, lines = self.session.cmd("info")
                     d = nspire_link.info_dict(lines)
-                    name = d.get("name", self.calc.title).replace("_", " ")
+                    self.info = d
+                    name =d.get("name", self.calc.title).replace("_", " ")
                     self.set_status("Connected: %s%s" % (name, ", OS %s" % d["os"] if "os" in d else ""))
                 except nspire_link.LinkError:
                     self.session = None
@@ -274,19 +298,24 @@ class Mirror(object):
                 jobs, self.jobs = self.jobs, []
             # Key presses that queued up while a picture was coming go out as one command
             merged = []
-            for line, note in jobs:
+            for line, note, done, progress in jobs:
                 if line.startswith("key ") and merged and merged[-1][0].startswith("keys "):
-                    merged[-1] = (merged[-1][0] + " " + line[4:], note)
+                    merged[-1] = (merged[-1][0] + " " + line[4:], note, None, None)
                 elif line.startswith("key "):
-                    merged.append(("keys " + line[4:], note))
+                    merged.append(("keys " + line[4:], note, None, None))
                 else:
-                    merged.append((line, note))
-            for line, note in merged:
-                code, lines = self.session.cmd(line)
+                    merged.append((line, note, done, progress))
+            for k, (line, note, done, progress) in enumerate(merged):
+                code, lines = self.session.cmd(line, progress)
                 if note:
                     ok = [l for l in lines if l.startswith(("OK", "ERR"))]
                     self.set_status("%s: %s" % (note, ok[-1] if ok else "exit %d" % code))
+                if done is not None:
+                    done(code, lines)  # On this thread: it hands any window work to Tk
                 if code == 4 and self.link_dead():
+                    for _, _, d, _ in merged[k + 1:]:  # Everyone waiting gets an answer
+                        if d is not None:
+                            d(4, ["ERR the link closed"])
                     break
             if self.session is None:
                 continue
@@ -334,9 +363,11 @@ class Mirror(object):
         self.want_reconnect = True
         self.set_status("Connecting...")
 
-    def queue(self, line, note=None):
+    def queue(self, line, note=None, done=None, progress=None):
+        """A command for the link thread. done(code, lines) is called on the link thread when it
+        has run; progress(bytes, total) during a transfer."""
         with self.jobs_lock:
-            self.jobs.append((line, note))
+            self.jobs.append((line, note, done, progress))
             if line.startswith(("key ", "keys ")):
                 self.last_key = time.time()
 
@@ -527,24 +558,23 @@ class Mirror(object):
             filetypes=[("Python programs and TI documents", "*.py *.tns"), ("All files", "*.*")])
         if not path:
             return
-        if path.lower().endswith(".py"):
-            # The same check and conversion as tools/flash.py, in this process
-            errors = [f for f in check_nspire.check_file(path, set()) if f.level == "ERROR"]
-            if errors:
-                f = errors[0]
-                more = " (+%d more)" % (len(errors) - 1) if len(errors) > 1 else ""
-                self.set_status("Not sent, line %d: %s%s. Fix: %s" % (f.line, f.message, more, f.fix))
-                return
-            try:
-                tns = py2tns.convert(path, quiet=True)
-            except py2tns.TnsError as e:
-                self.set_status("Not sent: %s" % e)
-                return
-            path = tns
+        path, error = prepare_for_nspire(path)
+        if error:
+            self.set_status(error)
+            return
         self.queue("put %s|/%s" % (os.path.abspath(path), os.path.basename(path)),
                    "Send %s" % os.path.basename(path))
 
+    def open_files(self):
+        """The calculator manager: files, calculator info, OS updates"""
+        if self.manager is not None and self.manager.alive():
+            self.manager.lift()
+            return
+        self.manager = calc_manager.Manager(self, KIT, prepare_for_nspire)
+
     def quit(self):
+        if self.manager is not None and self.manager.alive():
+            self.manager.close()
         self.running = False
         self.want_reconnect = True
         if self.session is not None:
@@ -557,12 +587,31 @@ class Mirror(object):
         self.on_close(self)
 
 
+def set_app_icon(root):
+    """The app icon (assets/app.png) on every window, and the taskbar's own for this app"""
+    for path in (os.path.join(os.path.dirname(HERE), "assets", "app.png"),  # From the source
+                 os.path.join(HERE, "assets", "app.png")):                  # The packaged app
+        if os.path.isfile(path):
+            try:
+                root._app_icon = tk.PhotoImage(master=root, file=path)
+                root.iconphoto(True, root._app_icon)  # True: every window made later too
+            except tk.TclError:
+                pass
+            break
+    try:  # Run from Python, the taskbar would group the windows under python.exe's icon
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("CalcMirror.App")
+    except (AttributeError, OSError):
+        pass
+
+
 class App(object):
     """One window per calculator; watches USB for calculators plugged in later"""
 
     def __init__(self):
         self.root = tk.Tk()
         self.root.withdraw()  # Only the calculators' windows show
+        set_app_icon(self.root)
         self.windows = {}     # pid -> Mirror
         self.closed = set()   # Calculators whose window the user closed: not reopened
         self.found = set()

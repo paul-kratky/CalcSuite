@@ -46,6 +46,24 @@ program can talk to a calculator at a time.
 | **Record** | A GIF, and an MP4 too when [ffmpeg](https://ffmpeg.org/) is installed. Up to 3 minutes. |
 | **Send program** | TI-Nspire: a `.py` (checked and converted first) or a `.tns`. |
 | **Mouse** | TI-Nspire: wheel up/down (Shift: left/right), click, double click Enter, right click the context menu. |
+| **Files** | The **Files...** button: what's on the calculator, saved to the PC, sent to it, deleted. Calculator info, and whether TI has a newer OS. |
+
+## Files and updates
+
+**Files...** in a calculator's window opens a list of what's on it. Downloads go to
+`Documents\Nspire Mirror\from-calc` unless you pick another folder.
+
+| | TI-Nspire CX II | TI-84 Plus CE | TI-89 Titanium |
+| --- | --- | --- | --- |
+| Browse | folders and files, with sizes | variables, programs, apps, with sizes and RAM/Archive | variables by folder, apps |
+| Download | any file | as TI files (`.8xp`, `.8xv`, `.8xl`, ...) | as TI files (`.89p`, `.89e`, ...) |
+| Show as text | | TI-Basic programs, strings, equations | texts and strings |
+| Upload | `.py` (checked and converted) or `.tns` | TI files (`.8xp` etc.) | |
+| Delete, new folder, rename | yes (folders must be empty to delete) | delete | |
+
+**About this calculator** shows the model, OS version and free memory, and checks TI's website
+once a day for a newer OS: "Up to date", or the new version with a link to TI's download page.
+The app never downloads or installs an OS itself; do that with TI's own software.
 
 Keys that aren't letters, digits or symbols:
 
