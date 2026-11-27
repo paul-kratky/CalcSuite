@@ -356,6 +356,8 @@ class ProgramsSection(object):
             tree.insert("", "end", iid=str(k), text=name, values=(i.get("category", ""),),
                         tags=(() if i.get("verified") else ("unverified",)))
         tree.bind("<<TreeviewSelect>>", lambda e: self.picked())
+        tree.bind("<Double-1>", self.double)  # Double click: the same as its button (get it)
+        tree.bind("<Return>", lambda e: self.act_on() if self.item and not self.busy else None)
         self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=11,
                               padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9))
         self.detail.pack(fill="x", pady=(8, 0))
@@ -375,6 +377,15 @@ class ProgramsSection(object):
                  justify="left", wraplength=410).pack(fill="x", pady=(6, 0))
         self.item = None
         self.busy = False
+
+    def double(self, ev):
+        row = self.tree.identify_row(ev.y)
+        if not row or self.busy:
+            return "break"
+        self.tree.selection_set(row)
+        self.picked()
+        self.act_on()
+        return "break"
 
     def picked(self):
         sel = self.tree.selection()

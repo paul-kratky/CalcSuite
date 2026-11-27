@@ -332,7 +332,9 @@ class Manager(object):
         if self.nspire and sel[0]["dir"]:
             self.cwd = self.cwd.rstrip("/") + "/" + sel[0]["name"]
             self.refresh()
-        elif not self.nspire:
+        elif self.nspire:
+            self.download()  # A document: save it to the PC
+        else:
             self.view_text()
 
     def go_up(self):

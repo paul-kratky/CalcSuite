@@ -21,11 +21,31 @@ The keys each PC key presses: calc_models.py (and the Keys panel, made from the 
 import os
 import shutil
 import sys
+import queue
 import tempfile
 import threading
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox
+
+# Tk may only be touched from its own thread. The link threads (and the panels' workers) ask for
+# window work with after(0, ...); called from another thread that call itself is unsafe, and with
+# three calculators at 20 frames a second requests were lost: the picture stopped updating while
+# keys still worked (bench, 2026-11-27). From any other thread after() now queues the call, and
+# App.pump() runs the queue on Tk's thread about 60 times a second.
+_TK_THREAD = threading.main_thread()
+_TK_QUEUE = queue.SimpleQueue()
+_tk_after = tk.Misc.after
+
+
+def _after(self, ms, func=None, *args):
+    if func is not None and threading.current_thread() is not _TK_THREAD:
+        _TK_QUEUE.put((func, args))
+        return None
+    return _tk_after(self, ms, func, *args)
+
+
+tk.Misc.after = _after
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -190,6 +210,7 @@ class Mirror(object):
         self.info = {}          # The calculator's last "info" answer (name, OS, free space)
         self.views = []         # ScreenViews showing this calculator
         self.image = None       # The last frame as a PhotoImage, the calculator's own size
+        self.latest = None      # The newest frame's PPM bytes, not drawn yet (link thread -> pump)
         self.native = None      # Its (w, h)
         self.history = []       # The last keys pressed, as labels (newest last)
         self.last_press = tk.StringVar(master=app.root, value="Last key: none yet")
@@ -268,15 +289,26 @@ class Mirror(object):
             code, lines = self.session.cmd("shot " + tmp)
             if code == 0:
                 try:
-                    os.replace(tmp, self.frame_path)
+                    with open(tmp, "rb") as f:
+                        data = f.read()
+                except OSError:
+                    data = None
+                if data:
+                    # The window draws from memory (never from the file, which Windows wouldn't
+                    # let us replace while the window read it: frames were dropped); the file is
+                    # for screenshots, copies and recordings
+                    self.latest = data
                     self.frames += 1
                     self.frames_total += 1
+                    for _ in range(3):
+                        try:
+                            os.replace(tmp, self.frame_path)
+                            break
+                        except OSError:
+                            time.sleep(0.005)
                     with self.rec_lock:
                         if self.rec is not None:
                             self.rec.add(self.frame_path)
-                    self.app.root.after(0, self.draw_frame)  # Shown at once
-                except (OSError, RuntimeError):
-                    pass
             elif self.link_dead():
                 continue
             else:
@@ -350,13 +382,15 @@ class Mirror(object):
 
     # ---- Frames ----
     def draw_frame(self):
-        if not (self.running and os.path.isfile(self.frame_path)):
+        """The newest frame onto every view showing it (Tk's thread; App.pump calls it)"""
+        data, self.latest = self.latest, None
+        if not (self.running and data):
             return
         visible = [v for v in self.views if v.visible()]
         try:
-            img = tk.PhotoImage(master=self.app.root, file=self.frame_path)
+            img = tk.PhotoImage(master=self.app.root, data=data, format="ppm")
         except tk.TclError:
-            return  # Caught mid-write: the next frame has it
+            return
         self.image = img
         self.native = (img.width(), img.height())
         for v in visible:
@@ -810,6 +844,7 @@ class Tab(object):
         self.rec_btn = th.button(bar, "Record", mirror.toggle_record)
         self.rec_btn.pack(side="left", padx=(6, 0))
         th.button(bar, "Send program...", mirror.send_program).pack(side="left", padx=(6, 0))
+        th.button(bar, "Reconnect", mirror.reconnect).pack(side="left", padx=(6, 0))
         th.check(bar, "Keyboard", mirror.keys_on).pack(side="right")
         tk.Label(left, textvariable=mirror.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
                  wraplength=640).pack(fill="x", pady=(8, 0))
@@ -975,6 +1010,25 @@ class App(object):
         threading.Thread(target=self.scan_loop, daemon=True).start()
         self.root.after(300, self.sync)
         self.root.after(1000, self.tick)
+        self.root.after(15, self.pump)
+        middle_click_autoscroll(self.root)
+
+    def pump(self):
+        """Tk's thread, ~60 times a second: the work other threads asked for, then each
+        calculator's newest frame (only the newest: a slow window never falls behind)"""
+        for _ in range(200):
+            try:
+                func, args = _TK_QUEUE.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                func(*args)
+            except Exception:  # One bad request must never stop the window
+                pass
+        for m in list(self.mirrors.values()):
+            if m.latest:
+                m.draw_frame()
+        self.root.after(15, self.pump)
 
     @staticmethod
     def order(pid):
@@ -1187,6 +1241,48 @@ class App(object):
 
     def run(self):
         self.root.mainloop()
+
+
+def middle_click_autoscroll(root):
+    """Middle button held in a text panel (the Guide, lists): the Windows way, the page scrolls
+    toward where the mouse moves, faster the further it goes. Tk's own middle-drag moves the page
+    with the mouse, which reads as backwards (the owner, 2026-11-27)."""
+    state = {"y0": 0, "y": 0, "w": None, "job": None}
+
+    def step():
+        w = state["w"]
+        if w is None:
+            return
+        dy = state["y"] - state["y0"]
+        if abs(dy) > 6:
+            try:
+                w.yview_scroll(max(-12, min(12, int(dy / 14) or (1 if dy > 0 else -1))), "units")
+            except tk.TclError:
+                state["w"] = None
+                return
+        state["job"] = root.after(40, step)
+
+    def press(e):
+        state.update(y0=e.y, y=e.y, w=e.widget)
+        if state["job"] is None:
+            step()
+        return "break"
+
+    def motion(e):
+        state["y"] = e.y
+        return "break"
+
+    def release(e):
+        state["w"] = None
+        if state["job"] is not None:
+            root.after_cancel(state["job"])
+            state["job"] = None
+        return "break"
+
+    for cls in ("Text", "Listbox", "Treeview"):
+        root.bind_class(cls, "<Button-2>", press)
+        root.bind_class(cls, "<B2-Motion>", motion)
+        root.bind_class(cls, "<ButtonRelease-2>", release)
 
 
 def set_app_icon(root):
