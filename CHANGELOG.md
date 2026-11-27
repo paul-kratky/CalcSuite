@@ -11,15 +11,38 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   F11 STAT, F12 QUIT, Esc CLEAR), screenshots and recordings. It needs the WinUSB driver once
   (README, with Zadig). Tested on a TI-84 Plus CE: screenshot, typing `1+2` Enter.
 - **`ti84-cli`:** our own small link for TI's DUSB protocol on libusb (info, shot, key, serve).
+- **TI-89 Titanium in the mirror app (untested on hardware):** its own window with the
+  160 x 100 screen shown x4, the PC keyboard as its keys (F1-F8 its F1-F8, Home HOME, Esc ESC,
+  F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR), screenshots and recordings. `ti84-cli` speaks to
+  it too (`--model 89t`; its copy `ti89-cli.exe` picks the 89 by itself), and `ti84-cli
+  devices` lists the TI calculators on USB. Likely needs WinUSB once with Zadig (USB ID
+  `0451 E004`). Written from TILP's libticalcs; nothing was tried on a TI-89 yet.
 - **Record:** a button in each window. Saves a GIF (built in), and an MP4 too when ffmpeg is
   installed. Up to 3 minutes; a still screen costs nothing.
-- **One window per calculator,** opened when it is plugged in, several at once.
+- **One window per calculator,** opened when it is plugged in, several at once. Tested with a
+  TI-Nspire CX II and a TI-84 Plus CE open together.
+- **Copy and paste:** Ctrl+V types the PC clipboard's text into the calculator (new lines are
+  Enter, up to 4000 characters); Ctrl+C puts the calculator's screen on the PC clipboard as a
+  picture. On the Nspire, Ctrl+Shift+C / Ctrl+Shift+V are the handheld's own copy and paste.
+
+### Faster
+- **Typing:** while you type, keys go out the moment they're pressed and the next screenshot
+  waits until you pause (0.15 s on the Nspire, 0.6 s on the 84/89), instead of keys waiting
+  behind a picture (up to 1.4 s on the 84 Plus CE).
+- **TI-84 Plus CE keys** about twice as fast (4 keys: 0.69 s before, 0.37 s now): no more
+  sleeping on the calculator's "wait" reply, the next read already waits for the answer.
+- **Nspire frames:** about 19 a second (was about 10). The window looking for calculators no
+  longer opens them every 3 s (it reads the USB descriptors only), which took the handheld
+  from the mirror for a moment each time.
+
+### Fixed
+- The TI-84 Plus CE's OS version read as `0.5.4.0`; now `5.4.0`.
 
 ### Not built yet
 - Sending programs to the TI-84 Plus CE (TI-Basic text to `.8xp`).
-- The TI-84 Plus CE window with the Nspire connected at the same time is untested.
+- Sending programs to the TI-89 Titanium.
 
-## [1.1.0] - 2026-11-26
+## [0.2.0] - 2026-11-26
 
 ### Added
 - **Nspire Mirror, an app:** the handheld's screen live in a window (about 9 frames a second),

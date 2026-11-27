@@ -16,10 +16,15 @@ programs with a button, takes screenshots, and passes your keyboard and mouse wh
 handheld. No terminal, no Python needed. From the source: double-click `Nspire Mirror.bat`.
 What's new: [CHANGELOG.md](CHANGELOG.md).
 
-## TI-84 Plus CE (new)
+## TI-84 Plus CE and TI-89 Titanium (new)
 
 The mirror app also opens a window for a TI-84 Plus CE: live screen (about 1 frame a second),
 your keyboard as its keys, screenshots and recordings. Sending programs to it isn't built yet.
+
+**TI-89 Titanium (not yet tried on a calculator).** It gets its own window the same way: its
+160 x 100 screen shown four times as big, typing (lower case as typed), Enter, Esc, Backspace,
+the arrows, Home, F1-F8 as its F1-F8, F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR. It most likely
+needs the same WinUSB step below: in Zadig pick the **TI-89 Titanium** (USB ID `0451 E004`).
 
 **One-time driver step (Windows).** The 84 Plus CE doesn't tell Windows which driver to use,
 so it shows up with no driver. Give it the WinUSB driver with [Zadig](https://zadig.akeo.ie/):
@@ -74,7 +79,7 @@ The USB and .tns tools are prebuilt in `tools/bin/` for 64-bit Windows.
 
 | | |
 | --- | --- |
-| Which models | TI-Nspire **CX II**, CX II CAS, CX II-T, CX II-T CAS, CX II-C, CX II-C CAS, plus the CX Student/Teacher desktop software. The original **CX / CX CAS (no "II") have no Python**: they are not on TI's list and their OS stops at 4.5.x. |
+| Which models | TI-Nspire **CX II**, CX II CAS, CX II-T, CX II-T CAS, CX II-C, CX II-C CAS, plus TI's TI-Nspire CX desktop software. The original **CX / CX CAS (no "II") have no Python**: they are not on TI's list and their OS stops at 4.5.x. |
 | OS needed | **OS 5.2 or later** on the handheld. Python arrived with 5.2. The newest OS found is **6.3** (August 2025), which added CoDrone EDU drone support. 6.2 (April 2024) changed the editor and added Vernier Go Direct sensors over the TI Bluetooth adapter. Update to the newest one. |
 | Engine | TI's own port of **MicroPython**, a small subset of Python 3. TI does not publish the MicroPython version number; `programs/probe.py` prints what your handheld reports. |
 | Built-in modules | `math`, `cmath`, `random`, `time`, plus TI's `ti_system`, `ti_draw`, `ti_plotlib`, `ti_image`, `ti_hub` (TI-Innovator Hub) and `ti_rover` (TI-Innovator Rover). Turtle is a separate download from TI that you install into PyLib. |
@@ -175,7 +180,7 @@ open, use 3.2 and tell Claude Code what the handheld said.
 
 ### 3.2 Manual: TI's software
 
-**You need:** TI-Nspire **CX (CAS) Student Software** or Premium Teacher Software, version
+**You need:** TI's **TI-Nspire CX (CAS)** desktop software, version
 5.2 or later (the CAS edition matches a CX II CAS), and the USB cable that came with the
 calculator.
 
@@ -213,7 +218,7 @@ already bound WinUSB to the CX II (checked 2026-11-26 in Device Manager data: se
 `WinUSB` for `USB\VID_0451&PID_E022`). Nothing was installed or changed for this kit.
 
 Only if `send_to_calc.py --list` prints `driver=no-winusb-driver` (for example after
-installing TI-Nspire Student/Teacher Software, which can bring its own driver):
+installing TI's TI-Nspire desktop software, which can bring its own driver):
 
 1. First try: unplug the handheld, close all TI software, plug it in again.
 2. If it still says `no-winusb-driver`, you have to switch the driver by hand. This is
@@ -242,17 +247,7 @@ use Install as Python Module.)
 run `python -I tools/build_tools.py --force`. It needs MSYS2's UCRT64 gcc and zlib
 (`C:\msys64\ucrt64`, already on this PC) and writes only to `tools/bin/` and `build/`.
 
-## 4. Exam mode (Press-to-Test)
-
-Turning on Press-to-Test **temporarily removes every existing document and folder in My
-Documents**, your Python `.tns` files included, until test mode is ended (with another
-handheld or a computer, for example through TI-Nspire CX II Connect). TI's documentation
-doesn't say whether PyLib modules stay usable, so assume they don't. Don't count on any program during a test.
-Use these programs to learn: work out the method by hand first, and use the program to
-check your answers or explore. Follow your teacher's and exam board's rules about what is
-allowed.
-
-## 5. Troubleshooting
+## 4. Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
@@ -266,7 +261,7 @@ allowed.
 | A drawing flashes and vanishes | End with `get_key(1)` so it waits for a key. |
 | ti_draw does nothing in the desktop software | Switch to **handheld view**: ti_draw only works there. |
 | "Unsupported file type" when transferring | You sent the `.py`. Paste it into a Python Editor page and send the `.tns` (section 3). |
-| A `.tns` opens but there's no Python menu | The handheld's OS is older than 5.2. Update it with the Student Software or TI-Nspire CX II Connect. |
+| A `.tns` opens but there's no Python menu | The handheld's OS is older than 5.2. Update it with TI's desktop software or TI-Nspire CX II Connect. |
 | Results differ slightly from the Calculator app | That's expected: TI notes Python's float math differs from the CAS. Round with `round(x, 6)` for display. |
 | `run_on_pc.py` fails with `NameError: TI variable 'a' is not defined` | Pass it: `--var a=5` (or `--list` / `--func`). |
 | flash.py: `STOPPED: the checker found problems` | Fix the ERROR lines it printed (or ask Claude Code to), then run it again. |
@@ -301,8 +296,6 @@ TI's own documentation (checked 2026-11-26):
 - Transferring files between the computer and the handheld:
   <https://education.ti.com/html/webhelp/EG_TINspire/EN/content/m_transfileshh/cv_transferring_files_between_comp_and_hh.HTML> ;
   TI-Nspire CX II Connect <https://education.ti.com/en/products/computer-software/ti-nspire-cx-ii-connect>
-- Press-to-Test: <https://education.ti.com/html/webhelp/EG_TINspire/EN/content/m_press-to-test/pt_enter_p2t_choose_restrictions.HTML> ,
-  <https://education.ti.com/html/eguides/nspire/eg_nspire/en/content/m_press-to-test/pt_understanding_press-to-test_restrictions.HTML>
 - OS downloads (CX II CAS): <https://education.ti.com/en/software/details/en/8CBC7A5F94D447B39E7C8C7F8178DB28/TI-NspireCXIICAS_OS> ;
   OS 6.3 announcement (Aug 2025, TI-Innovator group): <https://groups.google.com/g/ti-innovator/c/Pk2YDH6p_iI>
 

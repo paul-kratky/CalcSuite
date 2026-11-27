@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /*
- * ti84-cli: a small USB link for the TI-84 Plus CE family (TI's "DUSB" protocol) on libusb.
+ * ti84-cli: a small USB link for the TI-84 Plus CE family and the TI-89 Titanium (TI's "DUSB"
+ * protocol) on libusb.
  *
- *   ti84-cli info               connect and print the model, OS version and free memory
- *   ti84-cli shot FILE.ppm      save the screen as a PPM picture
- *   ti84-cli key HEXCODE        press one key (a TI-OS key code, see ti84_keys.py)
- *   ti84-cli serve              one connection, commands on stdin, one per line:
- *                               info | shot FILE | key HEX | keys HEX HEX ... | quit
- *                               each ends with "END <code>" (as nspire-cli serve does)
+ *   ti84-cli [--model M] info           connect and print the model, OS version and free memory
+ *   ti84-cli [--model M] shot FILE.ppm  save the screen as a PPM picture
+ *   ti84-cli [--model M] key HEXCODE    press one key (see ti84_keys.py / ti89_keys.py)
+ *   ti84-cli [--model M] serve          one connection, commands on stdin, one per line:
+ *                                       info | shot FILE | key HEX | keys HEX HEX ... | quit
+ *                                       each ends with "END <code>" (as nspire-cli serve does)
+ *   ti84-cli devices                    list the TI calculators on USB (opens none of them)
+ *
+ * Which calculator: --model 84ce (USB id 0451:E008), 89t (0451:E004) or auto (the first of
+ * either that is found). Without --model the program's name decides: the copy named
+ * ti89-cli.exe talks to a TI-89 Titanium only, ti84-cli.exe to the TI-84 Plus family only (so
+ * two windows of the mirror never take each other's calculator).
  *
  * Exit codes: 0 ok, 1 usage error, 2 no calculator found, 3 driver/open problem,
  *             4 link/protocol error, 6 local file error.
@@ -33,6 +40,7 @@
 
 #define TI_VID 0x0451
 #define PID_84P 0xe008 /* TI-84 Plus, Plus C Silver Edition, Plus CE, TI-83 Premium CE */
+#define PID_89T 0xe004 /* TI-89 Titanium */
 
 enum { RPKT_BUF_REQ = 1, RPKT_BUF_ALLOC = 2, RPKT_DATA = 3, RPKT_DATA_LAST = 4, RPKT_ACK = 5 };
 enum {
@@ -47,7 +55,24 @@ enum {
 #define RAW_MAX 1023
 #define TIMEOUT_MS 5000
 
+/* What differs between the models (libticalcs: dusb_vpkt.cc, dusb_cmd.cc, calc_89t.cc) */
 typedef struct {
+    const char *name;    /* --model */
+    uint16_t pid;
+    uint32_t raw_clamp;  /* The largest raw packet used, whatever the calculator allocates */
+    int is_89t;          /* Keys high byte first with a pause, its own ZLP rule, 1 bpp screen */
+} Model;
+
+static const Model MODELS[] = {
+    {"84ce", PID_84P, 1018, 0}, /* The CE allocates more than it handles */
+    {"89t", PID_89T, RAW_MAX, 1},
+};
+#define N_MODELS ((int)(sizeof(MODELS) / sizeof(MODELS[0])))
+#define MODEL_AUTO (-1)
+
+typedef struct {
+    const Model *m;
+    uint32_t vtl_size;           /* The size of the virtual packet being sent (the ZLP rule) */
     libusb_context *ctx;
     libusb_device_handle *dev;
     unsigned char ep_in, ep_out;
@@ -93,12 +118,16 @@ static int raw_send(Link *l, int type, const unsigned char *data, uint32_t n) {
         sent != (int)(5 + n))
         return -1;
     /* The CE needs an empty packet after a final data packet that fills its USB packets
-       exactly (libticalcs: workaround_send) */
-    if (type == RPKT_DATA_LAST && ((n + 5) % 64) == 0)
+       exactly; the 89 Titanium too, but only in virtual packets over 1076 bytes
+       (libticalcs: workaround_send) */
+    if (type == RPKT_DATA_LAST && ((n + 5) % 64) == 0 && (!l->m->is_89t || l->vtl_size > 1076))
         libusb_bulk_transfer(l->dev, l->ep_out, buf, 0, &sent, TIMEOUT_MS);
     return 0;
 }
 
+/* The 89 Titanium follows a raw packet whose data is a multiple of 64 bytes with an empty USB
+   packet (libticalcs: workaround_recv; ticables: the extra bulk read). usb_read needs no case
+   for it: an empty read is just read again. */
 static int raw_recv(Link *l, int *type, unsigned char *data, uint32_t *n) {
     unsigned char h[5];
     if (usb_read(l, h, 5)) return -1;
@@ -137,6 +166,7 @@ static int vpkt_send(Link *l, int vtype, const unsigned char *data, uint32_t n) 
     raw[3] = (unsigned char)n;
     raw[4] = (unsigned char)(vtype >> 8);
     raw[5] = (unsigned char)vtype;
+    l->vtl_size = n;
     if (n <= first) {
         if (n) memcpy(raw + 6, data, n);
         if (raw_send(l, RPKT_DATA_LAST, raw, n + 6)) return -1;
@@ -198,10 +228,9 @@ static int vpkt_recv(Link *l, int *vtype, unsigned char **out, uint32_t *n) {
                 return -1;
             }
         } while (rtype != RPKT_DATA_LAST);
-        if (*vtype == VPKT_DELAY_ACK && len >= 4) {
-            uint32_t us = ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3];
-            if (us > 400000) us = 400000;
-            sleep_ms(us / 1000);
+        if (*vtype == VPKT_DELAY_ACK) {
+            // "Wait, the answer comes later": the next bulk read blocks until it does, so no
+            // sleep here (TILP sleeps the hinted time, up to 400 ms, which made each key slow)
             free(buf);
             continue;
         }
@@ -212,8 +241,15 @@ static int vpkt_recv(Link *l, int *vtype, unsigned char **out, uint32_t *n) {
     return -1;
 }
 
-static int link_open(Link *l) {
+static const Model *model_of(uint16_t pid, int want) {
+    for (int i = 0; i < N_MODELS; i++)
+        if (MODELS[i].pid == pid && (want == MODEL_AUTO || want == i)) return &MODELS[i];
+    return NULL;
+}
+
+static int link_open(Link *l, int want) {
     memset(l, 0, sizeof(*l));
+    l->m = &MODELS[want == MODEL_AUTO ? 0 : want];
     if (libusb_init(&l->ctx)) {
         printf("ERR libusb_init failed\n");
         return 3;
@@ -223,9 +259,11 @@ static int link_open(Link *l) {
     int found = 0, rc = 2;
     for (ssize_t i = 0; i < cnt && !l->dev; i++) {
         struct libusb_device_descriptor d;
-        if (libusb_get_device_descriptor(list[i], &d) || d.idVendor != TI_VID || d.idProduct != PID_84P)
+        if (libusb_get_device_descriptor(list[i], &d) || d.idVendor != TI_VID ||
+            !model_of(d.idProduct, want))
             continue;
         found = 1;
+        l->m = model_of(d.idProduct, want);
         int r = libusb_open(list[i], &l->dev);
         if (r) {
             l->dev = NULL;
@@ -236,7 +274,12 @@ static int link_open(Link *l) {
     }
     if (list) libusb_free_device_list(list, 1);
     if (!l->dev) {
-        if (!found) printf("ERR no TI-84 Plus family calculator on USB\n");
+        if (!found && want == MODEL_AUTO)
+            printf("ERR no TI-84 Plus family calculator or TI-89 Titanium on USB\n");
+        else if (!found && l->m->is_89t)
+            printf("ERR no TI-89 Titanium on USB\n");
+        else if (!found)
+            printf("ERR no TI-84 Plus family calculator on USB\n");
         return rc;
     }
     libusb_set_configuration(l->dev, 1);
@@ -278,7 +321,7 @@ static int link_open(Link *l) {
         return 4;
     }
     l->maxlen = ((uint32_t)d[0] << 24) | ((uint32_t)d[1] << 16) | ((uint32_t)d[2] << 8) | d[3];
-    if (l->maxlen > 1018) l->maxlen = 1018; /* The CE allocates more than it handles */
+    if (l->maxlen > l->m->raw_clamp) l->maxlen = l->m->raw_clamp;
     if (l->maxlen < 64) l->maxlen = 250;
     static const unsigned char mode[10] = {0, 3, 0, 1, 0, 0, 0, 0, 0x07, 0xD0};
     unsigned char *ans = NULL;
@@ -345,8 +388,10 @@ static int do_info(Link *l) {
             printf("INFO name=");
             for (unsigned i = 0; i < sz && v[i]; i++) putchar(v[i] == ' ' ? '_' : v[i]);
             printf("\n");
+        } else if (id == PID_OS_VERSION && sz >= 4 && l->m->is_89t) {
+            printf("INFO os=%u.%02u\n", v[1], v[2]); /* As calc_89t.cc reads it */
         } else if (id == PID_OS_VERSION && sz >= 4) {
-            printf("INFO os=%u.%u.%u.%u\n", v[0], v[1], v[2], v[3]);
+            printf("INFO os=%u.%u.%u\n", v[1], v[2], v[3]); /* As calc_84p.cc reads it (byte 0 isn't part of it) */
         } else if ((id == PID_FREE_RAM || id == PID_FREE_FLASH) && sz >= 8) {
             unsigned long long x = 0;
             for (int i = 0; i < 8; i++) x = (x << 8) | v[i];
@@ -403,6 +448,26 @@ static int do_shot(Link *l, const char *out) {
             unsigned char c = (px[k / 8] & (0x80 >> (k & 7))) ? 0x20 : 0xC8;
             rgb[3 * k] = rgb[3 * k + 1] = rgb[3 * k + 2] = c;
         }
+    } else if (size == 240 * 128 / 8) {
+        /* The 89 Titanium: 1 bit a pixel, 1 = dark, rows of 240 pixels (30 bytes) of which the
+           LCD shows the top-left 160 x 100 (calc_89t.cc: recv_screen). Dark on the LCD's
+           grey-green. */
+        w = 160;
+        h = 100;
+        rgb = malloc(w * h * 3);
+        if (!rgb) {
+            free(d);
+            return 6;
+        }
+        for (unsigned y = 0; y < h; y++) {
+            for (unsigned x = 0; x < w; x++) {
+                int on = (px[y * 30 + x / 8] & (0x80 >> (x & 7))) != 0;
+                unsigned char *o = rgb + 3 * (y * w + x);
+                o[0] = on ? 0x20 : 0xC8;
+                o[1] = on ? 0x24 : 0xD0;
+                o[2] = on ? 0x20 : 0xB8;
+            }
+        }
     } else {
         printf("ERR screenshot: %u bytes is a format this tool doesn't read\n", (unsigned)size);
         free(d);
@@ -427,7 +492,11 @@ static int do_shot(Link *l, const char *out) {
 /* One key press: the remote "execute key" command, then the calculator's two answers */
 static int do_key(Link *l, unsigned long code) {
     unsigned char e[5] = {0, 0, 0x03, 0, 0};
-    if ((code >> 8) == 0) { /* A one-byte key: high byte first (the eZ80 OS needs that) */
+    if (l->m->is_89t) { /* Always high byte first, and a pause between two keys (calc_89t.cc) */
+        sleep_ms(25);
+        e[3] = (unsigned char)(code >> 8);
+        e[4] = (unsigned char)code;
+    } else if ((code >> 8) == 0) { /* A one-byte key: high byte first (the eZ80 OS needs that) */
         e[3] = 0;
         e[4] = (unsigned char)code;
     } else { /* A two-byte key: the extension byte first */
@@ -467,17 +536,60 @@ static int run_line(Link *l, char *line) {
 }
 
 static int usage(void) {
-    printf("usage: ti84-cli info | shot FILE.ppm | key HEXCODE | serve\n");
+    printf("usage: ti84-cli [--model 84ce|89t|auto] info | shot FILE.ppm | key HEXCODE | serve\n"
+           "       ti84-cli devices\n");
     return 1;
+}
+
+/* Lists the TI calculators on USB from their descriptors: nothing is opened */
+static int cmd_devices(void) {
+    libusb_context *ctx = NULL;
+    libusb_device **list = NULL;
+    int found = 0;
+    if (libusb_init(&ctx)) {
+        printf("ERR libusb_init failed\n");
+        return 3;
+    }
+    ssize_t cnt = libusb_get_device_list(ctx, &list);
+    for (ssize_t i = 0; i < cnt; i++) {
+        struct libusb_device_descriptor d;
+        if (libusb_get_device_descriptor(list[i], &d) || d.idVendor != TI_VID) continue;
+        const Model *m = model_of(d.idProduct, MODEL_AUTO);
+        printf("DEVICE pid=%04x model=%s\n", d.idProduct, m ? m->name : "other");
+        found++;
+    }
+    if (list) libusb_free_device_list(list, 1);
+    libusb_exit(ctx);
+    printf("OK %d\n", found);
+    return found ? 0 : 2;
+}
+
+/* The model the program's name stands for: ti89-cli the 89 Titanium, any other the 84 */
+static int model_from_name(const char *argv0) {
+    const char *base = argv0;
+    for (const char *p = argv0; *p; p++)
+        if (*p == '/' || *p == '\\') base = p + 1;
+    return strncmp(base, "ti89", 4) == 0 ? 1 : 0;
 }
 
 int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
+    int want = argc > 0 && argv[0] ? model_from_name(argv[0]) : 0;
+    if (argc >= 3 && !strcmp(argv[1], "--model")) {
+        want = -2;
+        if (!strcmp(argv[2], "auto")) want = MODEL_AUTO;
+        for (int i = 0; i < N_MODELS; i++)
+            if (!strcmp(argv[2], MODELS[i].name)) want = i;
+        if (want == -2) return usage();
+        argv += 2;
+        argc -= 2;
+    }
     if (argc < 2) return usage();
+    if (!strcmp(argv[1], "devices") && argc == 2) return cmd_devices();
     Link l;
     char line[2048];
     if (!strcmp(argv[1], "serve")) {
-        int r = link_open(&l);
+        int r = link_open(&l, want);
         printf("END %d\n", r);
         if (r) {
             link_close(&l);
@@ -500,7 +612,7 @@ int main(int argc, char **argv) {
     } else {
         return usage();
     }
-    int r = link_open(&l);
+    int r = link_open(&l, want);
     if (!r) r = run_line(&l, line);
     link_close(&l);
     return r;

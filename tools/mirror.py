@@ -3,7 +3,7 @@
     python -I tools/mirror.py            (or double-click "Nspire Mirror.bat")
 
 One window opens for each calculator that is plugged in (and for one plugged in later):
-a TI-Nspire CX II, a TI-84 Plus CE. Each window has:
+a TI-Nspire CX II, a TI-84 Plus CE, a TI-89 Titanium. Each window has:
 
 - the live picture (the Nspire about 10 frames a second, the 84 Plus CE about 1);
 - the keyboard: what you type goes to that calculator (see the key list in its status line's
@@ -21,6 +21,14 @@ TI-84 Plus CE keys: letters (typed lower case is the calculator's capital), digi
 Enter, arrows, Backspace (left + DEL), Delete = DEL, Insert = INS, Esc = CLEAR;
 F1 Y=, F2 WINDOW, F3 ZOOM, F4 TRACE, F5 GRAPH, F6 MODE, F7 MATH, F8 APPS, F9 PRGM, F10 VARS,
 F11 STAT, F12 QUIT. Mouse wheel = up/down.
+
+TI-89 Titanium keys (not yet tried on a calculator): letters (lower case as typed), digits,
+symbols, Enter, Esc, arrows, Backspace, Delete = DEL, Insert = INS, Home = HOME; F1-F8 are
+its F1-F8, F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR.
+
+Every window: Ctrl+V types the PC clipboard's text into the calculator (new lines are Enter),
+Ctrl+C copies the calculator's screen to the PC clipboard as a picture. On the Nspire,
+Ctrl+Shift+C / Ctrl+Shift+V are the handheld's own copy and paste.
 """
 
 import os
@@ -38,6 +46,7 @@ sys.path.insert(0, os.path.join(HERE, "ti84_cli"))
 import nspire_link  # noqa: E402
 import nspire_keys  # noqa: E402
 import ti84_keys  # noqa: E402
+import ti89_keys  # noqa: E402
 import recorder  # noqa: E402
 
 import check_nspire  # noqa: E402
@@ -52,6 +61,46 @@ if getattr(sys, "frozen", False):
 else:
     KIT = os.path.dirname(HERE)
 SCALE = 2
+PASTE_MAX = 4000  # Characters one paste may type
+
+
+def set_clipboard_image(w, h, rgb, scale):
+    """Puts an RGB picture on the Windows clipboard (CF_DIB), enlarged by `scale`"""
+    import ctypes
+    import struct
+    sw, sh = w * scale, h * scale
+    stride = (sw * 3 + 3) & ~3
+    rows = []
+    for y in range(h - 1, -1, -1):  # A DIB stores the bottom row first
+        line = bytearray()
+        for x in range(w):
+            r, g, b = rgb[(y * w + x) * 3:(y * w + x) * 3 + 3]
+            line += bytes((b, g, r)) * scale
+        line += b"\x00" * (stride - len(line))
+        rows.extend([bytes(line)] * scale)
+    data = struct.pack("<IiiHHIIiiII", 40, sw, sh, 1, 24, 0, stride * sh, 2835, 2835, 0, 0)
+    data += b"".join(rows)
+    k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
+    k32.GlobalAlloc.restype = ctypes.c_void_p
+    k32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    k32.GlobalLock.restype = ctypes.c_void_p
+    k32.GlobalLock.argtypes = [ctypes.c_void_p]
+    k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    u32.SetClipboardData.restype = ctypes.c_void_p
+    u32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+    u32.OpenClipboard.argtypes = [ctypes.c_void_p]
+    handle = k32.GlobalAlloc(0x0002, len(data))  # GMEM_MOVEABLE
+    ptr = k32.GlobalLock(handle)
+    ctypes.memmove(ptr, data, len(data))
+    k32.GlobalUnlock(handle)
+    if not u32.OpenClipboard(None):
+        raise OSError("the clipboard is busy")
+    try:
+        u32.EmptyClipboard()
+        if not u32.SetClipboardData(8, handle):  # CF_DIB; Windows owns it from here
+            raise OSError("the clipboard refused the picture")
+    finally:
+        u32.CloseClipboard()
 
 
 class Nspire(object):
@@ -62,6 +111,7 @@ class Nspire(object):
     cli = nspire_link.CLI
     can_send = True
     key_fmt = "%06x"
+    shot_holdoff = 0.15  # Seconds after a key before the next picture (keys go first)
     tk_keys = {
         "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["esc"], "Tab": ["tab"],
         "BackSpace": ["backspace"], "Left": ["left"], "Right": ["right"], "Up": ["up"],
@@ -95,6 +145,7 @@ class Ti84(object):
     cli = nspire_link.CLI_84
     can_send = False  # Sending programs (TI-Basic to .8xp) isn't built yet
     key_fmt = "%x"
+    shot_holdoff = 0.6  # A picture takes ~1.4 s and can't be cut short: never start one mid-typing
     tk_keys = {
         "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["clear"],
         "BackSpace": ["left", "del"], "Delete": ["del"], "Insert": ["ins"],
@@ -115,7 +166,37 @@ class Ti84(object):
         return None
 
 
-CALCS = (Nspire, Ti84)
+class Ti89(object):
+    """The TI-89 Titanium (untested on a calculator so far)"""
+    pid = 0xE004
+    title = "TI-89 Titanium"
+    slug = "ti89"
+    cli = nspire_link.CLI_89
+    can_send = False
+    key_fmt = "%x"
+    shot_holdoff = 0.6
+    zoom = 2  # Its 160 x 100 screen: x 2 here, x SCALE in the window = x 4
+    tk_keys = {
+        "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["esc"],
+        "BackSpace": ["backspace"], "Delete": ["del"], "Insert": ["ins"],
+        "Left": ["left"], "Right": ["right"], "Up": ["up"], "Down": ["down"], "Home": ["home"],
+        "F1": ["f1"], "F2": ["f2"], "F3": ["f3"], "F4": ["f4"], "F5": ["f5"], "F6": ["f6"],
+        "F7": ["f7"], "F8": ["f8"], "F9": ["apps"], "F10": ["mode"], "F11": ["catalog"],
+        "F12": ["clear"],
+    }
+    wheel = ("up", "down", "left", "right")
+    double_click, right_click, middle_click = "enter", None, None
+
+    @staticmethod
+    def code_for(name):
+        return ti89_keys.code_for(name)
+
+    @staticmethod
+    def click(x, y):
+        return None
+
+
+CALCS = (Nspire, Ti84, Ti89)
 
 
 class Mirror(object):
@@ -128,6 +209,7 @@ class Mirror(object):
         self.session = None
         self.jobs = []          # Commands for the link thread (key presses, uploads)
         self.jobs_lock = threading.Lock()
+        self.last_key = 0.0     # When a key was last queued (time.time())
         self.running = True
         self.want_reconnect = False
         self.keys_on = tk.BooleanVar(master=win, value=True)
@@ -208,6 +290,11 @@ class Mirror(object):
                     break
             if self.session is None:
                 continue
+            # While typing, keys go out as they come and the picture waits: a screenshot can't be
+            # interrupted, so a key typed during one waits for all of it (1.4 s on the 84 Plus CE)
+            if time.time() - self.last_key < self.calc.shot_holdoff:
+                time.sleep(0.015)
+                continue
             tmp = self.frame_path + ".new"
             code, lines = self.session.cmd("shot " + tmp)
             if code == 0:
@@ -250,6 +337,8 @@ class Mirror(object):
     def queue(self, line, note=None):
         with self.jobs_lock:
             self.jobs.append((line, note))
+            if line.startswith(("key ", "keys ")):
+                self.last_key = time.time()
 
     def set_status(self, text):
         if self.running:
@@ -263,8 +352,9 @@ class Mirror(object):
         if self.running and os.path.isfile(self.frame_path):
             try:
                 img = tk.PhotoImage(master=self.root, file=self.frame_path)
-                if img.width() < 320:  # The monochrome 84's 96 x 64 screen
-                    img = img.zoom(3, 3)
+                if img.width() < 320:  # The monochrome 84's 96 x 64 screen, the 89's 160 x 100
+                    z = getattr(self.calc, "zoom", 3)
+                    img = img.zoom(z, z)
                 if SCALE > 1:
                     img = img.zoom(SCALE, SCALE)
                 self.photo = img
@@ -303,6 +393,15 @@ class Mirror(object):
         return names or []
 
     def on_key(self, ev):
+        ctrl, shift = ev.state & 0x4, ev.state & 0x1
+        if ctrl and not shift and ev.keysym.lower() == "c":
+            self.copy_screen()  # The PC's clipboard (Ctrl+Shift+C: the handheld's own copy)
+            return
+        if ctrl and not shift and ev.keysym.lower() == "v":
+            self.paste_text()
+            return
+        if ctrl and shift and ev.keysym.lower() in ("c", "v"):
+            ev.keysym = ev.keysym.lower()
         if not self.keys_on.get() or self.session is None:
             return
         for name in self.key_names(ev):
@@ -311,6 +410,47 @@ class Mirror(object):
                 self.set_status("No %s key for %r" % (self.calc.title, name))
                 return
             self.queue("key " + self.calc.key_fmt % code, "Key %s" % name)
+
+    def paste_text(self):
+        """The PC clipboard's text typed into the calculator, key by key"""
+        if self.session is None:
+            self.set_status("Not connected yet")
+            return
+        try:
+            text = self.root.clipboard_get()
+        except tk.TclError:
+            self.set_status("The clipboard has no text")
+            return
+        text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\t", "    ")
+        if len(text) > PASTE_MAX:
+            self.set_status("Too long to paste: %d characters (up to %d)" % (len(text), PASTE_MAX))
+            return
+        codes, missing = [], set()
+        for ch in text:
+            code = self.calc.code_for("enter" if ch == "\n" else ch)
+            if code is None:
+                missing.add(ch)
+            else:
+                codes.append(self.calc.key_fmt % code)
+        if missing:
+            shown = " ".join(sorted(repr(c) for c in missing))
+            self.set_status("Can't type %s on the %s: nothing pasted" % (shown, self.calc.title))
+            return
+        for i in range(0, len(codes), 64):
+            self.queue("keys " + " ".join(codes[i:i + 64]))
+        self.set_status("Pasting %d characters..." % len(codes))
+
+    def copy_screen(self):
+        """The calculator's screen, as a picture, on the PC clipboard"""
+        if not os.path.isfile(self.frame_path):
+            self.set_status("No picture yet")
+            return
+        try:
+            w, h, rgb = recorder.read_ppm(self.frame_path)
+            set_clipboard_image(w, h, rgb, 2 if w >= 320 else 6)
+            self.set_status("Screen copied: paste it anywhere (Ctrl+V)")
+        except (OSError, ValueError) as e:
+            self.set_status("Couldn't copy: %s" % e)
 
     def send_key(self, name):
         if not self.keys_on.get() or self.session is None or not name:

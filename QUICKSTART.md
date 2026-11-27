@@ -32,7 +32,7 @@ If the old version still runs, close the document on the handheld and open it ag
 
 ## TI-Basic programs (exact answers with the CAS)
 
-Python on the calculator can't use the CAS, so it has no symbolic integrals, derivatives or `solve`. For those, write TI-Basic in **TI-Nspire CX Student / Teacher Software** on the PC:
+Python on the calculator can't use the CAS, so it has no symbolic integrals, derivatives or `solve`. For those, write TI-Basic in **TI's TI-Nspire CX desktop software** on the PC:
 - Its Program Editor works like the handheld's, but you type on your keyboard.
 - Save the document as a `.tns`.
 - Drag it into CX II Connect like a Python program.

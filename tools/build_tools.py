@@ -2,6 +2,7 @@
 
     tools/bin/luna.exe         .py -> .tns converter (third_party/luna, MPL-1.1)
     tools/bin/nspire-cli.exe   USB link to the handheld (third_party/libnspire, GPL-3.0+)
+    tools/bin/ti84-cli.exe     USB link to the TI-84 Plus CE and (as ti89-cli.exe) TI-89 Titanium
     tools/bin/libusb-1.0.dll   copied from the official libusb release (LGPL-2.1)
 
     python -I tools/build_tools.py            build what is missing
@@ -121,14 +122,18 @@ def build_cli(tc, force):
 
 def build_ti84(tc, force):
     out = os.path.join(BIN, "ti84-cli.exe")
-    if os.path.isfile(out) and not force:
-        print("ti84-cli.exe: already built")
+    out89 = os.path.join(BIN, "ti89-cli.exe")  # The same program: its name picks the TI-89 Titanium
+    if os.path.isfile(out) and os.path.isfile(out89) and not force:
+        print("ti84-cli.exe, ti89-cli.exe: already built")
         return
+    # Built again when ti89-cli.exe is missing: a ti84-cli.exe without it predates the 89
     print("Building ti84-cli.exe")
     usb = find_libusb()
     run([os.path.join(tc, "gcc.exe"), "-std=gnu11", "-Wall", "-Wextra", "-O2",
          "-I", os.path.join(usb, "include"), os.path.join(HERE, "ti84_cli", "ti84_cli.c"),
          os.path.join(usb, "MinGW64", "static", "libusb-1.0.dll.a"), "-o", out], tc)
+    shutil.copyfile(out, out89)
+    print("Copied ti84-cli.exe to ti89-cli.exe")
 
 
 def main(argv):

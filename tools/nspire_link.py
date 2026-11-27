@@ -21,6 +21,7 @@ import threading
 HERE = os.path.dirname(os.path.abspath(__file__))
 CLI = os.path.join(HERE, "bin", "nspire-cli.exe")
 CLI_84 = os.path.join(HERE, "bin", "ti84-cli.exe")  # The TI-84 Plus CE family: same commands
+CLI_89 = os.path.join(HERE, "bin", "ti89-cli.exe")  # The TI-89 Titanium: the same program
 CONNECT_TIMEOUT_S = 25
 
 REPLUG = ("The handheld didn't answer.\n"
@@ -155,8 +156,11 @@ def usb_calculators():
     import re
     try:
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        p = subprocess.run([CLI, "devices"], capture_output=True, text=True, timeout=15,
-                           cwd=os.path.dirname(CLI), creationflags=flags)
+        # ti84-cli lists from the USB descriptors without opening anything; nspire-cli opens
+        # each device, which can take a calculator from a window that is reconnecting
+        cli = CLI_84 if os.path.isfile(CLI_84) else CLI
+        p = subprocess.run([cli, "devices"], capture_output=True, text=True, timeout=15,
+                           cwd=os.path.dirname(cli), creationflags=flags)
     except (OSError, subprocess.TimeoutExpired):
         return set()
     return set(int(m, 16) for m in re.findall(r"pid=([0-9a-f]{4})", p.stdout))
