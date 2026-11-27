@@ -111,16 +111,9 @@ def open_editor(app_or_root, mirrors=(), initial_target=None, path=None):
 
 
 def _dark_title_bar(win):
-    """mirror.dark_title_bar when the app has it loaded (never imported here: a second copy of
-    mirror.py would replace its cross-thread after() and starve the app's queue)"""
-    for name in ("mirror", "__main__"):
-        fn = getattr(sys.modules.get(name), "dark_title_bar", None)
-        if callable(fn):
-            try:
-                fn(win)
-            except Exception:
-                pass
-            return
+    """A dark title bar on this window, now and once it's on screen (ui_theme's helper: it works
+    whether or not the main app is running, and retries until Windows has made the title bar)"""
+    th.dark_title_bar_when_shown(win)
 
 
 def detect_language(text, path=None):

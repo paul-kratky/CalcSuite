@@ -1497,15 +1497,13 @@ def set_app_icon(root):
 
 def dark_title_bar(win):
     """Windows 10 (2004+) and 11: the window's title bar in dark mode. Does nothing elsewhere."""
-    if getattr(win, "_dark_done", False) or win.winfo_toplevel() is not win:
-        return
     try:
-        import ctypes
-        hwnd = ctypes.windll.user32.GetParent(win.winfo_id())
-        _dark_hwnd(hwnd)
-        win._dark_done = True
-    except (AttributeError, OSError, tk.TclError):
-        pass
+        if win.winfo_toplevel() is not win:
+            return
+    except tk.TclError:
+        return
+    th.dark_title_bar(win)  # Only marked done once Windows accepted it (a dialog not yet shown
+    #                         has no title bar: the <Map> hook tries again when it appears)
 
 
 def dark_title_bar_path(root, frame):
