@@ -8,6 +8,13 @@ import os
 import subprocess
 import sys
 
+# A Windows console in an old code page can't print ►, ∫ or →: never crash on our own output
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.dirname(os.path.dirname(HERE))
 CHECK = os.path.join(KIT, "tools", "check_nspire.py")
