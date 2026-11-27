@@ -169,10 +169,43 @@ def send_from_window(mirror, kit):
                    ("All files", "*.*")])
     if not path:
         return
-    ti, wanted = prepare_asking(path, slug, root, os.path.join(kit, "build"), mirror.set_status,
-                                simpledialog)
+    send_path(mirror, path, kit)
+
+
+def send_path(mirror, path, kit, done=None, name=None):
+    """A TI-Basic text or TI file sent from the app: made into a TI file (asking for a name if
+    needed), checked against what's on the calculator (asking before replacing), sent on the
+    link thread. done(ok, message) is called on the window's thread at the end."""
+    from tkinter import messagebox, simpledialog
+    slug, root = mirror.calc.slug, mirror.root
+    finish = (lambda ok, msg: (mirror.set_status(msg), done and done(ok, msg)))
+    if name:
+        try:
+            warnings = []
+            ti, wanted = prepare(path, slug, name, os.path.join(kit, "build"), warnings)
+        except (OSError, ValueError) as e:
+            finish(False, "Not sent: %s" % e)
+            return
+        if warnings and not messagebox.askyesno(
+                "Check the program", "These look like mistakes:\n\n%s\n\nSend it anyway?"
+                % "\n\n".join(warnings[:8]), icon="warning", parent=root):
+            finish(False, "Not sent: %s" % warnings[0])
+            return
+    else:
+        ti, wanted = prepare_asking(path, slug, root, os.path.join(kit, "build"), mirror.set_status,
+                                    simpledialog)
     if not ti:
+        if done:
+            done(False, "Not sent")
         return
+    send_prepared(mirror, [(ti, wanted)], finish)
+
+
+def send_prepared(mirror, files, finish):
+    """[(TI file, wanted)] sent one by one after one look at the calculator's list; asks once
+    before replacing any name. finish(ok, message) on the window's thread."""
+    from tkinter import messagebox
+    slug, root = mirror.calc.slug, mirror.root
     mirror.set_status("Checking what's on the %s..." % mirror.calc.title)
 
     def listed(code, lines):  # On the link thread
@@ -180,25 +213,44 @@ def send_from_window(mirror, kit):
 
     def go(code, lines):
         if code:
-            mirror.set_status("Not sent: couldn't read the calculator's list (%s)" % lines[-1:])
+            finish(False, "Not sent: couldn't read the calculator's list (%s)" % lines[-1:])
             return
-        same = clashes(wanted, lines, slug)
+        same = []
+        for _ti, wanted in files:
+            same += clashes(wanted, lines, slug)
         if same and not messagebox.askyesno(
                 "Replace?", "%s %s already on the %s. Replace?" % (
-                    ", ".join(same), "is" if len(same) == 1 else "are", mirror.calc.title),
+                    ", ".join(same[:12]), "is" if len(same) == 1 else "are", mirror.calc.title),
                 parent=root):
-            mirror.set_status("Not sent")
+            finish(False, "Not sent")
             return
-        base = os.path.basename(ti)
+        state = {"left": len(files), "errors": [], "sent": []}
+        for ti, wanted in files:
+            base = os.path.basename(ti)
 
-        def progress(n, total):
-            mirror.set_status("Sending %s: %d%%" % (base, 100 * n // total if total else 0))
+            def progress(n, total, base=base):
+                mirror.set_status("Sending %s: %d%%" % (base, 100 * n // total if total else 0))
 
-        def sent(code, lines):
-            ok = [l for l in lines if l.startswith(("OK", "ERR"))]
-            mirror.set_status(("Sent %s. %s" % (base, how_to_run(slug, wanted))) if code == 0 else
-                              "Not sent: %s" % (ok[-1][4:] if ok else "exit %d" % code))
-        mirror.queue("send " + os.path.abspath(ti), None, sent, progress)
+            def sent(code, lines, base=base, wanted=wanted):
+                ok = [l for l in lines if l.startswith(("OK", "ERR"))]
+                if code == 0:
+                    state["sent"].append((base, wanted))
+                else:
+                    state["errors"].append("%s: %s" % (base, ok[-1][4:] if ok else "exit %d" % code))
+                state["left"] -= 1
+                if state["left"] == 0:
+                    root.after(0, report)
+            mirror.queue("send " + os.path.abspath(ti), None, sent, progress)
+
+        def report():
+            if state["errors"]:
+                finish(not state["sent"] and False, "Sent %d, not sent: %s" % (
+                    len(state["sent"]), "; ".join(state["errors"][:3])))
+            elif len(state["sent"]) == 1:
+                base, wanted = state["sent"][0]
+                finish(True, "Sent %s. %s" % (base, how_to_run(slug, wanted)))
+            else:
+                finish(True, "Sent %d files" % len(state["sent"]))
     mirror.queue("ls", None, listed)
 
 

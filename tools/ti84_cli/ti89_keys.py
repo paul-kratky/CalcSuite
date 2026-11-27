@@ -32,6 +32,10 @@ NAMED = {
     "sin": 259, "cos": 260, "tan": 261, "ln": 262, "sqrt": 4138,
     "pi": 140, "theta": 136, "infinity": 190, "with": 124,
     "x": 120, "y": 121, "z": 122, "t": 116,
+    # From TILP's keys89.cc (2nd 7, 2nd 8, 2nd LN) and the 89's character codes (a character's
+    # key code is its code): CalcSuite's Symbols panel
+    "integral": 4151, "deriv": 4152, "imag": 151, "angle": 159, "degree": 176,
+    "le": 156, "ge": 158, "ne": 157, "sigma": 142, "store": 22,
 }
 
 

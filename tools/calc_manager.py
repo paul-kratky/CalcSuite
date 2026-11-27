@@ -29,10 +29,10 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import calc_backup as cb
 import calc_files as cf
+import ui_theme as th
 
-BG, FG, DIM, BTN, BTN_ACTIVE, ACCENT = "#000000", "#ece9e2", "#9a968d", "#111113", "#1c1c1f", "#7fb4ff"
-BUTTON = dict(bg=BTN, fg=FG, activebackground=BTN_ACTIVE, activeforeground="#ffffff",
-              relief="flat", padx=10, pady=6, bd=0, disabledforeground="#55534e")
+BG, FG, DIM, BTN, BTN_ACTIVE, ACCENT = th.BG, th.FG, th.DIM, th.PANEL2, th.ACTIVE, th.ACCENT
+BUTTON = dict(th.BUTTON)
 ENCODING = locale.getpreferredencoding(False)  # What nspire_link's pipes use
 NSPIRE_CONNECT = "https://nspireconnect.ti.com"  # TI-Nspire CX II Connect (TI's web app)
 TI84_TEST_MODE = ("https://education.ti.com/html/webhelp/eg_ti84plusce/en/content/eg_gsguide/"
@@ -69,8 +69,10 @@ def why(lines):
 
 
 class Manager(object):
-    def __init__(self, mirror, kit, prepare=None):
-        """prepare(path) -> (file to send, None) or (None, why not): the Mirror's .py check"""
+    def __init__(self, mirror, kit, prepare=None, parent=None, about_cb=None):
+        """prepare(path) -> (file to send, None) or (None, why not): the Mirror's .py check.
+        parent: a frame to build the file list in (the Files panel of the calculator's tab)
+        instead of a window of its own; about_cb: what "About this calculator" does then."""
         self.m = mirror
         self.prepare = prepare or (lambda p: (p, None))
         self.calc = mirror.calc
@@ -83,39 +85,33 @@ class Manager(object):
         self.open = True
         self.pending = 0
         self.about_win = None
+        self.embedded = parent is not None
+        self.about_cb = about_cb
         self.tmp = os.path.join(tempfile.gettempdir(), "calc_mirror_files_%d" % os.getpid())
         os.makedirs(self.tmp, exist_ok=True)
 
-        win = self.win = tk.Toplevel(mirror.root)
-        win.title("Files on the %s" % self.calc.title)
-        win.configure(bg=BG)
-        win.geometry("640x520")
-        win.minsize(520, 360)
-        win.protocol("WM_DELETE_WINDOW", self.close)
-
-        style = ttk.Style(win)
-        try:
-            style.theme_use("clam")  # The one theme whose colours can all be set
-        except tk.TclError:
-            pass
-        style.configure("Calc.Treeview", background="#0b0b0c", fieldbackground="#0b0b0c",
-                        foreground=FG, rowheight=22, borderwidth=0)
-        style.map("Calc.Treeview", background=[("selected", "#2b2b33")],
-                  foreground=[("selected", "#ffffff")])
-        style.configure("Calc.Treeview.Heading", background=BTN, foreground=FG, relief="flat")
-        style.map("Calc.Treeview.Heading", background=[("active", BTN_ACTIVE)])
-        style.configure("Calc.Vertical.TScrollbar", background=BTN, troughcolor=BG,
-                        arrowcolor=FG, bordercolor=BG)
+        if self.embedded:
+            win = self.win = tk.Frame(parent, bg=BG)
+        else:
+            win = self.win = tk.Toplevel(mirror.root)
+            win.title("Files on the %s" % self.calc.title)
+            win.configure(bg=BG)
+            win.geometry("640x520")
+            win.minsize(520, 360)
+            win.protocol("WM_DELETE_WINDOW", self.close)
+        th.style_ttk(win)
+        pad = 0 if self.embedded else 12
 
         top = tk.Frame(win, bg=BG)
-        top.pack(fill="x", padx=12, pady=(12, 6))
+        top.pack(fill="x", padx=pad, pady=(pad, 6))
         if self.nspire:
             self.up_btn = tk.Button(top, text="Up", command=self.go_up, **BUTTON)
             self.up_btn.pack(side="left")
         self.where = tk.StringVar(master=win)
         tk.Label(top, textvariable=self.where, bg=BG, fg=FG, anchor="w").pack(
             side="left", fill="x", expand=True, padx=8)
-        tk.Button(top, text="About this calculator", command=self.about, **BUTTON).pack(side="right")
+        if not self.embedded:
+            tk.Button(top, text="About this calculator", command=self.about, **BUTTON).pack(side="right")
         self.restore_btn = tk.Button(top, text="Restore...", command=self.restore, **BUTTON)
         self.restore_btn.pack(side="right", padx=(0, 6))
         self.backup_btn = tk.Button(top, text="Back up...", command=self.backup, **BUTTON)
@@ -123,19 +119,20 @@ class Manager(object):
         self.busy = None  # "backup" / "restore" while one runs
 
         mid = tk.Frame(win, bg=BG)
-        mid.pack(fill="both", expand=True, padx=12)
+        mid.pack(fill="both", expand=True, padx=pad)
         cols = ("type", "size", "where") if not self.nspire else ("type", "size")
         tree = self.tree = ttk.Treeview(mid, columns=cols, style="Calc.Treeview",
                                         selectmode="extended")
         tree.heading("#0", text="Name", anchor="w")
-        tree.column("#0", width=300, anchor="w")
+        narrow = self.embedded
+        tree.column("#0", width=170 if narrow else 300, anchor="w")
         tree.heading("type", text="Kind", anchor="w")
-        tree.column("type", width=140, anchor="w")
+        tree.column("type", width=100 if narrow else 140, anchor="w")
         tree.heading("size", text="Size", anchor="e")
-        tree.column("size", width=90, anchor="e")
+        tree.column("size", width=70 if narrow else 90, anchor="e")
         if not self.nspire:
             tree.heading("where", text="Stored in", anchor="w")
-            tree.column("where", width=90, anchor="w")
+            tree.column("where", width=70 if narrow else 90, anchor="w")
         sb = ttk.Scrollbar(mid, orient="vertical", command=tree.yview,
                            style="Calc.Vertical.TScrollbar")
         tree.configure(yscrollcommand=sb.set)
@@ -146,7 +143,7 @@ class Manager(object):
         tree.bind("<Return>", self.on_double)
 
         bar = tk.Frame(win, bg=BG)
-        bar.pack(fill="x", padx=12, pady=(8, 0))
+        bar.pack(fill="x", padx=pad, pady=(8, 0))
         buttons = [("Refresh", self.refresh), ("Download...", self.download)]
         if not self.nspire:
             buttons.append(("Show as text", self.view_text))
@@ -156,15 +153,22 @@ class Manager(object):
             buttons += [("New folder...", self.new_folder), ("Rename...", self.rename)]
         if self.can_write:
             buttons.append(("Delete", self.delete))
+        if self.embedded:  # Two rows in the narrow panel
+            bar2 = tk.Frame(win, bg=BG)
+            bar2.pack(fill="x", padx=pad, pady=(6, 0))
+        else:
+            bar2 = bar
         for i, (text, cmd) in enumerate(buttons):
-            tk.Button(bar, text=text, command=cmd, **BUTTON).pack(side="left", padx=(0 if i == 0 else 6, 0))
-        tk.Button(bar, text="Open folder", command=self.open_dest, **BUTTON).pack(side="right")
+            row = bar if (not self.embedded or i < 3) else bar2
+            first = i == 0 or (self.embedded and i == 3)
+            tk.Button(row, text=text, command=cmd, **BUTTON).pack(side="left", padx=(0 if first else 6, 0))
+        tk.Button(bar2, text="Open folder", command=self.open_dest, **BUTTON).pack(side="right")
 
         self.status = tk.StringVar(master=win, value="")
         tk.Label(win, textvariable=self.status, bg=BG, fg=DIM, anchor="w", justify="left",
-                 wraplength=600).pack(fill="x", padx=12, pady=(8, 12))
-        win.bind("<Configure>", lambda e: None)
-        win.bind("<F5>", lambda e: self.refresh())
+                 wraplength=420 if self.embedded else 600).pack(fill="x", padx=pad, pady=(8, pad))
+        if not self.embedded:  # In the tab, F5 is the calculator's key
+            win.bind("<F5>", lambda e: self.refresh())
         self.refresh()
 
     # ---- Plumbing ----
@@ -172,6 +176,8 @@ class Manager(object):
         return self.open
 
     def lift(self):
+        if self.embedded:
+            return
         self.win.deiconify()
         self.win.lift()
         self.win.focus_force()
@@ -710,22 +716,33 @@ class Manager(object):
 
     # ---- About this calculator ----
     def about(self):
+        if self.about_cb is not None:  # In the tab: the Info panel
+            self.about_cb()
+            return
         if self.about_win is not None:
             try:
                 self.about_win.lift()
                 return
             except tk.TclError:
                 pass
-        w = self.about_win = tk.Toplevel(self.win)
+        w = tk.Toplevel(self.win)
         w.title("About this calculator")
         w.configure(bg=BG)
         w.resizable(False, False)
+        w.protocol("WM_DELETE_WINDOW", self.close_about)
+        self.build_about(w)
+
+    def build_about(self, w):
+        """The calculator's model, OS, free space, the OS update check, the clock and Exit
+        Press-to-Test, built into w (a window, or the Info panel's frame)"""
+        for c in w.winfo_children():
+            c.destroy()
+        self.about_win = w
         self.about_rows = tk.Frame(w, bg=BG)
         self.about_rows.pack(fill="x", padx=16, pady=(16, 8))
         self.os_line = tk.Frame(w, bg=BG)
         self.os_line.pack(fill="x", padx=16, pady=(0, 16))
         tk.Label(self.about_rows, text="Asking the calculator...", bg=BG, fg=DIM).pack(anchor="w")
-        w.protocol("WM_DELETE_WINDOW", self.close_about)
         self.job("info", self.got_info)
         self.about_extras()
 
@@ -740,11 +757,11 @@ class Manager(object):
         if self.nspire:
             tk.Label(self.clock_line, text="Clock: the handheld's clock can't be read or set over USB "
                      "(no known command for it); set it on the handheld (its Settings).", bg=BG,
-                     fg=DIM, justify="left", wraplength=460).pack(anchor="w")
+                     fg=DIM, justify="left", wraplength=380).pack(anchor="w")
         else:
             self.clock_text = tk.StringVar(master=w, value="Clock: reading...")
             tk.Label(self.clock_line, textvariable=self.clock_text, bg=BG, fg=FG, justify="left",
-                     wraplength=460).pack(anchor="w")
+                     wraplength=380).pack(anchor="w")
             self.clock_btn = tk.Button(bar, text="Set the clock to the PC's time", command=self.set_clock,
                                        **BUTTON)
             self.clock_btn.pack(side="left", padx=(0, 6))
@@ -802,12 +819,12 @@ class Manager(object):
                     "handheld out of Press-to-Test.\n\nOnly one program can use the handheld, so "
                     "CalcSuite lets go of it now and opens TI's page: connect the handheld there and "
                     "choose Exit Press-to-Test. When you're done, close TI's page and press Reconnect "
-                    "in the %s window." % self.calc.title, parent=self.about_win or self.win):
+                    "(the %s tab, Info)." % self.calc.title, parent=self.about_win or self.win):
                 return
             self.m.release()
             webbrowser.open(NSPIRE_CONNECT)
             self.status.set("Let go of the handheld for TI-Nspire CX II Connect: press Reconnect in "
-                            "the mirror window afterwards")
+                            "CalcSuite afterwards")
             return
         if self.slug == "ti84":
             if messagebox.askyesno(
@@ -895,7 +912,7 @@ class Manager(object):
         else:
             text, link = "TI has OS %s:" % cf.nice_version(self.slug, newest), "download page"
         tk.Label(line, text=text, bg=BG, fg=FG).pack(side="left")
-        a = tk.Label(line, text=link, bg=BG, fg=ACCENT, cursor="hand2",
+        a = tk.Label(line, text=link, bg=BG, fg=th.MINT, cursor="hand2",
                      font=("Segoe UI", 9, "underline"))
         a.pack(side="left", padx=(6, 0))
         a.bind("<Button-1>", lambda e: webbrowser.open(url))

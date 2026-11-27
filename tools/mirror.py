@@ -1,73 +1,107 @@
-"""Calc Mirror: TI calculators' screens in windows, with your keyboard as their keypad.
+"""CalcSuite: your TI calculators' screens in one window, with your keyboard as their keypad.
 
-    python -I tools/mirror.py            (or double-click "Nspire Mirror.bat")
+    python -I tools/mirror.py            (or double-click "CalcSuite.bat")
 
-One window opens for each calculator that is plugged in (and for one plugged in later):
-a TI-Nspire CX II, a TI-84 Plus CE, a TI-89 Titanium. Each window has:
+One window with a tab strip: "All screens" (every connected calculator side by side), then
+one tab per calculator (a TI-Nspire CX II, a TI-84 Plus CE, a TI-89 Titanium). A calculator
+plugged in later gets its tab; one unplugged greys out until it's back. "Open in its own
+window" pops a calculator's tab out into a window of its own; closing that window docks it
+back.
 
-- the live picture (the Nspire about 10 frames a second, the 84 Plus CE about 1);
-- the keyboard: what you type goes to that calculator (see the key list in its status line's
-  tooltip row, or below);
-- Screenshot (a PNG in captures/), Record (a GIF, and an MP4 when ffmpeg is installed),
-  Send program (Nspire: a .py or .tns; 84 and 89: TI-Basic text or a TI file, send_ti.py),
-  Files... (the calculator manager, calc_manager.py:
-  what's on it, downloads, uploads, About this calculator with the OS update check),
-  Reconnect, and Keyboard on/off.
+A calculator's tab: the live picture (the Nspire about 19 frames a second, the 84 Plus CE about
+1), Screenshot, Copy screen, Paste text, Record, Send program, Keyboard on/off, and a panel
+with Files (the calculator manager, calc_manager.py, with Back up / Restore), Keys, Symbols,
+Guide, Get programs and Info (model, OS, clock, Exit Press-to-Test, the connection doctor).
 
-TI-Nspire keys: letters, digits, symbols, Enter, Esc, Tab, Backspace, arrows; Ctrl+letter;
-F1 Home, F2 Menu, F3 Doc, F4 Catalog, F5 Var. Mouse: wheel = up/down (Shift: left/right),
-click = centre click, double click = Enter, right click = context menu, middle click = Menu;
-a click on the X closes the document, on the page arrow/tabs changes page (the pointer itself
-can't be moved from the PC).
-
-TI-84 Plus CE keys: letters (typed lower case is the calculator's capital), digits, symbols,
-Enter, arrows, Backspace (left + DEL), Delete = DEL, Insert = INS, Esc = CLEAR;
-F1 Y=, F2 WINDOW, F3 ZOOM, F4 TRACE, F5 GRAPH, F6 MODE, F7 MATH, F8 APPS, F9 PRGM, F10 VARS,
-F11 STAT, F12 QUIT. Mouse wheel = up/down.
-
-TI-89 Titanium keys: letters (lower case as typed), digits,
-symbols, Enter, Esc, arrows, Backspace, Delete = DEL, Insert = INS, Home = HOME; F1-F8 are
-its F1-F8, F9 APPS, F10 MODE, F11 CATALOG, F12 CLEAR.
-
-Every window: Ctrl+V types the PC clipboard's text into the calculator (new lines are Enter),
-Ctrl+C copies the calculator's screen to the PC clipboard as a picture. On the Nspire,
-Ctrl+Shift+C / Ctrl+Shift+V are the handheld's own copy and paste.
+Each calculator has one link thread, the only thing that talks to it (Mirror.link_loop):
+keys go first, the picture catches up when you pause, a do-nothing key keeps it awake.
+The keys each PC key presses: calc_models.py (and the Keys panel, made from the same table).
 """
 
 import os
+import shutil
 import sys
 import tempfile
 import threading
 import time
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "nspire_cli"))
 sys.path.insert(0, os.path.join(HERE, "ti84_cli"))
 import nspire_link  # noqa: E402
-import nspire_keys  # noqa: E402
-import ti84_keys  # noqa: E402
-import ti89_keys  # noqa: E402
 import recorder  # noqa: E402
 import calc_manager  # noqa: E402
 import send_ti  # noqa: E402
+import calc_models  # noqa: E402
+import key_strip  # noqa: E402
+import ui_theme as th  # noqa: E402
 
 import check_nspire  # noqa: E402
 import py2tns  # noqa: E402
 
+from calc_models import Nspire, Ti84, Ti89, CALCS  # noqa: E402,F401  (the old names still work)
+
+APP_NAME = "CalcSuite"
+SPONSOR_URL = None  # A sponsor / funding page; the Info panel shows "Support CalcSuite" when set
+DOCS = os.path.join(os.path.expanduser("~"), "Documents")
+OLD_KIT = os.path.join(DOCS, "Nspire Mirror")  # Where the app kept its files before 1.0
+
 if getattr(sys, "frozen", False):
     # The packaged app: its tools are unpacked beside this file; what it makes goes to the
     # user's Documents
-    KIT = os.path.join(os.path.expanduser("~"), "Documents", "Nspire Mirror")
-    os.makedirs(os.path.join(KIT, "programs"), exist_ok=True)
+    KIT = os.path.join(DOCS, "CalcSuite")
     py2tns.BUILD = os.path.join(KIT, "build")
 else:
     KIT = os.path.dirname(HERE)
 SCALE = 2
 PASTE_MAX = 4000  # Characters one paste may type
-KEEPALIVE_S = 60  # A do-nothing key this often while a window is open and idle (0: never)
+KEEPALIVE_S = 60  # A do-nothing key this often while a calculator is connected and idle (0: never)
+HISTORY = 8       # Keys the key-history strip shows
+
+
+def resource(*parts):
+    """A file shipped with the app: from the source tree, or unpacked beside the packaged exe"""
+    for base in (os.path.dirname(HERE), getattr(sys, "_MEIPASS", HERE), HERE):
+        p = os.path.join(base, *parts)
+        if os.path.exists(p):
+            return p
+    return os.path.join(os.path.dirname(HERE), *parts)
+
+
+def migrate_documents(old=OLD_KIT, new=None):
+    """Documents\\Nspire Mirror -> Documents\\CalcSuite, once: copies what isn't there yet
+    (captures, programs, from-calc, ...), never overwrites, never deletes; leaves a note in the
+    old folder. Returns the number of files copied (or None when there was nothing to do)."""
+    new = new or os.path.join(DOCS, "CalcSuite")
+    note = os.path.join(old, "Moved to CalcSuite.txt")
+    if not os.path.isdir(old) or os.path.exists(note):
+        return None
+    copied = 0
+    for dirpath, _dirs, files in os.walk(old):
+        rel = os.path.relpath(dirpath, old)
+        dest_dir = os.path.normpath(os.path.join(new, rel))
+        for f in files:
+            src, dst = os.path.join(dirpath, f), os.path.join(dest_dir, f)
+            if os.path.exists(dst):
+                continue
+            try:
+                os.makedirs(dest_dir, exist_ok=True)
+                shutil.copy2(src, dst)
+                copied += 1
+            except OSError:
+                pass
+    try:
+        with open(note, "w", encoding="utf-8") as fh:
+            fh.write("Nspire Mirror is now CalcSuite.\n\nIts files are now in %s: everything in "
+                     "this folder was copied there (%d files; nothing that was already there was "
+                     "replaced).\nThis folder was left as it was: delete it yourself when you "
+                     "no longer need it.\n" % (new, copied))
+    except OSError:
+        pass
+    return copied
 
 
 def set_clipboard_image(w, h, rgb, scale):
@@ -109,107 +143,6 @@ def set_clipboard_image(w, h, rgb, scale):
         u32.CloseClipboard()
 
 
-class Nspire(object):
-    """The TI-Nspire CX II: what differs from the other calculators"""
-    pid = 0xE022
-    title = "TI-Nspire"
-    slug = "nspire"
-    cli = nspire_link.CLI
-    can_send = True
-    key_fmt = "%06x"
-    shot_holdoff = 0.15  # Seconds after a key before the next picture (keys go first)
-    keepalive_key = "000000"  # A key code that does nothing (tested: the screen stays the same)
-    tk_keys = {
-        "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["esc"], "Tab": ["tab"],
-        "BackSpace": ["backspace"], "Left": ["left"], "Right": ["right"], "Up": ["up"],
-        "Down": ["down"], "F1": ["home"], "F2": ["menu"], "F3": ["doc"], "F4": ["catalog"],
-        "F5": ["var"],
-    }
-    wheel = ("up", "down", "left", "right")
-    double_click, right_click, middle_click = "enter", "ctrl+menu", "menu"
-
-    @staticmethod
-    def code_for(name):
-        return nspire_keys.code_for(name)
-
-    @staticmethod
-    def click(x, y):
-        """The pointer can't be placed: known spots send the key that does the same job"""
-        if y < 24 and x >= 292:
-            return "ctrl+w"      # The X: close the document
-        if y < 24 and x < 14:
-            return "ctrl+left"   # The left page arrow
-        if y < 24 and x < 100:
-            return "ctrl+right"  # The page tabs and the right arrow: next page
-        return "click"
-
-
-class Ti84(object):
-    """The TI-84 Plus CE family"""
-    pid = 0xE008
-    title = "TI-84 Plus CE"
-    slug = "ti84"
-    cli = nspire_link.CLI_84
-    can_send = True  # TI-Basic text (tokenized on the PC) or a TI file (send_ti.py)
-    key_fmt = "%x"
-    shot_holdoff = 0.6  # A picture takes ~1.4 s and can't be cut short: never start one mid-typing
-    keepalive_key = "0"  # Key code 0 does nothing (tested: only the blinking cursor differs)
-    tk_keys = {
-        "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["clear"],
-        "BackSpace": ["left", "del"], "Delete": ["del"], "Insert": ["ins"],
-        "Left": ["left"], "Right": ["right"], "Up": ["up"], "Down": ["down"],
-        "F1": ["y="], "F2": ["window"], "F3": ["zoom"], "F4": ["trace"], "F5": ["graph"],
-        "F6": ["mode"], "F7": ["math"], "F8": ["apps"], "F9": ["prgm"], "F10": ["vars"],
-        "F11": ["stat"], "F12": ["quit"],
-    }
-    wheel = ("up", "down", "left", "right")
-    double_click, right_click, middle_click = "enter", None, None
-
-    @staticmethod
-    def code_for(name):
-        return ti84_keys.code_for(name)
-
-    @staticmethod
-    def click(x, y):
-        return None
-
-
-class Ti89(object):
-    """The TI-89 Titanium"""
-    pid = 0xE004
-    title = "TI-89 Titanium"
-    slug = "ti89"
-    cli = nspire_link.CLI_89
-    can_send = True  # TI-Basic text (the 89 tokenizes it when it first runs) or a TI file
-    key_fmt = "%x"
-    shot_holdoff = 0.6
-    zoom = 2  # Its 160 x 100 screen: x 2 here, x SCALE in the window = x 4
-    # No keepalive_key: key code 0 makes the 89 stop answering the link (tested twice, OS 3.10),
-    # and the window's screenshots alone kept it on for 7 minutes (its auto power-off is
-    # "several minutes" of no use, TI's guidebook p. 5)
-    tk_keys = {
-        "Return": ["enter"], "KP_Enter": ["enter"], "Escape": ["esc"],
-        "BackSpace": ["backspace"], "Delete": ["del"], "Insert": ["ins"],
-        "Left": ["left"], "Right": ["right"], "Up": ["up"], "Down": ["down"], "Home": ["home"],
-        "F1": ["f1"], "F2": ["f2"], "F3": ["f3"], "F4": ["f4"], "F5": ["f5"], "F6": ["f6"],
-        "F7": ["f7"], "F8": ["f8"], "F9": ["apps"], "F10": ["mode"], "F11": ["catalog"],
-        "F12": ["clear"],
-    }
-    wheel = ("up", "down", "left", "right")
-    double_click, right_click, middle_click = "enter", None, None
-
-    @staticmethod
-    def code_for(name):
-        return ti89_keys.code_for(name)
-
-    @staticmethod
-    def click(x, y):
-        return None
-
-
-CALCS = (Nspire, Ti84, Ti89)
-
-
 def prepare_for_nspire(path):
     """A .py checked and turned into a .tns (as tools/flash.py does), a .tns as it is.
     Returns (the file to send, None) or (None, why not)."""
@@ -227,65 +160,42 @@ def prepare_for_nspire(path):
 
 
 class Mirror(object):
-    def __init__(self, win, calc, on_close):
-        self.root = win
+    """One calculator: its link thread, its frames, its keys. The views (its tab, its tile in
+    All screens) draw what it has."""
+
+    def __init__(self, app, calc):
+        self.app = app
         self.calc = calc
-        self.on_close = on_close
-        win.title(calc.title + " Mirror")
-        win.configure(bg="#000000")
+        self.root = app.root    # Where dialogs hang and after() runs: the tab's frame, later
         self.session = None
         self.jobs = []          # Commands for the link thread (key presses, uploads)
         self.jobs_lock = threading.Lock()
         self.last_key = 0.0     # When a key was last queued (time.time())
         self.last_keepalive = time.time()
         self.running = True
+        self.present = True     # On USB now (the App's scan says)
         self.want_reconnect = False
         self.released = False   # Let go of the calculator for another program (until Reconnect)
-        self.keys_on = tk.BooleanVar(master=win, value=True)
-        self.status = tk.StringVar(master=win, value="Connecting...")
-        self.photo = None
-        self.blank = tk.PhotoImage(master=win, width=320 * SCALE, height=240 * SCALE)
+        self.keys_on = tk.BooleanVar(master=app.root, value=True)
+        self.status = tk.StringVar(master=app.root, value="Connecting...")
         self.frame_path = os.path.join(tempfile.gettempdir(),
                                        "calc_mirror_%s_%d.ppm" % (calc.slug, os.getpid()))
         self.frames = 0
+        self.frames_total = 0
+        self.fps = 0.0
         self.t0 = time.time()
         self.rec = None         # A recorder.Recorder while recording
         self.rec_lock = threading.Lock()
         self.manager = None     # The calculator manager (calc_manager.Manager) when open
         self.info = {}          # The calculator's last "info" answer (name, OS, free space)
-
-        self.canvas = tk.Label(win, bg="#000000", width=320 * SCALE, height=240 * SCALE,
-                               image=self.blank)
-        self.canvas.pack(padx=12, pady=(12, 6))
-        bar = tk.Frame(win, bg="#000000")
-        bar.pack(fill="x", padx=12)
-        style = dict(bg="#111113", fg="#ece9e2", activebackground="#1c1c1f",
-                     activeforeground="#ffffff", relief="flat", padx=10, pady=6, bd=0)
-        tk.Button(bar, text="Screenshot", command=self.screenshot, **style).pack(side="left")
-        self.rec_btn = tk.Button(bar, text="Record", command=self.toggle_record, **style)
-        self.rec_btn.pack(side="left", padx=(6, 0))
-        if calc.can_send:
-            tk.Button(bar, text="Send program...", command=self.send_program, **style).pack(
-                side="left", padx=(6, 0))
-        tk.Button(bar, text="Files...", command=self.open_files, **style).pack(
-            side="left", padx=(6, 0))
-        tk.Button(bar, text="Reconnect", command=self.reconnect, **style).pack(side="left", padx=6)
-        tk.Checkbutton(bar, text="Keyboard", variable=self.keys_on, bg="#000000", fg="#ece9e2",
-                       selectcolor="#111113", activebackground="#000000",
-                       activeforeground="#ffffff").pack(side="right")
-        tk.Label(win, textvariable=self.status, bg="#000000", fg="#9a968d", anchor="w",
-                 justify="left", wraplength=320 * SCALE).pack(fill="x", padx=12, pady=(6, 10))
-
-        win.bind("<Key>", self.on_key)
-        self.canvas.bind("<MouseWheel>", self.on_wheel)
-        self.canvas.bind("<Button-1>", self.on_click)
-        for event, name in (("<Double-Button-1>", calc.double_click),
-                            ("<Button-3>", calc.right_click), ("<Button-2>", calc.middle_click)):
-            if name:
-                self.canvas.bind(event, lambda e, n=name: self.send_key(n))
-        win.protocol("WM_DELETE_WINDOW", self.quit)
+        self.views = []         # ScreenViews showing this calculator
+        self.image = None       # The last frame as a PhotoImage, the calculator's own size
+        self.native = None      # Its (w, h)
+        self.history = []       # The last keys pressed, as labels (newest last)
+        self.last_press = tk.StringVar(master=app.root, value="Last key: none yet")
+        self.listeners = []     # fn(keysym) called after a key press (the Keys panel)
+        self.click_acted = 0.0  # When a single click last pressed keys (double click skips)
         threading.Thread(target=self.link_loop, daemon=True).start()
-        self.root.after(1000, self.tick)
 
     # ---- The link thread: the only one that talks to the calculator ----
     def link_loop(self):
@@ -297,12 +207,16 @@ class Mirror(object):
                 time.sleep(0.2)
                 continue
             if self.session is None:
+                if not self.present:  # Unplugged: wait for the scan to see it again
+                    self.set_status("Not plugged in")
+                    self.wait_reconnect(1.0)
+                    continue
                 try:
                     self.session = nspire_link.Session(cli=self.calc.cli)
                     code, lines = self.session.cmd("info")
                     d = nspire_link.info_dict(lines)
                     self.info = d
-                    name =d.get("name", self.calc.title).replace("_", " ")
+                    name = d.get("name", self.calc.title).replace("_", " ")
                     self.set_status("Connected: %s%s" % (name, ", OS %s" % d["os"] if "os" in d else ""))
                 except nspire_link.LinkError:
                     self.session = None
@@ -327,7 +241,10 @@ class Mirror(object):
                     ok = [l for l in lines if l.startswith(("OK", "ERR"))]
                     self.set_status("%s: %s" % (note, ok[-1] if ok else "exit %d" % code))
                 if done is not None:
-                    done(code, lines)  # On this thread: it hands any window work to Tk
+                    try:
+                        done(code, lines)  # On this thread: it hands any window work to Tk
+                    except Exception:  # A caller's mistake must never stop the link
+                        pass
                 if code == 4 and self.link_dead():
                     for _, _, d, _ in merged[k + 1:]:  # Everyone waiting gets an answer
                         if d is not None:
@@ -336,8 +253,8 @@ class Mirror(object):
             if self.session is None:
                 continue
             # Keep-alive: the calculator switches itself off after a few idle minutes and only a
-            # key press counts as use, so while its window is open a key that does nothing goes
-            # out once a minute when you haven't typed
+            # key press counts as use, so while it's connected a key that does nothing goes out
+            # once a minute when you haven't typed
             ka = getattr(self.calc, "keepalive_key", None)
             if ka and KEEPALIVE_S and time.time() - max(self.last_key, self.last_keepalive) >= KEEPALIVE_S:
                 self.last_keepalive = time.time()
@@ -353,11 +270,12 @@ class Mirror(object):
                 try:
                     os.replace(tmp, self.frame_path)
                     self.frames += 1
+                    self.frames_total += 1
                     with self.rec_lock:
                         if self.rec is not None:
                             self.rec.add(self.frame_path)
-                    self.root.after(0, self.draw_frame)  # Shown at once
-                except OSError:
+                    self.app.root.after(0, self.draw_frame)  # Shown at once
+                except (OSError, RuntimeError):
                     pass
             elif self.link_dead():
                 continue
@@ -391,7 +309,7 @@ class Mirror(object):
         """Lets go of the calculator so another program (TI's) can open it, until Reconnect"""
         self.released = True
         self.set_status("CalcSuite has let go of the %s so TI's software can use it. Close that, "
-                        "then press Reconnect." % self.calc.title)
+                        "then press Reconnect (Info)." % self.calc.title)
 
     def queue(self, line, note=None, done=None, progress=None):
         """A command for the link thread. done(code, lines) is called on the link thread when it
@@ -401,48 +319,72 @@ class Mirror(object):
             if line.startswith(("key ", "keys ")):
                 self.last_key = time.time()
 
+    def run_batch(self, cmds, timeout=900):
+        """[(line, progress)] on the link thread, waited for: [(code, lines)]. For a worker
+        thread only (never Tk's)."""
+        results = [None] * len(cmds)
+        left = [len(cmds)]
+        ev = threading.Event()
+        for k, (line, progress) in enumerate(cmds):
+            def done(code, lines, k=k):
+                results[k] = (code, lines)
+                left[0] -= 1
+                if left[0] == 0:
+                    ev.set()
+            self.queue(line, None, done, progress)
+        t0 = time.time()
+        while cmds and not ev.wait(0.5):
+            if not self.running or time.time() - t0 > timeout:
+                break
+        return [r or (4, ["ERR no answer (closed, or the cable?)"]) for r in results]
+
     def set_status(self, text):
         if self.running:
             try:
-                self.root.after(0, self.status.set, text)
+                self.app.root.after(0, self.status.set, text)
             except (tk.TclError, RuntimeError):
                 pass
 
-    # ---- The window ----
+    def connected(self):
+        return self.session is not None
+
+    # ---- Frames ----
     def draw_frame(self):
-        if self.running and os.path.isfile(self.frame_path):
-            try:
-                img = tk.PhotoImage(master=self.root, file=self.frame_path)
-                if img.width() < 320:  # The monochrome 84's 96 x 64 screen, the 89's 160 x 100
-                    z = getattr(self.calc, "zoom", 3)
-                    img = img.zoom(z, z)
-                if SCALE > 1:
-                    img = img.zoom(SCALE, SCALE)
-                self.photo = img
-                self.canvas.configure(image=img)
-            except tk.TclError:
-                pass  # Caught mid-write: the next frame has it
+        if not (self.running and os.path.isfile(self.frame_path)):
+            return
+        visible = [v for v in self.views if v.visible()]
+        try:
+            img = tk.PhotoImage(master=self.app.root, file=self.frame_path)
+        except tk.TclError:
+            return  # Caught mid-write: the next frame has it
+        self.image = img
+        self.native = (img.width(), img.height())
+        for v in visible:
+            v.show(img)
+
+    def frame_rgb(self):
+        try:
+            return recorder.read_ppm(self.frame_path)
+        except (OSError, ValueError):
+            return None
 
     def tick(self):
-        if not self.running:
-            return
+        """Once a second (the App's tick): the frame rate, the recording's time limit"""
         dt = time.time() - self.t0
-        title = self.calc.title + " Mirror"
         if dt >= 5:
-            if self.frames:
-                self.fps = self.frames / dt
+            self.fps = self.frames / dt if self.frames else 0.0
             self.frames, self.t0 = 0, time.time()
-        if getattr(self, "fps", 0):
-            title += "  -  %.1f frames/s" % self.fps
+        if self.session is None:
+            self.fps = 0.0
         with self.rec_lock:
-            if self.rec is not None:
-                secs = self.rec.seconds()
-                title += "  -  REC %d:%02d" % (secs // 60, secs % 60)
-                if secs >= recorder.MAX_SECONDS:
-                    self.root.after(0, self.toggle_record)
-        self.root.title(title)
-        self.root.after(1000, self.tick)
+            if self.rec is not None and self.rec.seconds() >= recorder.MAX_SECONDS:
+                self.app.root.after(0, self.toggle_record)
 
+    def rec_seconds(self):
+        with self.rec_lock:
+            return None if self.rec is None else self.rec.seconds()
+
+    # ---- Keys ----
     def key_names(self, ev):
         """The calculator key names for a PC key press"""
         names = self.calc.tk_keys.get(ev.keysym)
@@ -463,43 +405,95 @@ class Mirror(object):
             return
         if ctrl and shift and ev.keysym.lower() in ("c", "v"):
             ev.keysym = ev.keysym.lower()
+        if ev.keysym in ("Shift_L", "Shift_R", "Control_L", "Control_R", "Alt_L", "Alt_R",
+                         "Caps_Lock", "Win_L", "Win_R", "Num_Lock"):
+            return
         if not self.keys_on.get() or self.session is None:
             return
-        for name in self.key_names(ev):
+        names = self.key_names(ev)
+        codes = []
+        for name in names:
             code = self.calc.code_for(name)
             if code is None:
                 self.set_status("No %s key for %r" % (self.calc.title, name))
                 return
+            codes.append(code)
+        for name, code in zip(names, codes):
             self.queue("key " + self.calc.key_fmt % code, "Key %s" % name)
+        if names:
+            self.pressed(ev.keysym, ev.char, names)
 
-    def paste_text(self):
+    def pressed(self, keysym, char, names, text=None):
+        """Remembers a press for the Last key line, the key-history strip and the Keys panel"""
+        label = self.calc.keys_label(names) if names else (text or "")
+        self.history.append(label)
+        del self.history[:-HISTORY]
+        self.last_press.set("Last key: " + (text or self.calc.describe_press(keysym, char, names)))
+        for fn in list(self.listeners):
+            try:
+                fn(keysym)
+            except tk.TclError:
+                pass
+
+    def send_key(self, name):
+        if not self.keys_on.get() or self.session is None or not name:
+            return False
+        code = self.calc.code_for(name)
+        if code is not None:
+            self.queue("key " + self.calc.key_fmt % code, "Key %s" % name)
+            return True
+        return False
+
+    def send_names(self, names, what=None):
+        """Several key names (a mouse action, a symbol), in order; remembered as one press"""
+        if not names or not self.keys_on.get() or self.session is None:
+            return False
+        codes = [self.calc.resolve(n) for n in names]
+        if any(c is None for c in codes):
+            return False
+        self.queue("keys " + " ".join(self.calc.key_fmt % c for c in codes))
+        self.pressed(None, None, names, text=what)
+        return True
+
+    def send_codes(self, codes, what):
+        if self.session is None:
+            self.set_status("Not connected yet")
+            return False
+        if not self.keys_on.get():
+            self.set_status("The keyboard is off for the %s (Keyboard)" % self.calc.title)
+            return False
+        for i in range(0, len(codes), 64):
+            self.queue("keys " + " ".join(self.calc.key_fmt % c for c in codes[i:i + 64]))
+        self.history.append(what)
+        del self.history[:-HISTORY]
+        self.last_press.set("Last key: " + what)
+        for fn in list(self.listeners):
+            fn(None)
+        return True
+
+    def paste_text(self, text=None):
         """The PC clipboard's text typed into the calculator, key by key"""
         if self.session is None:
             self.set_status("Not connected yet")
             return
-        try:
-            text = self.root.clipboard_get()
-        except tk.TclError:
-            self.set_status("The clipboard has no text")
-            return
+        if text is None:
+            try:
+                text = self.app.root.clipboard_get()
+            except tk.TclError:
+                self.set_status("The clipboard has no text")
+                return
         text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\t", "    ")
         if len(text) > PASTE_MAX:
             self.set_status("Too long to paste: %d characters (up to %d)" % (len(text), PASTE_MAX))
             return
-        codes, missing = [], set()
-        for ch in text:
-            code = self.calc.code_for("enter" if ch == "\n" else ch)
-            if code is None:
-                missing.add(ch)
-            else:
-                codes.append(self.calc.key_fmt % code)
+        codes, missing = self.calc.paste_keys(text)
         if missing:
             shown = " ".join(sorted(repr(c) for c in missing))
             self.set_status("Can't type %s on the %s: nothing pasted" % (shown, self.calc.title))
             return
         for i in range(0, len(codes), 64):
-            self.queue("keys " + " ".join(codes[i:i + 64]))
-        self.set_status("Pasting %d characters..." % len(codes))
+            self.queue("keys " + " ".join(self.calc.key_fmt % c for c in codes[i:i + 64]))
+        self.set_status("Pasting %d characters..." % len(text))
 
     def copy_screen(self):
         """The calculator's screen, as a picture, on the PC clipboard"""
@@ -513,33 +507,38 @@ class Mirror(object):
         except (OSError, ValueError) as e:
             self.set_status("Couldn't copy: %s" % e)
 
-    def send_key(self, name):
-        if not self.keys_on.get() or self.session is None or not name:
-            return
-        code = self.calc.code_for(name)
-        if code is not None:
-            self.queue("key " + self.calc.key_fmt % code, "Key %s" % name)
+    # ---- The mouse on the screen (x, y in the calculator's pixels) ----
+    def on_click(self, x, y):
+        names = self.calc.click(x, y, self.frame_rgb())
+        if names and self.send_names(names, "click → " + self.calc.keys_label(names)):
+            self.click_acted = time.time()
 
-    def on_click(self, ev):
-        ox = (self.canvas.winfo_width() - 320 * SCALE) // 2
-        oy = (self.canvas.winfo_height() - 240 * SCALE) // 2
-        self.send_key(self.calc.click((ev.x - ox) // SCALE, (ev.y - oy) // SCALE))
+    def on_double(self):
+        if time.time() - self.click_acted < 0.6:
+            return  # The single click already picked (an 84 menu line)
+        if self.calc.double_click:
+            self.send_names([self.calc.double_click], "double click → " +
+                            self.calc.calc_label(self.calc.double_click))
 
-    def on_wheel(self, ev):
+    def on_button(self, which):
+        name = {"right": self.calc.right_click, "middle": self.calc.middle_click}[which]
+        if name:
+            self.send_names([name], "%s click → %s" % (which, self.calc.calc_label(name)))
+
+    def on_wheel(self, delta, shift):
         if not self.keys_on.get() or self.session is None:
             return
-        steps = max(1, min(5, abs(ev.delta) // 120))
+        steps = max(1, min(5, abs(delta) // 120))
         up, down, left, right = self.calc.wheel
-        if ev.state & 0x1:  # Shift: sideways
-            name = left if ev.delta > 0 else right
-        else:
-            name = up if ev.delta > 0 else down
+        name = (left if delta > 0 else right) if shift else (up if delta > 0 else down)
         with self.jobs_lock:  # A spinning wheel never queues more than a screenful
             if len(self.jobs) > 12:
                 return
         for _ in range(steps):
             self.send_key(name)
+        self.pressed(None, None, [name], text="wheel → " + self.calc.calc_label(name))
 
+    # ---- Screenshots, recordings ----
     def capture_stem(self):
         os.makedirs(os.path.join(KIT, "captures"), exist_ok=True)
         return os.path.join(KIT, "captures", time.strftime(self.calc.slug + "-%Y%m%d-%H%M%S"))
@@ -557,15 +556,24 @@ class Mirror(object):
 
     def toggle_record(self):
         with self.rec_lock:
-            rec, self.rec = self.rec, (None if self.rec is not None else recorder.Recorder(SCALE))
-            if rec is None and os.path.isfile(self.frame_path):
-                self.rec.add(self.frame_path)  # The recording starts with what's on screen
+            rec = self.rec
+            if rec is None:
+                if self.app.burn_keys.get():  # The key strip in every frame, from the start
+                    burner = key_strip.Burner(lambda: list(self.history))
+                    w = self.native[0] if self.native else 320
+                    scale = max(1, SCALE // burner.zoom_for(w))
+                    self.rec = recorder.Recorder(scale, burner)
+                else:
+                    self.rec = recorder.Recorder(SCALE)
+                if os.path.isfile(self.frame_path):
+                    self.rec.add(self.frame_path)  # The recording starts with what's on screen
+            else:
+                self.rec = None
+        self.app.recording_changed(self)
         if rec is None:
-            self.rec_btn.configure(text="Stop", fg="#ff6a5e")
             self.set_status("Recording (up to %d s)... press Stop to save" % recorder.MAX_SECONDS)
             self.offer_ffmpeg()
             return
-        self.rec_btn.configure(text="Record", fg="#ece9e2")
         if not rec.frames:
             self.set_status("Nothing was recorded")
             return
@@ -582,7 +590,7 @@ class Mirror(object):
 
         threading.Thread(target=work, daemon=True).start()
 
-    _ffmpeg_asked = False  # Once per run, for every window
+    _ffmpeg_asked = False  # Once per run, for every calculator
 
     def offer_ffmpeg(self):
         """No ffmpeg: offer to download it once, while the recording runs (MP4 needs it; GIF
@@ -590,7 +598,6 @@ class Mirror(object):
         if recorder.find_ffmpeg() or Mirror._ffmpeg_asked:
             return
         Mirror._ffmpeg_asked = True
-        from tkinter import messagebox
         if not messagebox.askyesno(
                 "MP4 recordings", "Recordings are saved as a GIF. For an MP4 as well, CalcSuite "
                 "needs ffmpeg (free, about %d MB, downloaded once).\n\nDownload it now? It "
@@ -614,6 +621,7 @@ class Mirror(object):
 
         threading.Thread(target=work, daemon=True).start()
 
+    # ---- Sending ----
     def send_program(self):
         if self.calc.slug != "nspire":  # The 84 and the 89: TI-Basic text or a TI file
             send_ti.send_from_window(self, KIT)
@@ -628,29 +636,555 @@ class Mirror(object):
         if error:
             self.set_status(error)
             return
-        self.queue("put %s|/%s" % (os.path.abspath(path), os.path.basename(path)),
-                   "Send %s" % os.path.basename(path))
+        self.send_nspire_files([(path, "/")])
+
+    def send_nspire_files(self, files, done=None):
+        """[(local file, calculator folder)] to the Nspire: makes a missing folder, asks before
+        replacing a file of the same name. done(ok, message) on Tk's thread."""
+        folders = sorted(set(f for _p, f in files))
+
+        def work():
+            names = {}
+            for folder in folders:
+                code, lines = self.run_batch([("ls " + folder, None)])[0]
+                if code and folder != "/":
+                    self.run_batch([("mkdir " + folder, None)])
+                    code, lines = 0, []
+                import calc_files as cf
+                names[folder] = {calc_manager.shown(i["name"]).lower()
+                                 for i in cf.parse_nspire_ls(lines)} if code == 0 else set()
+            self.app.root.after(0, lambda: ask(names))
+
+        def ask(names):
+            same = [os.path.basename(p) for p, f in files if os.path.basename(p).lower() in names[f]]
+            if same and not messagebox.askyesno(
+                    "Replace?", "%s %s already on the handheld. Replace?" % (
+                        ", ".join(same[:12]), "is" if len(same) == 1 else "are"), parent=self.root):
+                self.set_status("Not sent")
+                if done:
+                    done(False, "Not sent")
+                return
+            state = {"left": len(files), "errors": []}
+            for p, folder in files:
+                base = os.path.basename(p)
+                remote = folder.rstrip("/") + "/" + base
+
+                def sent(code, lines, base=base):
+                    if code:
+                        ok = [l for l in lines if l.startswith("ERR")]
+                        state["errors"].append("%s: %s" % (base, ok[-1][4:] if ok else code))
+                    state["left"] -= 1
+                    if state["left"] == 0:
+                        msg = ("Sent %s" % ", ".join(os.path.basename(p) for p, _f in files[:4]) +
+                               (" and %d more" % (len(files) - 4) if len(files) > 4 else "")
+                               if not state["errors"] else "Not sent: " + "; ".join(state["errors"][:3]))
+                        self.set_status(msg)
+                        if done:
+                            self.app.root.after(0, done, not state["errors"], msg)
+
+                def progress(n, total, base=base):
+                    self.set_status("Sending %s: %d%%" % (base, 100 * n // total if total else 0))
+                self.queue("put %s|%s" % (os.path.abspath(p), remote), None, sent, progress)
+        threading.Thread(target=work, daemon=True).start()
 
     def open_files(self):
-        """The calculator manager: files, calculator info, OS updates"""
-        if self.manager is not None and self.manager.alive():
-            self.manager.lift()
-            return
-        self.manager = calc_manager.Manager(self, KIT, prepare_for_nspire)
+        """The Files panel of this calculator's tab"""
+        self.app.show_tab(self.calc.pid)
+        self.app.tabs[self.calc.pid].show_section("Files")
 
-    def quit(self):
+    def stop(self):
         if self.manager is not None and self.manager.alive():
             self.manager.close()
         self.running = False
         self.want_reconnect = True
+        with self.rec_lock:
+            rec, self.rec = self.rec, None
+        if rec is not None and rec.frames:  # Closing mid-recording keeps what was recorded
+            try:
+                rec.save(self.capture_stem())
+            except Exception:
+                pass
         if self.session is not None:
             self.session.close()
         try:
             os.remove(self.frame_path)
         except OSError:
             pass
+
+
+class ScreenView(object):
+    """A calculator's picture in a Label, scaled by a whole number to fit its space"""
+
+    def __init__(self, parent, mirror, big, visible, fit, bg=th.BG):
+        self.m = mirror
+        self.big = big
+        self.visible = visible   # () -> True when it's on screen
+        self.fit = fit           # () -> (width, height) it may use
+        self.zoom = None         # (zoom, subsample) of the shown picture
+        self.photo = None
+        self.label = tk.Label(parent, bg=bg, bd=0, highlightthickness=0, cursor="crosshair" if big else "hand2")
+        mirror.views.append(self)
+
+    def scale_for(self, w, h):
+        """(zoom, subsample) for a w x h picture in the space fit() gives"""
+        aw, ah = self.fit()
+        z = max(0, min(aw // max(1, w), ah // max(1, h)))
+        if self.big:
+            z = min(z, 6)
+        else:
+            z = min(z, 3)
+        if z >= 1:
+            return z, 1
+        return 1, 2
+
+    def show(self, img=None):
+        img = img or self.m.image
+        if img is None:
+            return
+        w, h = img.width(), img.height()
+        z, sub = self.scale_for(w, h)
+        shown = img.zoom(z, z) if z > 1 else (img.subsample(sub, sub) if sub > 1 else img)
+        self.zoom = (z, sub)
+        self.photo = shown
+        try:
+            self.label.configure(image=shown)
+        except tk.TclError:
+            pass
+
+    def to_calc(self, ev):
+        """A mouse event -> (x, y) in the calculator's pixels, or None outside the picture"""
+        if self.photo is None or self.zoom is None or self.m.native is None:
+            return None
+        pw, ph = self.photo.width(), self.photo.height()
+        ox = (self.label.winfo_width() - pw) // 2
+        oy = (self.label.winfo_height() - ph) // 2
+        x, y = ev.x - ox, ev.y - oy
+        if not (0 <= x < pw and 0 <= y < ph):
+            return None
+        nw, nh = self.m.native
+        return x * nw // pw, y * nh // ph
+
+
+class Tab(object):
+    """A calculator's tab: the big screen, its buttons and the side panel"""
+
+    def __init__(self, app, mirror):
+        import ui_panels
+        self.app = app
+        self.m = mirror
+        calc = mirror.calc
+        self.frame = tk.Frame(app.content, bg=th.BG)
+        mirror.root = self.frame
+        self.popped = False
+        left = tk.Frame(self.frame, bg=th.BG)
+        left.pack(side="left", fill="both", expand=True, padx=(14, 8), pady=(10, 10))
+        self.screen_box = tk.Frame(left, bg=th.BG, width=640, height=480)
+        self.screen_box.pack(fill="both", expand=True)
+        self.screen_box.pack_propagate(False)
+        self.view = ScreenView(self.screen_box, mirror, True, self.visible, self.fit)
+        self.view.label.pack(fill="both", expand=True)
+        lab = self.view.label
+        lab.bind("<Button-1>", self.on_click)
+        lab.bind("<Double-Button-1>", lambda e: mirror.on_double())
+        lab.bind("<Button-3>", lambda e: mirror.on_button("right"))
+        lab.bind("<Button-2>", lambda e: mirror.on_button("middle"))
+        lab.bind("<MouseWheel>", lambda e: mirror.on_wheel(e.delta, e.state & 0x1))
+        self.screen_box.bind("<Configure>", lambda e: self.view.show())
+
+        self.strip = tk.Frame(left, bg=th.BG, height=26)  # The key history
+        self.strip_on = False
+        line = tk.Frame(left, bg=th.BG)
+        line.pack(fill="x", pady=(6, 0))
+        tk.Label(line, textvariable=mirror.last_press, bg=th.BG, fg=th.FG, anchor="w",
+                 font=(th.FONT, 10)).pack(side="left")
+        self.hist_var = tk.BooleanVar(master=self.frame, value=False)
+        th.check(line, "Key history", self.hist_var, self.toggle_history).pack(side="right")
+        th.check(line, "Show keys in recordings", app.burn_keys).pack(side="right", padx=(0, 10))
+        bar = tk.Frame(left, bg=th.BG)
+        bar.pack(fill="x", pady=(8, 0))
+        th.button(bar, "Screenshot", mirror.screenshot).pack(side="left")
+        th.button(bar, "Copy screen", mirror.copy_screen).pack(side="left", padx=(6, 0))
+        th.button(bar, "Paste text", lambda: mirror.paste_text()).pack(side="left", padx=(6, 0))
+        self.rec_btn = th.button(bar, "Record", mirror.toggle_record)
+        self.rec_btn.pack(side="left", padx=(6, 0))
+        th.button(bar, "Send program...", mirror.send_program).pack(side="left", padx=(6, 0))
+        th.check(bar, "Keyboard", mirror.keys_on).pack(side="right")
+        tk.Label(left, textvariable=mirror.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
+                 wraplength=640).pack(fill="x", pady=(8, 0))
+        self.left = left
+        self.panel = ui_panels.SidePanel(self.frame, app, mirror)
+        self.panel.frame.pack(side="right", fill="y", padx=(8, 14), pady=(10, 10))
+        mirror.listeners.append(self.key_pressed)
+
+    def fit(self):
+        return max(1, self.screen_box.winfo_width()), max(1, self.screen_box.winfo_height())
+
+    def visible(self):
+        return self.popped or self.app.current == self.m.calc.pid
+
+    def on_click(self, ev):
+        self.view.label.focus_set()
+        p = self.view.to_calc(ev)
+        if p is not None:
+            self.m.on_click(*p)
+
+    def show_section(self, name):
+        self.panel.show(name)
+
+    def toggle_history(self):
+        if self.hist_var.get():
+            self.strip.pack(fill="x", pady=(6, 0), after=self.screen_box)
+            self.draw_history()
+        else:
+            self.strip.pack_forget()
+
+    def key_pressed(self, keysym):
+        if self.hist_var.get():
+            self.draw_history()
+
+    def draw_history(self):
+        for c in self.strip.winfo_children():
+            c.destroy()
+        keys = self.m.history[-HISTORY:]
+        for k, label in enumerate(keys):
+            th.keycap(self.strip, label, accent=k == len(keys) - 1).pack(side="left", padx=(0, 4))
+
+    def recording(self, on):
+        self.rec_btn.configure(text="Stop" if on else "Record", fg=th.RED if on else th.FG)
+
+
+class AllScreens(object):
+    """Every connected calculator's live screen side by side"""
+
+    def __init__(self, app):
+        self.app = app
+        self.frame = tk.Frame(app.content, bg=th.BG)
+        self.grid = tk.Frame(self.frame, bg=th.BG)
+        self.grid.pack(fill="both", expand=True, padx=14, pady=(14, 6))
+        self.empty = tk.Label(self.grid, bg=th.BG, fg=th.DIM, justify="center", font=(th.FONT, 11),
+                              text="No calculator is plugged in yet.\n\nPlug one in and switch it on: "
+                                   "its screen appears here by itself.\nTI's own software must be "
+                                   "closed, and each calculator needs the WinUSB driver (README).")
+        tk.Label(self.frame, text="Click a screen to type on it. Double click opens its tab.",
+                 bg=th.BG, fg=th.DIM, anchor="w").pack(fill="x", padx=14, pady=(0, 10))
+        self.tiles = {}  # pid -> (frame, view, name label, fps label, outline)
+        self.grid.bind("<Configure>", lambda e: self.layout())
+
+    def add(self, mirror):
+        pid = mirror.calc.pid
+        outer = tk.Frame(self.grid, bg=th.BG, highlightthickness=2, highlightbackground=th.BG)
+        head = tk.Frame(outer, bg=th.PANEL)
+        head.pack(fill="x")
+        name = tk.Label(head, text=mirror.calc.title, bg=th.PANEL, fg=th.FG, font=(th.FONT, 10, "bold"))
+        name.pack(side="left", padx=8, pady=4)
+        kb = tk.Label(head, text="KEYBOARD", bg=th.ACCENT, fg="#000000", font=(th.FONT, 8, "bold"), padx=5)
+        fps = tk.Label(head, text="", bg=th.PANEL, fg=th.DIM)
+        fps.pack(side="left")
+        th.button(head, "Record", mirror.toggle_record, pady=2).pack(side="right", padx=(4, 6), pady=3)
+        th.button(head, "Screenshot", mirror.screenshot, pady=2).pack(side="right", pady=3)
+        box = tk.Frame(outer, bg=th.PANEL, width=330, height=250)
+        box.pack(fill="both", expand=True)
+        box.pack_propagate(False)
+        view = ScreenView(box, mirror, False, lambda: self.app.current == "all",
+                          lambda b=box: (b.winfo_width() - 8, b.winfo_height() - 8), bg=th.PANEL)
+        view.label.pack(fill="both", expand=True, padx=4, pady=4)
+        view.label.bind("<Button-1>", lambda e: self.app.set_target(pid))
+        view.label.bind("<Double-Button-1>", lambda e: self.app.show_tab(pid))
+        box.bind("<Configure>", lambda e: view.show())
+        self.tiles[pid] = dict(frame=outer, view=view, name=name, fps=fps, kb=kb)
+        self.layout()
+
+    def remove(self, pid):
+        t = self.tiles.pop(pid, None)
+        if t:
+            t["frame"].destroy()
+            self.layout()
+
+    def layout(self):
+        tiles = [self.tiles[p] for p in sorted(self.tiles, key=self.app.order)]
+        for t in tiles:
+            t["frame"].grid_forget()
+        if not tiles:
+            self.empty.place(relx=0.5, rely=0.45, anchor="center")
+            return
+        self.empty.place_forget()
+        n = len(tiles)
+        for k, t in enumerate(tiles):
+            t["frame"].grid(row=0, column=k, sticky="nsew", padx=6, pady=6)
+        for k in range(4):
+            self.grid.columnconfigure(k, weight=1 if k < n else 0, uniform="tiles" if k < n else "")
+        self.grid.rowconfigure(0, weight=1)
+
+    def update(self):
+        for pid, t in self.tiles.items():
+            m = self.app.mirrors[pid]
+            here = m.present and m.session is not None
+            target = self.app.target == pid
+            t["frame"].configure(highlightbackground=th.ACCENT if target else th.BG)
+            if target:
+                t["kb"].pack(side="left", padx=(6, 0), after=t["name"])
+            else:
+                t["kb"].pack_forget()
+            sec = m.rec_seconds()
+            text = ("%.1f fps" % m.fps if here and m.fps else
+                    "not plugged in" if not m.present else "connecting..." if not here else "")
+            if sec is not None:
+                text += "   REC %d:%02d" % (sec // 60, sec % 60)
+            t["fps"].configure(text=text, fg=th.RED if sec is not None else th.DIM)
+            t["name"].configure(fg=th.FG if m.present else th.GREY)
+
+
+class App(object):
+    """The one window: the tab strip, All screens, a tab per calculator; watches USB"""
+
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title(APP_NAME)
+        self.root.configure(bg=th.BG)
+        self.root.geometry("1200x780")
+        self.root.minsize(900, 600)
+        set_app_icon(self.root)
+        th.style_ttk(self.root)
+        self.burn_keys = tk.BooleanVar(master=self.root, value=False)
+        self.mirrors = {}     # pid -> Mirror
+        self.tabs = {}        # pid -> Tab
+        self.found = set()
+        self.scanned = False
+        self.current = "all"  # "all" or a pid
+        self.target = None    # The keyboard target on All screens (a pid)
+
+        strip = tk.Frame(self.root, bg=th.PANEL)
+        strip.pack(fill="x")
+        self.strip = tk.Frame(strip, bg=th.PANEL)
+        self.strip.pack(side="left", fill="y")
+        self.pop_btn = th.button(strip, "Open in its own window", self.pop_out, bg=th.PANEL)
+        self.pop_btn.pack(side="right", padx=10, pady=6)
+        tk.Frame(self.root, bg=th.LINE, height=1).pack(fill="x")
+        self.content = tk.Frame(self.root, bg=th.BG)
+        self.content.pack(fill="both", expand=True)
+        self.tab_widgets = {}  # "all" / pid -> dict(frame, dot, name, fps, line)
+        self.all = AllScreens(self)
+        self.make_tab_button("all", "All screens")
+        self.show_tab("all")
+
+        self.root.bind_all("<Key>", self.on_key)
+        self.root.bind_all("<Tab>", self.on_key)
+        self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        threading.Thread(target=self.scan_loop, daemon=True).start()
+        self.root.after(300, self.sync)
+        self.root.after(1000, self.tick)
+
+    @staticmethod
+    def order(pid):
+        return [c.pid for c in CALCS].index(pid) if pid in [c.pid for c in CALCS] else 9
+
+    # ---- The tab strip ----
+    def make_tab_button(self, key, text):
+        f = tk.Frame(self.strip, bg=th.PANEL, cursor="hand2")
+        f.pack(side="left")
+        inner = tk.Frame(f, bg=th.PANEL)
+        inner.pack(padx=14, pady=(8, 6))
+        dot = tk.Canvas(inner, width=10, height=10, bg=th.PANEL, highlightthickness=0)
+        if key != "all":
+            dot.create_oval(1, 1, 9, 9, fill=th.GREY, outline="")
+            dot.pack(side="left", padx=(0, 6))
+        name = tk.Label(inner, text=text, bg=th.PANEL, fg=th.FG, font=(th.FONT, 10, "bold"))
+        name.pack(side="left")
+        fps = tk.Label(inner, text="", bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9))
+        fps.pack(side="left", padx=(8, 0))
+        line = tk.Frame(f, bg=th.PANEL, height=2)
+        line.pack(fill="x", side="bottom")
+        for w in (f, inner, dot, name, fps):
+            w.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
+        self.tab_widgets[key] = dict(frame=f, dot=dot, name=name, fps=fps, line=line, inner=inner)
+
+    def show_tab(self, key):
+        if key != "all" and key in self.tabs and self.tabs[key].popped:
+            top = self.tabs[key].frame
+            try:
+                self.root.tk.call("wm", "deiconify", top._w)
+                self.root.tk.call("raise", top._w)
+            except tk.TclError:
+                pass
+            return
+        old = self.current
+        self.current = key
+        for k, w in self.tab_widgets.items():
+            sel = k == key
+            for part in ("frame", "inner", "dot", "name", "fps"):
+                w[part].configure(bg=th.PANEL2 if sel else th.PANEL)
+            w["line"].configure(bg=th.ACCENT if sel else th.PANEL)
+        frames = [self.all.frame] + [t.frame for t in self.tabs.values() if not t.popped]
+        want = self.all.frame if key == "all" else self.tabs[key].frame
+        for f in frames:
+            if f is not want:
+                f.pack_forget()
+        want.pack(fill="both", expand=True)
+        self.pop_btn.configure(state="normal" if key != "all" else "disabled")
+        if key != "all":
+            self.target = key
+            self.tabs[key].view.show()
+        elif old != "all":
+            for t in self.all.tiles.values():
+                t["view"].show()
+        self.all.update()
+
+    def set_target(self, pid):
+        self.target = pid
+        self.all.update()
+        try:
+            self.all.tiles[pid]["view"].label.focus_set()
+        except (KeyError, tk.TclError):
+            pass
+
+    def pop_out(self):
+        key = self.current
+        if key == "all" or key not in self.tabs:
+            return
+        tab = self.tabs[key]
+        f = tab.frame
+        f.pack_forget()
+        try:
+            self.root.tk.call("wm", "manage", f._w)
+        except tk.TclError as e:
+            messagebox.showinfo(APP_NAME, "Couldn't open a window: %s" % e, parent=self.root)
+            f.pack(fill="both", expand=True)
+            return
+        tab.popped = True
+        name = self.root.register(lambda k=key: self.dock(k))
+        self.root.tk.call("wm", "protocol", f._w, "WM_DELETE_WINDOW", name)
+        self.root.tk.call("wm", "title", f._w, "%s - %s" % (tab.m.calc.title, APP_NAME))
+        try:
+            self.root.tk.call("wm", "iconphoto", f._w, self.root._app_icon)
+        except (tk.TclError, AttributeError):
+            pass
+        f.after(50, lambda: dark_title_bar_path(self.root, f))
+        self.tab_widgets[key]["fps"].configure(text="own window")
+        self.show_tab("all")
+        tab.view.show()
+
+    def dock(self, key):
+        tab = self.tabs.get(key)
+        if tab is None or not tab.popped:
+            return
+        try:
+            self.root.tk.call("wm", "forget", tab.frame._w)
+        except tk.TclError:
+            pass
+        tab.popped = False
+        self.show_tab(key)
+
+    def popped_frame_of(self, widget):
+        """The popped-out tab a widget sits in, else None"""
+        for pid, t in self.tabs.items():
+            if t.popped:
+                w = widget
+                while w is not None:
+                    if w is t.frame:
+                        return pid
+                    w = getattr(w, "master", None)
+        return None
+
+    # ---- Keys: to the keyboard target ----
+    def on_key(self, ev):
+        w = ev.widget
+        try:
+            cls = w.winfo_class()
+        except (AttributeError, tk.TclError):
+            return None
+        if cls in ("Entry", "TEntry", "Text", "Treeview", "TCombobox", "Listbox", "Spinbox"):
+            return None  # Typing into CalcSuite itself (search box, file list)
+        try:
+            top = w.winfo_toplevel()
+        except tk.TclError:
+            return None
+        pid = self.popped_frame_of(w)
+        if pid is None:
+            if top is not self.root:
+                return None  # A dialog
+            pid = self.current if self.current != "all" else self.target
+        m = self.mirrors.get(pid)
+        if m is None:
+            return None
+        m.on_key(ev)
+        return "break"
+
+    # ---- USB: calculators come and go ----
+    def scan_loop(self):
+        while True:
+            self.found = nspire_link.usb_calculators()
+            self.scanned = True
+            time.sleep(3)
+
+    def sync(self):
+        if self.scanned:
+            for calc in CALCS:
+                present = calc.pid in self.found
+                m = self.mirrors.get(calc.pid)
+                if present and m is None:
+                    self.add(calc)
+                elif m is not None and m.present != present:
+                    m.present = present
+                    if present:
+                        m.want_reconnect = True
+        self.root.after(1000, self.sync)
+
+    def add(self, calc):
+        m = Mirror(self, calc)
+        self.mirrors[calc.pid] = m
+        self.make_tab_button(calc.pid, calc.title)
+        # Tabs in a fixed order: Nspire, 84, 89
+        for pid in sorted(self.tab_widgets, key=lambda k: -1 if k == "all" else self.order(k)):
+            self.tab_widgets[pid]["frame"].pack_forget()
+            self.tab_widgets[pid]["frame"].pack(side="left")
+        self.tabs[calc.pid] = Tab(self, m)
+        self.all.add(m)
+        if self.target is None:
+            self.target = calc.pid
+        self.all.update()
+
+    def recording_changed(self, m):
+        tab = self.tabs.get(m.calc.pid)
+        if tab:
+            tab.recording(m.rec_seconds() is not None)
+
+    def tick(self):
+        for pid, m in self.mirrors.items():
+            m.tick()
+            w = self.tab_widgets[pid]
+            here = m.present and m.session is not None
+            colour = th.MINT if here else (th.GREY if not m.present else th.ACCENT)
+            w["dot"].itemconfigure(1, fill=colour)
+            w["name"].configure(fg=th.FG if m.present else th.GREY)
+            sec = m.rec_seconds()
+            if self.tabs[pid].popped:
+                text = "own window"
+            elif not m.present:
+                text = "not plugged in"
+            elif here:
+                text = "%.1f fps" % m.fps if m.fps else ""
+            else:
+                text = "connecting"
+            if sec is not None:
+                text = "REC %d:%02d" % (sec // 60, sec % 60)
+            w["fps"].configure(text=text, fg=th.RED if sec is not None else th.DIM)
+            if self.tabs[pid].popped:
+                fps = " - %.1f frames/s" % m.fps if m.fps else ""
+                try:
+                    self.root.tk.call("wm", "title", self.tabs[pid].frame._w,
+                                      "%s%s - %s" % (m.calc.title, fps, APP_NAME))
+                except tk.TclError:
+                    pass
+        self.all.update()
+        self.root.after(1000, self.tick)
+
+    def quit(self):
+        for m in self.mirrors.values():
+            m.stop()
         self.root.destroy()
-        self.on_close(self)
+
+    def run(self):
+        self.root.mainloop()
 
 
 def set_app_icon(root):
@@ -666,10 +1200,10 @@ def set_app_icon(root):
             break
     try:  # Run from Python, the taskbar would group the windows under python.exe's icon
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("CalcMirror.App")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("CalcSuite.App")
     except (AttributeError, OSError):
         pass
-    # Every window (the calculators', Files, About, dialogs) gets a dark title bar when it appears
+    # Every window (the main one, popped-out tabs, dialogs) gets a dark title bar when it appears
     root.bind_class("Toplevel", "<Map>", lambda e: dark_title_bar(e.widget), add="+")
     root.bind_class("Tk", "<Map>", lambda e: dark_title_bar(e.widget), add="+")
 
@@ -680,83 +1214,65 @@ def dark_title_bar(win):
         return
     try:
         import ctypes
-        from ctypes import wintypes
         hwnd = ctypes.windll.user32.GetParent(win.winfo_id())
-        on = ctypes.c_int(1)
-        for attr in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE, and its number before Windows 10 2004
-            if ctypes.windll.dwmapi.DwmSetWindowAttribute(wintypes.HWND(hwnd), attr, ctypes.byref(on),
-                                                          ctypes.sizeof(on)) == 0:
-                break
-        # Repaint the frame now (SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
-        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0020)
+        _dark_hwnd(hwnd)
         win._dark_done = True
     except (AttributeError, OSError, tk.TclError):
         pass
 
 
-class App(object):
-    """One window per calculator; watches USB for calculators plugged in later"""
+def dark_title_bar_path(root, frame):
+    """The same for a frame made a window by `wm manage` (a popped-out tab)"""
+    try:
+        import ctypes
+        hwnd = int(root.tk.call("wm", "frame", frame._w), 16)
+        _dark_hwnd(hwnd)
+    except (AttributeError, OSError, ValueError, tk.TclError):
+        pass
 
-    def __init__(self):
-        self.root = tk.Tk()
-        self.root.withdraw()  # Only the calculators' windows show
-        set_app_icon(self.root)
-        self.windows = {}     # pid -> Mirror
-        self.closed = set()   # Calculators whose window the user closed: not reopened
-        self.found = set()
-        self.first_scan = True
-        threading.Thread(target=self.scan_loop, daemon=True).start()
-        self.root.after(300, self.sync)
 
-    def scan_loop(self):
-        while True:
-            self.found = nspire_link.usb_calculators()
-            self.scanned = True
-            time.sleep(3)
+def _dark_hwnd(hwnd):
+    import ctypes
+    from ctypes import wintypes
+    on = ctypes.c_int(1)
+    for attr in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE, and its number before Windows 10 2004
+        if ctypes.windll.dwmapi.DwmSetWindowAttribute(wintypes.HWND(hwnd), attr, ctypes.byref(on),
+                                                      ctypes.sizeof(on)) == 0:
+            break
+    # Repaint the frame now (SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+    ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0020)
 
-    def sync(self):
-        if getattr(self, "scanned", False):
-            present = [c for c in CALCS if c.pid in self.found]
-            if self.first_scan and not present:
-                present = [Nspire]  # Nothing plugged in yet: a window that waits
-            self.first_scan = False
-            for calc in present:
-                if calc.pid not in self.windows and calc.pid not in self.closed:
-                    win = tk.Toplevel(self.root)
-                    self.windows[calc.pid] = Mirror(win, calc, self.closed_window)
-            for pid in list(self.closed):
-                if pid not in self.found:
-                    self.closed.discard(pid)  # Unplugged: plugging it in again opens it
-        self.root.after(1000, self.sync)
 
-    def closed_window(self, mirror):
-        self.windows.pop(mirror.calc.pid, None)
-        self.closed.add(mirror.calc.pid)
-        if not self.windows:
-            self.root.destroy()
-
-    def run(self):
-        self.root.mainloop()
+MUTEX_NAMES = ("CalcSuite.single", "NspireMirror.single")  # The second: versions before 1.0
 
 
 def already_running():
     """One copy at a time: a second one would take the calculators away from the first, and
-    both would go black"""
+    both would go black. Checks the old app's name too (Nspire Mirror), and holds both so an
+    old copy started later sees this one."""
     if os.name != "nt":
         return False
     import ctypes
-    global _mutex  # Kept for the life of the process
-    _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "NspireMirror.single")
-    return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+    global _mutexes  # Kept for the life of the process
+    _mutexes = []
+    taken = False
+    for name in MUTEX_NAMES:
+        h = ctypes.windll.kernel32.CreateMutexW(None, False, name)
+        if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            taken = True
+        _mutexes.append(h)
+    return taken
 
 
 def main():
     if already_running():
-        from tkinter import messagebox
         r = tk.Tk()
         r.withdraw()
-        messagebox.showinfo("Calc Mirror", "The mirror is already open.")
+        messagebox.showinfo(APP_NAME, "CalcSuite is already open.")
         return
+    if getattr(sys, "frozen", False):
+        migrate_documents()
+        os.makedirs(os.path.join(KIT, "programs"), exist_ok=True)
     App().run()
 
 

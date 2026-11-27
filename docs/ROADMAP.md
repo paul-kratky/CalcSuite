@@ -24,11 +24,15 @@ suggest.
 
 ## Later
 
-- **Voyage 200** (and the TI-92 Plus): the same link as the TI-89.
 - **TI-84 Evo** (2026), once its file format is documented.
 - **Mac and Linux:** the link tools already build there; the window would need a new toolkit
   (Tauri is the likely one) or a web version using WebUSB.
 - **Sponsor link** in the app and on the repo.
+
+## Not planned
+
+- **Voyage 200 / TI-92 Plus:** they have no USB port, only TI's old link port, which needs TI's
+  Silver/Direct USB link cable. Dropped until someone has one to test with.
 
 ## Done in 1.0
 

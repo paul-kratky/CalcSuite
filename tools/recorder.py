@@ -96,8 +96,11 @@ def read_ppm(path):
 
 
 class Recorder(object):
-    def __init__(self, scale=2):
+    def __init__(self, scale=2, transform=None):
+        """transform(w, h, rgb) -> (w, h, rgb) changes each frame as it arrives (key_strip's
+        Burner adds the key-press strip)"""
         self.scale = scale
+        self.transform = transform
         self.frames = []   # (seconds since the start, rgb bytes)
         self.size = None
         self.t0 = None
@@ -107,6 +110,11 @@ class Recorder(object):
             w, h, rgb = read_ppm(ppm_path)
         except (OSError, ValueError):
             return
+        if self.transform is not None:
+            try:
+                w, h, rgb = self.transform(w, h, rgb)
+            except Exception:  # A strip that fails must never stop the recording
+                pass
         now = time.time()
         if self.t0 is None:
             self.t0, self.size = now, (w, h)
