@@ -5,15 +5,11 @@ suggest.
 
 ## Next (1.x)
 
-1. **Make a PC copy of my calculator** (first after 1.0): one button that dumps your own
-   calculator's ROM (TI-84 Plus CE: CEmu's ROM dumper sent and run over USB, on OS 5.4 or older,
-   or 5.5+ with arTIfiCE; TI-89 Titanium: a dumper over USB, no hacks), copies your programs
-   and variables in, and opens it in an emulator: CEmu for the 84 CE, TiEmu for the 89. First as
-   "Open in CEmu" (CEmu as its own program), then as a tab inside CalcSuite ("TI-84 Plus CE (PC
-   copy)") with the same keys, symbols, functions and Send program, at 60 frames a second with
-   no lag. It is a second calculator, not a mirror: send a finished program to the real one. ROMs
-   are for your own use only: CalcSuite never ships or uploads them. (The TI-Nspire CX II needs
-   a jailbreak for a dump, so it isn't planned.)
+1. **The PC copy as a tab** ("TI-84 Plus CE (PC copy)"): CEmu's core inside CalcSuite with
+   the same keys, symbols, functions and Send program, at 60 frames a second with no lag. It is
+   a second calculator, not a mirror: send a finished program to the real one. Plan:
+   [docs/dev/PC_COPY_API.md](dev/PC_COPY_API.md), "Phase 2". (The dump and "Open in CEmu" are
+   done: see below.)
 2. **Fast mode for the TI-84 Plus CE screen.** About 5-10 frames a second instead of about 1: a
    small add-on on the calculator compresses the screen, and CalcSuite reads the compressed copy.
    On OS 5.4 or older, or 5.5+ with arTIfiCE; it backs up first. Plan:
@@ -38,4 +34,12 @@ suggest.
 
 ## Done in 1.0
 
-See [CHANGELOG.md](../CHANGELOG.md).
+- **Make a PC copy of my calculator:** dumps your own calculator's ROM (TI-84 Plus CE: CEmu's
+  ROM dumper sent and run over USB, on OS 5.4 or older; TI-89 Titanium: TILP's dumper over
+  USB, no hacks), after a backup, and opens it in CEmu (the 84) with your programs and
+  variables. The 89's emulator, TiEmu, has only a 2010 installer for Windows: you install it
+  yourself. ROMs are for your own use only: CalcSuite never ships or uploads them. (The
+  TI-Nspire CX II needs a jailbreak for a dump, so it isn't planned.) The window's button is
+  still to come. See [docs/PC_COPY.md](PC_COPY.md).
+
+See [CHANGELOG.md](../CHANGELOG.md) for everything else.

@@ -146,6 +146,15 @@ assembly programs.) The Nspire's clock can't be read or set over USB: set it on 
 handheld and opens TI-Nspire CX II Connect; for the 84, TI's steps. The TI-89 Titanium has no
 Press-to-Test.
 
+## A PC copy of your calculator
+
+`python -I tools/pc_copy.py make 84` (or `89`) backs the calculator up, copies its ROM to
+`Documents\CalcSuite\backups\roms\`, removes what it put on the calculator, and opens the copy
+in CEmu with your programs and variables (the 84 Plus CE, OS 5.4 or older). For the TI-89
+Titanium it makes the ROM; its emulator, TiEmu, you install yourself. The ROM is TI's software
+from your own calculator: it stays on your PC and is never uploaded. A button in the window
+comes later. Details: [docs/PC_COPY.md](docs/PC_COPY.md).
+
 ## TI-Basic from the PC
 
 Write the program in any text editor (or take one from the **Guide** panel) and send it with

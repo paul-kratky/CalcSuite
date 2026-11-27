@@ -1,4 +1,4 @@
-"""The side panel of a calculator's tab: Files, Keys, Symbols, Guide, Get programs, Info.
+"""The side panel of a calculator's tab: Files, Keys, Symbols, Functions, Guide, Get programs, Info.
 
 Each section is built the first time it's shown. Everything that talks to the calculator goes
 through the tab's Mirror (its link thread); downloads and the connection doctor run in worker
@@ -15,9 +15,10 @@ from tkinter import messagebox, ttk
 import calc_models
 import md_render
 import program_library as plib
+import reference
 import ui_theme as th
 
-SECTIONS = ("Files", "Keys", "Symbols", "Guide", "Get programs", "Info")
+SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Info")
 WIDTH = 450
 GUIDES = {"nspire": ("docs", "PYTHON_NSPIRE_GUIDE.md"), "ti84": ("docs", "TIBASIC_84.md"),
           "ti89": ("docs", "TIBASIC_89.md")}
@@ -54,7 +55,7 @@ class SidePanel(object):
             self.sections[self.current].frame.pack_forget()
         if name not in self.sections:
             cls = {"Files": FilesSection, "Keys": KeysSection, "Symbols": SymbolsSection,
-                   "Guide": GuideSection, "Get programs": ProgramsSection,
+                   "Functions": FunctionsSection, "Guide": GuideSection, "Get programs": ProgramsSection,
                    "Info": InfoSection}[name]
             self.sections[name] = cls(self, self.body)
         self.sections[name].frame.pack(fill="both", expand=True)
@@ -200,6 +201,221 @@ class SymbolsSection(object):
         if self.m.send_codes(codes, sym):
             b.configure(bg=th.ACCENT, fg="#000000")
             b.after(250, lambda: b.configure(bg=th.KEYCAP, fg=th.FG))
+
+
+# ---- Functions: every command, its arguments, Insert (tools/reference.py) ----
+class FunctionsSection(object):
+    ALL = "All categories"
+
+    def __init__(self, panel, parent):
+        self.m = panel.m
+        self.calc = self.m.calc
+        self.ref = reference.load(self.calc.slug)
+        self.frame = tk.Frame(parent, bg=th.PANEL)
+        top = tk.Frame(self.frame, bg=th.PANEL)
+        top.pack(fill="x", pady=(0, 6))
+        self.query = tk.StringVar(master=self.frame, value="")
+        self.count = tk.Label(top, text="", bg=th.PANEL, fg=th.DIM)
+        self.count.pack(side="right", padx=(6, 0))
+        self.search = tk.Entry(top, textvariable=self.query, bg=th.PANEL2, fg=th.FG,
+                               insertbackground=th.FG, relief="flat", width=16)
+        self.search.pack(side="left", ipady=3, fill="x", expand=True)
+        self.search.bind("<Return>", lambda e: self.pick_first())
+        self.search.bind("<Down>", lambda e: self.pick_first())
+        self.category = None
+        self.cat_btn = tk.Menubutton(top, text=self.ALL + " ▾", bg=th.PANEL2, fg=th.FG,
+                                     activebackground=th.ACTIVE, activeforeground="#ffffff",
+                                     relief="flat", bd=0, padx=8, pady=4, takefocus=0)
+        self.cat_btn.pack(side="left", padx=(8, 0))
+        menu = th.menu(self.cat_btn)
+        for c in [None] + reference.categories(self.ref):
+            menu.add_command(label=c or self.ALL, command=lambda c=c: self.set_category(c))
+        self.cat_btn.configure(menu=menu)
+        mid = tk.Frame(self.frame, bg=th.PANEL)
+        mid.pack(fill="both", expand=True)
+        tree = self.tree = ttk.Treeview(mid, columns=("what",), style="Calc.Treeview",
+                                        selectmode="browse", height=8)
+        tree.heading("#0", text="Command", anchor="w")
+        tree.column("#0", width=140, anchor="w", stretch=False)
+        tree.heading("what", text="What it does", anchor="w")
+        tree.column("what", width=250, anchor="w")
+        sb = ttk.Scrollbar(mid, orient="vertical", command=tree.yview, style="Calc.Vertical.TScrollbar")
+        tree.configure(yscrollcommand=sb.set)
+        tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        tree.tag_configure("unverified", foreground=th.DIM)
+        tree.bind("<<TreeviewSelect>>", lambda e: self.picked())
+        tree.bind("<Double-1>", self.double)  # Double click: Insert, like its button
+        tree.bind("<Return>", lambda e: self.insert())
+        self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=14,
+                              padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9),
+                              cursor="arrow", insertwidth=0)
+        self.detail.pack(fill="x", pady=(8, 0))
+        d = self.detail
+        d.tag_configure("name", font=(th.MONO, 12, "bold"), foreground=th.ACCENT)
+        d.tag_configure("cat", foreground=th.DIM)
+        d.tag_configure("syntax", font=(th.MONO, 10), background="#121317")
+        d.tag_configure("h", font=(th.FONT, 8, "bold"), foreground=th.DIM, spacing1=6)
+        d.tag_configure("arg", font=(th.MONO, 9, "bold"), foreground=th.MINT)
+        d.tag_configure("opt", foreground=th.DIM)
+        d.tag_configure("code", font=(th.MONO, 10))
+        d.tag_configure("dim", foreground=th.DIM)
+        d.tag_configure("warn", foreground=th.ACCENT)
+        bar = tk.Frame(self.frame, bg=th.PANEL)
+        bar.pack(fill="x", pady=(6, 0))
+        self.insert_btn = th.button(bar, "Insert", self.insert, state="disabled")
+        self.insert_btn.pack(side="left")
+        self.copy_btn = th.button(bar, "Copy", self.copy, state="disabled")
+        self.copy_btn.pack(side="left", padx=(6, 0))
+        self.copy_ex_btn = th.button(bar, "Copy example", self.copy_example, state="disabled")
+        self.copy_ex_btn.pack(side="left", padx=(6, 0))
+        self.status = tk.StringVar(master=self.frame, value="")
+        tk.Label(self.frame, textvariable=self.status, bg=th.PANEL, fg=th.DIM, anchor="w",
+                 justify="left", wraplength=410).pack(fill="x", pady=(6, 0))
+        self.items, self.item = [], None
+        self.query.trace_add("write", lambda *a: self.refresh())
+        self.refresh()
+        if self.ref.get("error"):
+            self.status.set("The function list isn't there: %s" % self.ref["error"])
+        else:
+            self.status.set("Type a name or a word (\"integral\", \"matrix\"), or paste code to "
+                            "see the commands it uses.")
+
+    def shown(self):
+        self.search.focus_set()
+
+    def set_category(self, c):
+        self.category = c
+        self.cat_btn.configure(text=(c or self.ALL) + " ▾")
+        self.refresh()
+
+    def refresh(self):
+        q = self.query.get()
+        if any(s in q for s in (":", "->", "→", "\n")) or (q.count("(") and q.count(",")):
+            # Code: list the commands it uses, in order
+            self.items = [e for e in reference.referenced(self.calc.slug, q, self.ref)
+                          if not self.category or e.get("category") == self.category]
+            what = "used in that code"
+        else:
+            self.items = reference.search(self.ref, q, self.category)
+            what = "found" if q.strip() else ""
+        tree = self.tree
+        tree.delete(*tree.get_children())
+        for k, e in enumerate(self.items):
+            tree.insert("", "end", iid=str(k), text=e["name"], values=(e.get("summary", ""),),
+                        tags=(() if e.get("verified") else ("unverified",)))
+        n = len(self.items)
+        self.count.configure(text="%d %s" % (n, what) if what else "%d commands" % n)
+
+    def pick_first(self):
+        if self.items:
+            self.tree.focus_set()
+            self.tree.selection_set("0")
+            self.tree.focus("0")
+            self.tree.see("0")
+        return "break"
+
+    def double(self, ev):
+        row = self.tree.identify_row(ev.y)
+        if row:
+            self.tree.selection_set(row)
+            self.picked()
+            self.insert()
+        return "break"
+
+    def picked(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        e = self.item = self.items[int(sel[0])]
+        d = self.detail
+        d.configure(state="normal")
+        d.delete("1.0", "end")
+        d.insert("end", e["name"], "name")
+        d.insert("end", "   " + e.get("category", "") + "\n", "cat")
+        for form in e.get("forms") or [e["syntax"]]:
+            d.insert("end", form + "\n", "syntax")
+        if e.get("summary"):
+            d.insert("end", e["summary"] + "\n")
+        if e.get("args"):
+            d.insert("end", "ARGUMENTS (separated by commas; [ ] = optional)\n", "h")
+            for a in e["args"]:
+                d.insert("end", a["name"], "arg")
+                d.insert("end", "  " + (a.get("meaning") or ""))
+                extra = (["optional"] if a.get("optional") else []) + (
+                    ["default " + str(a["default"])] if a.get("default") else [])
+                if extra:
+                    d.insert("end", "  (%s)" % ", ".join(extra), "opt")
+                d.insert("end", "\n")
+        if e.get("returns"):
+            d.insert("end", "GIVES  ", "h")
+            d.insert("end", e["returns"] + "\n")
+        if e.get("example"):
+            d.insert("end", "EXAMPLE\n", "h")
+            d.insert("end", e["example"] + "\n", "code")
+        if e.get("key"):
+            d.insert("end", "KEYS  ", "h")
+            d.insert("end", e["key"] + "\n")
+        if e.get("pc_spelling"):
+            d.insert("end", "ON THE PC TYPE  ", "h")
+            d.insert("end", e["pc_spelling"] + "\n", "code")
+        if e.get("notes"):
+            d.insert("end", "NOTE\n", "h")
+            d.insert("end", e["notes"] + "\n", "warn")
+        if not e.get("verified"):
+            d.insert("end", "Not checked against TI's reference guide yet.\n", "dim")
+        d.configure(state="disabled")
+        d.yview_moveto(0)
+        kind, _what, why = reference.insert_plan(self.calc.slug, e)
+        self.insert_btn.configure(state="normal" if kind else "disabled")
+        self.copy_btn.configure(state="normal")
+        self.copy_ex_btn.configure(state="normal" if e.get("example") else "disabled")
+        self.status.set(why if not kind else "")
+
+    def insert(self):
+        """Types the command on the calculator, the way the Symbols panel sends its symbols"""
+        e = self.item
+        if e is None:
+            return
+        calc = self.calc
+        kind, what, note = reference.insert_plan(calc.slug, e)
+        if kind is None:
+            self.status.set(note)
+            return
+        if kind == "keys":
+            codes = [calc.resolve(k) for k in what]
+            if any(c is None for c in codes):
+                self.status.set("No key for %s on the %s" % (e["name"], calc.title))
+                return
+        else:
+            codes, missing = calc.paste_keys(what)
+            if missing:
+                self.status.set("Can't type %s on the %s: use %s" % (
+                    " ".join(sorted(missing)), calc.title, e.get("key") or "the catalog"))
+                return
+        if not self.m.connected():
+            self.status.set("The %s isn't connected" % calc.title)
+            return
+        if self.m.send_codes(codes, "insert " + e["name"]):
+            if kind == "keys" and what[0] == "catalog":
+                self.status.set(note)  # Only opened the catalog at its letter
+            else:
+                self.status.set("Typed %s%s" % (e["name"], ". " + note if note else ""))
+
+    def clip(self, text, what):
+        self.frame.clipboard_clear()
+        self.frame.clipboard_append(text)
+        self.status.set("Copied %s" % what)
+
+    def copy(self):
+        """The command as typed on the PC (a program file, the Guide's examples)"""
+        if self.item is not None:
+            text = self.item.get("pc_spelling") or self.item["name"]
+            self.clip(text, text)
+
+    def copy_example(self):
+        if self.item is not None and self.item.get("example"):
+            self.clip(self.item["example"], "the example")
 
 
 # ---- Guide: the calculator's guide, rendered ----

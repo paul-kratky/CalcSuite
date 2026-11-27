@@ -110,6 +110,8 @@ def main():
     sys.path.insert(0, HERE)
     import ui_checks  # The app's pure parts: Markdown, keys, symbols, clicks, library, strip
     failures += ui_checks.main()
+    import reference_checks  # The Functions panel's reference: entries, 84 tokens, 89 conversion
+    failures += reference_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 

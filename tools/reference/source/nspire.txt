@@ -1,0 +1,419 @@
+# TI-Nspire CX II (CAS). name ¦ cat ¦ key ¦ forms ¦ summary ¦ example ¦ notes ¦ args ¦ flags
+# Calculator app menus: menu > Number / Algebra / Calculus / Probability / Statistics / Matrix & Vector / Finance / Functions & Programs
+# ---- Number ----
+abs( ¦ M ¦ catalog (or the template palette) ¦ abs(Expr1) ⇒ expression ;; abs(List1) ⇒ list ;; abs(Matrix1) ⇒ matrix ¦ Absolute value; for a complex number its modulus. ¦ abs(-3.5) ¦ Undefined variables count as real. ¦ Expr1=a number or expression
+approx( ¦ M ¦ menu > Number ¦ approx(Expr1) ⇒ expression ;; approx(List1) ⇒ list ;; approx(Matrix1) ⇒ matrix ¦ Evaluates to a decimal, whatever the Auto/Approximate mode. ¦ approx(pi/3) ¦ Same as ctrl enter.
+►approxFraction( ¦ U ¦ catalog ¦ Expr►approxFraction([Tol]) ⇒ expression ;; List►approxFraction([Tol]) ⇒ list ¦ Turns a decimal into a fraction within a tolerance. ¦ 0.333333►approxFraction(1E-5) ¦ Type @>approxFraction( on a computer keyboard. ¦ Tol=how close the fraction must be{5E-14} ¦ pc=@>approxFraction(
+approxRational( ¦ M ¦ catalog ¦ approxRational(Expr[,Tol]) ⇒ expression ;; approxRational(List[,Tol]) ⇒ list ¦ The argument as a fraction within a tolerance. ¦ approxRational(0.333,5E-3) ¦ ¦ Tol=how close the fraction must be{5E-14}
+exact( ¦ M ¦ menu > Number ¦ exact(Expr1[,Tolerance]) ⇒ expression ;; exact(List1[,Tolerance]) ⇒ list ¦ Turns decimals into exact rational form (CAS). ¦ exact(0.25) ¦
+round( ¦ M ¦ menu > Number ¦ round(Expr1[,digits]) ⇒ expression ;; round(List1[,digits]) ⇒ list ;; round(Matrix1[,digits]) ⇒ matrix ¦ Rounds to a number of decimal places (12 digits if none). ¦ round(1.23456,3) ¦ ¦ digits=decimal places{12 significant digits}
+iPart( ¦ M ¦ menu > Number ¦ iPart(Number) ⇒ integer ;; iPart(List1) ⇒ list ¦ Integer part (toward zero). ¦ iPart(-2.7) ¦
+fPart( ¦ M ¦ menu > Number ¦ fPart(Expr1) ⇒ expression ;; fPart(List1) ⇒ list ¦ Fractional part. ¦ fPart(3.25) ¦
+int( ¦ M ¦ catalog ¦ int(Expr) ⇒ integer ;; int(List1) ⇒ list ¦ Greatest integer not above the value (floor). ¦ int(-2.7) ¦
+floor( ¦ M ¦ menu > Number ¦ floor(Expr1) ⇒ integer ;; floor(List1) ⇒ list ¦ Rounds down. ¦ floor(-2.14) ¦
+ceiling( ¦ M ¦ menu > Number ¦ ceiling(Expr1) ⇒ integer ;; ceiling(List1) ⇒ list ¦ Rounds up. ¦ ceiling(0.456) ¦
+intDiv( ¦ M ¦ catalog ¦ intDiv(Number1,Number2) ⇒ integer ;; intDiv(List1,List2) ⇒ list ¦ Integer part of a division (toward zero). ¦ intDiv(7,2) ¦
+mod( ¦ M ¦ menu > Number ¦ mod(Expr1,Expr2) ⇒ expression ;; mod(List1,List2) ⇒ list ¦ Modulo, with the sign of the divisor. ¦ mod(-7,3) ¦ mod(x,0) is x.
+remain( ¦ M ¦ menu > Number ¦ remain(Expr1,Expr2) ⇒ expression ;; remain(List1,List2) ⇒ list ¦ Remainder, with the sign of the dividend. ¦ remain(-7,3) ¦
+gcd( ¦ M ¦ menu > Number ¦ gcd(Number1,Number2) ⇒ expression ;; gcd(List1,List2) ⇒ list ¦ Greatest common divisor. ¦ gcd(18,33) ¦
+lcm( ¦ M ¦ menu > Number ¦ lcm(Number1,Number2) ⇒ expression ;; lcm(List1,List2) ⇒ list ¦ Least common multiple. ¦ lcm(6,9) ¦
+factor( ¦ A ¦ menu > Algebra (or menu > Number) ¦ factor(Expr1[,Var]) ⇒ expression ;; factor(List1[,Var]) ⇒ list ;; factor(rationalNumber) ⇒ expression ¦ Factors a polynomial over the rationals, or a number into primes. ¦ factor(x^3-x) ¦ With Var it can find irrational factors too: factor(x^2-2,x). ¦ rationalNumber=a number factored into primes
+isPrime( ¦ M ¦ catalog ¦ isPrime(Number) ⇒ Boolean constant ¦ true if a whole number is prime. ¦ isPrime(97) ¦
+sign( ¦ M ¦ catalog ¦ sign(Expr1) ⇒ expression ;; sign(List1) ⇒ list ¦ -1, 0 or 1 by sign (sign(0) is ±1 in complex terms). ¦ sign(-3.2) ¦
+max( ¦ M ¦ catalog ¦ max(Expr1,Expr2) ⇒ expression ;; max(List1,List2) ⇒ list ;; max(List) ⇒ expression ;; max(Matrix1) ⇒ matrix ¦ The larger of two values, or the largest element (of each column for a matrix). ¦ max({3,8,1}) ¦
+min( ¦ M ¦ catalog ¦ min(Expr1,Expr2) ⇒ expression ;; min(List1,List2) ⇒ list ;; min(List) ⇒ expression ;; min(Matrix1) ⇒ matrix ¦ The smaller of two values, or the smallest element. ¦ min(4,2) ¦
+root( ¦ M ¦ catalog ¦ root(Expr) ⇒ root ;; root(Expr1,Expr2) ⇒ root ¦ Square root, or the Expr2-th root of Expr1. ¦ root(27,3) ¦ ¦ Expr=the radicand; Expr1=the radicand; Expr2=which root
+sqrt( ¦ M ¦ ctrl x² ¦ sqrt(Expr1) ⇒ expression ;; sqrt(List1) ⇒ list ¦ Square root (shown as √). ¦ sqrt(16) ¦ Typing sqrt( becomes √(.
+√( ¦ M ¦ ctrl x² ¦ √(Expr1) ⇒ expression ;; √(List1) ⇒ list ¦ Square root. ¦ √(8) ¦ Type sqrt( on a keyboard. ¦ ¦ pc=sqrt(
+^ ¦ M ¦ ^ ¦ Expr1^Expr2 ⇒ expression ;; List1^List2 ⇒ list ;; squareMatrix1^integer ⇒ matrix ¦ Power. ¦ 2^10 ¦ After ^ the cursor stays raised: press → to come back down.
+² ¦ M ¦ x² ¦ Expr1² ⇒ expression ;; List1² ⇒ list ¦ Square. ¦ 5^2 ¦  ¦  ¦ pc=^2;g
+^⁻¹ ¦ M ¦ catalog ¦ Expr1^⁻¹ ⇒ expression ;; squareMatrix1^⁻¹ ⇒ squareMatrix ¦ Reciprocal, or the inverse of a square matrix. ¦ [[1,2][3,4]]^-1 ¦ ¦ ¦ pc=^-1
+10^( ¦ M ¦ ctrl log ¦ 10^(Expr1) ⇒ expression ;; 10^(List1) ⇒ list ¦ Ten to a power. ¦ 10^(1.5) ¦
+e^( ¦ M ¦ e^x ¦ e^(Expr1) ⇒ expression ;; e^(List1) ⇒ list ;; e^(squareMatrix1) ⇒ squareMatrix ¦ e to a power. ¦ e^(1) ¦ The letter e typed alone is a variable; use the e^x key (or @e).
+exp( ¦ M ¦ e^x ¦ exp(Expr1) ⇒ expression ;; exp(List1) ⇒ list ¦ e to a power (the same as e^(). ¦ exp(2) ¦
+ln( ¦ M ¦ ctrl e^x ¦ ln(Expr1) ⇒ expression ;; ln(List1) ⇒ list ¦ Natural logarithm. ¦ ln(e^(2)) ¦
+log( ¦ M ¦ ctrl 10^x ¦ log(Expr1[,Expr2]) ⇒ expression ;; log(List1[,Expr2]) ⇒ list ¦ Logarithm, base 10 or the base given. ¦ log(8,2) ¦ ¦ Expr1=the value; Expr2=the base{10}
+! ¦ P ¦ ?!► key ¦ Expr1! ⇒ expression ;; List1! ⇒ list ¦ Factorial. ¦ 5! ¦
+% ¦ M ¦ ctrl catalog (symbols) ¦ Expr1% ⇒ expression ¦ Divides by 100. ¦ 15%*80 ¦
++ ¦ M ¦ + ¦ Expr1+Expr2 ⇒ expression ;; List1+List2 ⇒ list ;; Matrix1+Matrix2 ⇒ matrix ¦ Adds. ¦ 2+3 ¦
+- ¦ M ¦ - ¦ Expr1-Expr2 ⇒ expression ;; List1-List2 ⇒ list ;; Matrix1-Matrix2 ⇒ matrix ¦ Subtracts. ¦ 5-2 ¦ The (-) key is the negative sign.
+• ¦ M ¦ × ¦ Expr1•Expr2 ⇒ expression ;; Matrix1•Matrix2 ⇒ matrix ¦ Multiplies (matrix product for matrices). ¦ 3*4 ¦ Type * on a keyboard. ¦ ¦ pc=*
+/ ¦ M ¦ ÷ ¦ Expr1/Expr2 ⇒ expression ;; List1/List2 ⇒ list ¦ Divides (ctrl ÷ gives the fraction template). ¦ 1/3 ¦
+.+ ¦ X ¦ . + ¦ Matrix1.+Matrix2 ⇒ matrix ;; Expr.+Matrix1 ⇒ matrix ¦ Element-by-element add. ¦ [[1,2]].+3 ¦
+.- ¦ X ¦ . - ¦ Matrix1.-Matrix2 ⇒ matrix ;; Expr.-Matrix1 ⇒ matrix ¦ Element-by-element subtract. ¦ 10.-[[1,2]] ¦
+.• ¦ X ¦ . × ¦ Matrix1.•Matrix2 ⇒ matrix ;; Expr.•Matrix1 ⇒ matrix ¦ Element-by-element multiply. ¦ [[1,2]].*[[3,4]] ¦ ¦ ¦ pc=.*
+./ ¦ X ¦ . ÷ ¦ Matrix1./Matrix2 ⇒ matrix ;; Expr./Matrix1 ⇒ matrix ¦ Element-by-element divide. ¦ [[2,4]]./[[1,2]] ¦  ¦  ¦ g
+.^ ¦ X ¦ . ^ ¦ Matrix1.^Matrix2 ⇒ matrix ;; Expr.^Matrix1 ⇒ matrix ¦ Element-by-element power. ¦ [[1,2]].^2 ¦
+π ¦ M ¦ π key ¦ π ¦ The constant pi. ¦ 2*pi ¦ Type pi.
+𝑖 ¦ Z ¦ π key menu ¦ 𝑖 ¦ The imaginary unit. ¦ (2+3*@i)*@i ¦ Type @i on a keyboard. ¦ ¦ pc=@i
+𝒆 ¦ M ¦ π key menu ¦ 𝒆 ¦ The constant e (2.718...). ¦ @e^2 ¦ Type @e on a keyboard; plain e is a variable. ¦ ¦ pc=@e
+∞ ¦ M ¦ π key menu ¦ ∞ ¦ Infinity (for limits, integrals, sums). ¦ limit(1/x,x,infinity) ¦ Type infinity. ¦ ¦ pc=infinity
+E ¦ M ¦ EE ¦ (mantissa)E(exponent) ¦ Times ten to a power (scientific notation). ¦ 6.02E23 ¦ Type @E for the EE character. ¦ mantissa=the digits part; exponent=the power of ten ¦ pc=@E
+Ans ¦ V ¦ ctrl (-) ¦ Ans ⇒ value ¦ The result of the last calculation. ¦ Ans*2 ¦
+# ---- Algebra ----
+solve( ¦ A ¦ menu > Algebra > Solve ¦ solve(Equation,Var) ⇒ Boolean expression ;; solve(Equation,Var=Guess) ⇒ Boolean expression ;; solve(Inequality,Var) ⇒ Boolean expression ;; solve(Eqn1 and Eqn2 [and ...],VarOrGuess1,VarOrGuess2[,...]) ⇒ Boolean expression ;; solve(SystemOfEqns,VarOrGuess1,VarOrGuess2[,...]) ⇒ Boolean expression ¦ Solves equations, inequalities and systems exactly when it can (answers like x=2 or x=3). ¦ solve(x^2-5*x+6=0,x) ¦ The variables must be undefined (DelVar, or use new names). Give a range with |: solve(sin(x)=0,x)|0<=x<=7. Systems: join with and, or use the system template. ¦ Eqn1=the first equation; Eqn2=the second equation; VarOrGuess1=a variable, or Var=guess; SystemOfEqns=a system template of equations
+cSolve( ¦ Z ¦ menu > Algebra > Complex ¦ cSolve(Equation,Var) ⇒ Boolean expression ;; cSolve(Equation,Var=Guess) ⇒ Boolean expression ;; cSolve(Eqn1 and Eqn2 [and ...],VarOrGuess1,VarOrGuess2[,...]) ⇒ Boolean expression ¦ Like solve( but finds complex solutions too. ¦ cSolve(x^2+1=0,x) ¦ ¦ Eqn1=the first equation; Eqn2=the second equation; VarOrGuess1=a variable, or Var=guess
+nSolve( ¦ A ¦ menu > Algebra > Numerical Solve ¦ nSolve(Equation,Var[=Guess]) ⇒ number ;; nSolve(Equation,Var[=Guess],lowBound) ⇒ number ;; nSolve(Equation,Var[=Guess],lowBound,upBound) ⇒ number ¦ One real solution, numerically (near a guess or inside bounds). ¦ nSolve(x^3=x+1,x=1) ¦ Returns "No solution found" when it fails. ¦ Guess=a starting value
+linSolve( ¦ A ¦ menu > Algebra ¦ linSolve(SystemOfLinearEqns,Var1,Var2,...) ⇒ list ;; linSolve(LinearEqn1 and LinearEqn2 and ...,Var1,Var2,...) ⇒ list ;; linSolve({LinearEqn1,LinearEqn2,...},Var1,Var2,...) ⇒ list ¦ Solves a system of linear equations; the answers come back as a list. ¦ linSolve({2*x+y=5,x-y=1},x,y) ¦ ¦ SystemOfLinearEqns=a system template; LinearEqn1=a linear equation; LinearEqn2=another; Var1=the first unknown; Var2=the second unknown
+zeros( ¦ A ¦ menu > Algebra > Zeros ¦ zeros(Expr,Var) ⇒ list ;; zeros(Expr,Var=Guess) ⇒ list ;; zeros({Expr1,Expr2},{VarOrGuess1,VarOrGuess2[,...]}) ⇒ matrix ¦ The real values of Var where an expression is zero, as a list. ¦ zeros(x^2-4,x) ¦ cZeros( for complex zeros. ¦ VarOrGuess1=a variable, or Var=guess
+cZeros( ¦ Z ¦ menu > Algebra > Complex ¦ cZeros(Expr,Var) ⇒ list ;; cZeros({Expr1,Expr2},{VarOrGuess1,VarOrGuess2[,...]}) ⇒ matrix ¦ The real and complex zeros. ¦ cZeros(x^2+4,x) ¦ ¦ VarOrGuess1=a variable, or Var=guess
+expand( ¦ A ¦ menu > Algebra > Expand ¦ expand(Expr1[,Var]) ⇒ expression ;; expand(List1[,Var]) ⇒ list ;; expand(Matrix1[,Var]) ⇒ matrix ¦ Multiplies out; with Var, also splits into partial fractions. ¦ expand((x+1)^3) ¦ expand(1/(x^2-1),x) gives partial fractions.
+cFactor( ¦ Z ¦ menu > Algebra > Complex ¦ cFactor(Expr1[,Var]) ⇒ expression ;; cFactor(List1[,Var]) ⇒ list ¦ Factors over the complex numbers. ¦ cFactor(x^2+1,x) ¦
+completeSquare( ¦ A ¦ menu > Algebra > Complete the Square ¦ completeSquare(ExprOrEqn,Var) ⇒ expression or equation ;; completeSquare(ExprOrEqn,Var^Power) ⇒ expression or equation ;; completeSquare(ExprOrEqn,Var1,Var2[,...]) ⇒ expression or equation ¦ Completes the square of a quadratic expression or equation. ¦ completeSquare(x^2+2*x+3,x) ¦ ¦ Power=the power treated as the square's variable; Var1=a variable; Var2=another variable
+comDenom( ¦ A ¦ menu > Algebra > Fraction Tools ¦ comDenom(Expr1[,Var]) ⇒ expression ;; comDenom(List1[,Var]) ⇒ list ¦ One reduced fraction over a common denominator. ¦ comDenom(1/x+1/y) ¦
+propFrac( ¦ A ¦ menu > Algebra > Fraction Tools ¦ propFrac(Expr1[,Var]) ⇒ expression ¦ Whole part plus a proper fraction (for numbers and polynomials). ¦ propFrac(7/3) ¦
+getNum( ¦ A ¦ menu > Algebra > Fraction Tools ¦ getNum(Expr1) ⇒ expression ¦ Numerator after reducing to one fraction. ¦ getNum((x+2)/(y-3)) ¦
+getDenom( ¦ A ¦ menu > Algebra > Fraction Tools ¦ getDenom(Expr1) ⇒ expression ¦ Denominator after reducing to one fraction. ¦ getDenom((x+2)/(y-3)) ¦
+left( ¦ A ¦ catalog ¦ left(Comparison) ⇒ expression ;; left(List1[,Num]) ⇒ list ;; left(sourceString[,Num]) ⇒ string ¦ Left side of an equation, or the first Num elements or characters. ¦ left(x+1=5) ¦
+right( ¦ A ¦ catalog ¦ right(Comparison) ⇒ expression ;; right(List1[,Num]) ⇒ list ;; right(sourceString[,Num]) ⇒ string ¦ Right side of an equation, or the last Num elements or characters. ¦ right(x+1=5) ¦
+tExpand( ¦ A ¦ menu > Algebra > Trigonometry ¦ tExpand(Expr1) ⇒ expression ¦ Expands trig of sums and multiple angles. ¦ tExpand(sin(2*x)) ¦
+tCollect( ¦ A ¦ menu > Algebra > Trigonometry ¦ tCollect(Expr1) ⇒ expression ¦ Combines products and powers of trig into multiple angles. ¦ tCollect(cos(x)^2) ¦
+►cos ¦ A ¦ catalog ¦ Expr►cos ¦ Rewrites in terms of cos (replacing sin² with 1-cos²). ¦ sin(x)^2►cos ¦ ¦ ¦ pc=@>cos
+►sin ¦ A ¦ catalog ¦ Expr►sin ¦ Rewrites in terms of sin. ¦ cos(x)^2►sin ¦ ¦ ¦ pc=@>sin
+►exp ¦ A ¦ catalog ¦ Expr►exp ¦ Rewrites in terms of e^(). ¦ cos(x)►exp ¦ ¦ ¦ pc=@>exp
+►ln ¦ A ¦ catalog ¦ Expr►ln ⇒ expression ¦ Rewrites in terms of ln(). ¦ log(x)►ln ¦ ¦ ¦ pc=@>ln
+►logbase ¦ A ¦ catalog ¦ Expr►logbase(Expr1) ⇒ expression ¦ Rewrites logarithms in a given base. ¦ log(x)►logbase(5) ¦ ¦ Expr1=the base ¦ pc=@>logbase
+exp►list( ¦ A ¦ catalog ¦ exp►list(Expr,Var) ⇒ list ¦ Turns an "x=1 or x=2" answer (from solve) into a list {1,2}. ¦ exp►list(solve(x^2=4,x),x) ¦ ¦ ¦ pc=exp@>list(
+polyCoeffs( ¦ A ¦ menu > Algebra > Polynomial Tools ¦ polyCoeffs(Poly[,Var]) ⇒ list ¦ The coefficients of a polynomial, highest power first. ¦ polyCoeffs(4*x^2-3*x+2,x) ¦
+polyDegree( ¦ A ¦ menu > Algebra > Polynomial Tools ¦ polyDegree(Poly[,Var]) ⇒ value ¦ The degree of a polynomial. ¦ polyDegree(5*x^3+x,x) ¦
+polyEval( ¦ A ¦ catalog ¦ polyEval(List1,Expr1) ⇒ expression ;; polyEval(List1,List2) ⇒ expression ¦ Evaluates a polynomial given by its coefficients. ¦ polyEval({1,2,3},2) ¦ ¦ List1=the coefficients, highest power first; Expr1=where to evaluate; List2=several points
+polyGcd( ¦ A ¦ menu > Algebra > Polynomial Tools ¦ polyGcd(Expr1,Expr2) ⇒ expression ¦ Greatest common divisor of two polynomials. ¦ polyGcd(x^2-1,x^2+2*x+1) ¦
+polyQuotient( ¦ A ¦ menu > Algebra > Polynomial Tools ¦ polyQuotient(Poly1,Poly2[,Var]) ⇒ expression ¦ Quotient of a polynomial division. ¦ polyQuotient(x^3-1,x-1,x) ¦ ¦ Poly1=the dividend; Poly2=the divisor
+polyRemainder( ¦ A ¦ menu > Algebra > Polynomial Tools ¦ polyRemainder(Poly1,Poly2[,Var]) ⇒ expression ¦ Remainder of a polynomial division. ¦ polyRemainder(x^3+2,x-1,x) ¦ ¦ Poly1=the dividend; Poly2=the divisor
+polyRoots( ¦ A ¦ menu > Algebra > Polynomial Tools ¦ polyRoots(Poly,Var) ⇒ list ;; polyRoots(ListOfCoeffs) ⇒ list ¦ The real roots of a polynomial. ¦ polyRoots({1,0,-4}) ¦ cPolyRoots( for complex ones.
+cPolyRoots( ¦ Z ¦ menu > Algebra > Polynomial Tools ¦ cPolyRoots(Poly,Var) ⇒ list ;; cPolyRoots(ListOfCoeffs) ⇒ list ¦ The real and complex roots of a polynomial. ¦ cPolyRoots({1,0,4}) ¦
+randPoly( ¦ A ¦ catalog ¦ randPoly(Var,Order) ⇒ expression ¦ A polynomial with random integer coefficients. ¦ randPoly(x,3) ¦ ¦ Order=the degree
+| ¦ A ¦ ctrl = ¦ Expr | BooleanExpr1 [and BooleanExpr2]... ¦ The constraint ("with") operator: substitutes values or limits the domain. ¦ x^2+1|x=3 ¦ ¦ Expr=what to evaluate; BooleanExpr1=a substitution like x=3 or a condition like x>0; BooleanExpr2=another condition
+domain( ¦ C ¦ catalog ¦ domain(Expr1,Var) ⇒ expression ¦ The domain of an expression in a variable. ¦ domain(1/(x-1),x) ¦
+system( ¦ A ¦ catalog (or the system template) ¦ system(Eqn1[,Eqn2[,Eqn3[,...]]]) ;; system(Expr1[,Expr2[,Expr3[,...]]]) ¦ A system of equations as one argument (for solve( and others). ¦ solve(system(x+y=3,x-y=1),x,y) ¦ ¦ Eqn1=the first equation; Eqn2=the second; Eqn3=the third
+piecewise( ¦ M ¦ catalog (or the piecewise template) ¦ piecewise(Expr1[,Cond1[,Expr2[,Cond2[,...]]]]) ¦ A piecewise function: each expression applies where its condition holds. ¦ piecewise(x^2,x<0,x,x>=0) ¦ ¦ Expr1=the value where Cond1 holds; Cond1=a condition; Expr2=the next piece; Cond2=its condition
+ifFn( ¦ M ¦ catalog ¦ ifFn(BooleanExpr,Value_If_true[,Value_If_false[,Value_If_unknown]]) ⇒ expression ¦ Chooses a value by a condition (works element by element on lists). ¦ ifFn({1,2,3}<2.5,{5,6,7},{8,9,10}) ¦
+when( ¦ M ¦ catalog ¦ when(Condition,trueResult[,falseResult][,unknownResult]) ⇒ expression ¦ A value that depends on a condition (for piecewise definitions). ¦ when(x<0,-x,x)|x=-3 ¦
+part( ¦ A ¦ catalog ¦ part(Expr1[,nonNegativeInteger]) ⇒ expression ¦ Takes an expression apart (number of parts, operator, or one part). ¦ part(cos(pi*x+3),1) ¦ ¦ ¦ ?
+# ---- Calculus ----
+d( ¦ C ¦ menu > Calculus > Derivative ¦ d(Expr1,Var[,Order]) ⇒ expression ;; d(List1,Var[,Order]) ⇒ list ;; d(Matrix1,Var[,Order]) ⇒ matrix ¦ Exact derivative (Order for higher derivatives). ¦ derivative(x^3,x) ¦ Type derivative( on a keyboard. The variable must be undefined; a point with |: d(x^3,x)|x=2. ¦ Order=which derivative{1} ¦ pc=derivative(
+∫( ¦ C ¦ menu > Calculus > Integral ¦ ∫(Expr1,Var[,Lower,Upper]) ⇒ expression ;; ∫(Expr1,Var[,Constant]) ⇒ expression ¦ Integral: indefinite, or definite with limits. ¦ integral(x^2,x,0,3) ¦ Type integral( on a keyboard. Falls back to a numeric answer when it finds no antiderivative. ¦ Lower=lower limit; Upper=upper limit ¦ pc=integral(
+limit( ¦ C ¦ menu > Calculus > Limit ¦ limit(Expr1,Var,Point[,Direction]) ⇒ expression ;; limit(List1,Var,Point[,Direction]) ⇒ list ¦ Limit as Var approaches a point (one-sided with Direction). ¦ limit(sin(x)/x,x,0) ¦ Also typed lim(. Direction: negative = from the left, positive = from the right. ¦ Direction=negative from the left, positive from the right{both sides}
+Σ( ¦ C ¦ menu > Calculus > Sum ¦ Σ(Expr1,Var,Low,High) ⇒ expression ¦ Sum as Var steps from Low to High (symbolic too). ¦ sumSeq(k^2,k,1,10) ¦ Type sumSeq( on a keyboard. ¦ ¦ pc=sumSeq(
+Π( ¦ C ¦ menu > Calculus > Product ¦ Π(Expr1,Var,Low,High) ⇒ expression ¦ Product as Var steps from Low to High. ¦ prodSeq(k,k,1,5) ¦ Type prodSeq( on a keyboard. ¦ ¦ pc=prodSeq(
+nInt( ¦ C ¦ menu > Calculus > Numerical Calculations ¦ nInt(Expr1,Var,Lower,Upper) ⇒ expression ¦ Numeric definite integral. ¦ nInt(e^(-x^2),x,-1,1) ¦ Lower and Upper may be ±∞.
+nDerivative( ¦ C ¦ menu > Calculus > Numerical Calculations ¦ nDerivative(Expr1,Var=Value[,Order]) ⇒ value ;; nDerivative(Expr1,Var[,Order])|Var=Value ⇒ value ¦ Numeric derivative at a point (order 1 or 2). ¦ nDerivative(abs(x),x=1) ¦ ¦ Value=the point; Order=1 or 2{1}
+centralDiff( ¦ C ¦ catalog ¦ centralDiff(Expr1,Var[=Value][,Step]) ⇒ expression ;; centralDiff(Expr1,Var[,Step])|Var=Value ⇒ expression ;; centralDiff(List1,Var[=Value][,Step]) ⇒ list ¦ Central difference quotient (a numeric derivative). ¦ centralDiff(x^3,x=2,0.01) ¦ ¦ Value=the point; Step=the step size{0.001}
+avgRC( ¦ C ¦ catalog ¦ avgRC(Expr1,Var[=Value][,Step]) ⇒ expression ;; avgRC(Expr1,Var[=Value][,List1]) ⇒ list ¦ Forward difference quotient (average rate of change). ¦ avgRC(x^2,x=3,0.1) ¦ ¦ Value=the point; Step=the step size{0.001}
+arcLen( ¦ C ¦ menu > Calculus > Arc Length ¦ arcLen(Expr1,Var,Start,End) ⇒ expression ;; arcLen(List1,Var,Start,End) ⇒ list ¦ Arc length of a curve y=f(Var). ¦ arcLen(x^2,x,0,1) ¦ ¦ Start=where the curve starts; End=where it ends
+taylor( ¦ C ¦ menu > Calculus > Series ¦ taylor(Expr1,Var,Order[,Point]) ⇒ expression ¦ Taylor polynomial (around 0 unless a point is given). ¦ taylor(e^(x),x,4) ¦ ¦ Order=highest power kept; Point=the centre{0}
+series( ¦ C ¦ menu > Calculus > Series ¦ series(Expr1,Var,Order[,Point]) ⇒ expression ¦ Power series (generalised: allows fractional and negative powers). ¦ series(1/(1-x),x,4) ¦ ¦ Order=highest power kept; Point=the centre{0}
+dominantTerm( ¦ C ¦ menu > Calculus > Series ¦ dominantTerm(Expr1,Var[,Point]) ⇒ expression ¦ The term that dominates near a point (or at infinity). ¦ dominantTerm(x^3+x,x,infinity) ¦ ¦ Point=where to look{0}
+fMin( ¦ C ¦ menu > Calculus > Function Minimum ¦ fMin(Expr,Var) ⇒ Boolean expression ;; fMin(Expr,Var,lowBound) ;; fMin(Expr,Var,lowBound,upBound) ¦ Where an expression is smallest (exact), as Var=value. ¦ fMin(x^2-4*x,x) ¦
+fMax( ¦ C ¦ menu > Calculus > Function Maximum ¦ fMax(Expr,Var) ⇒ Boolean expression ;; fMax(Expr,Var,lowBound) ;; fMax(Expr,Var,lowBound,upBound) ¦ Where an expression is largest (exact). ¦ fMax(4*x-x^2,x) ¦
+nfMin( ¦ C ¦ menu > Calculus > Numerical Calculations ¦ nfMin(Expr,Var) ⇒ value ;; nfMin(Expr,Var,lowBound) ⇒ value ;; nfMin(Expr,Var,lowBound,upBound) ⇒ value ¦ Numeric minimum: the Var value where an expression is smallest. ¦ nfMin(x^2+2*x+5,x) ¦
+nfMax( ¦ C ¦ menu > Calculus > Numerical Calculations ¦ nfMax(Expr,Var) ⇒ value ;; nfMax(Expr,Var,lowBound) ⇒ value ;; nfMax(Expr,Var,lowBound,upBound) ⇒ value ¦ Numeric maximum: the Var value where an expression is largest. ¦ nfMax(-x^2-2*x-1,x) ¦
+tangentLine( ¦ C ¦ menu > Calculus ¦ tangentLine(Expr1,Var,Point) ⇒ expression ;; tangentLine(Expr1,Var=Point) ⇒ expression ¦ The tangent line to a curve at a point. ¦ tangentLine(x^2,x,1) ¦ ¦ Point=the x of the point
+normalLine( ¦ C ¦ menu > Calculus ¦ normalLine(Expr1,Var,Point) ⇒ expression ;; normalLine(Expr1,Var=Point) ⇒ expression ¦ The normal line (perpendicular to the tangent) at a point. ¦ normalLine(x^2,x,1) ¦ ¦ Point=the x of the point
+impDif( ¦ C ¦ menu > Calculus ¦ impDif(Equation,Var,dependVar[,Ord]) ⇒ expression ¦ Implicit derivative dy/dx of an equation. ¦ impDif(x^2+y^2=100,x,y) ¦ ¦ Ord=which derivative{1}
+deSolve( ¦ C ¦ menu > Calculus > Differential Equation Solver ¦ deSolve(1stOr2ndOrderODE,Var,depVar) ⇒ a general solution ;; deSolve(1stOrderODE and initCond,Var,depVar) ⇒ a particular solution ;; deSolve(2ndOrderODE and initCond1 and initCond2,Var,depVar) ⇒ a particular solution ;; deSolve(2ndOrderODE and bndCond1 and bndCond2,Var,depVar) ⇒ a particular solution ¦ Solves 1st and 2nd order ODEs, in general or with initial or boundary conditions. ¦ deSolve(y'=2*y and y(0)=1,t,y) ¦ Primes: y' and y'' (the ' is in the punctuation key). Constants come out as c1, c2. ¦ 1stOr2ndOrderODE=the differential equation using y' and y''; Var=the independent variable (t or x); depVar=the function (y); 1stOrderODE=a 1st order equation; 2ndOrderODE=a 2nd order equation; initCond1=e.g. y(0)=1; initCond2=e.g. y'(0)=0; bndCond1=e.g. y(0)=0; bndCond2=e.g. y(1)=2
+euler( ¦ C ¦ catalog ¦ euler(Expr,Var,depVar,{Var0,VarMax},depVar0,VarStep[,eulerStep]) ⇒ matrix ;; euler(SystemOfExpr,Var,ListOfDepVars,{Var0,VarMax},ListOfDepVars0,VarStep[,eulerStep]) ⇒ matrix ¦ Euler's method: a table of numeric solution values of an ODE. ¦ euler(0.1*y*(100-y),t,y,{0,10},10,1) ¦ ¦ Expr=the right side of y'=f(t,y); Var0=start of Var; VarMax=end of Var; depVar0=the start value; VarStep=the step of the output; eulerStep=sub-steps per VarStep{1}; SystemOfExpr=a system of right sides; ListOfDepVars=the dependent variables; ListOfDepVars0=their start values
+rk23( ¦ C ¦ catalog ¦ rk23(Expr,Var,depVar,{Var0,VarMax},depVar0,VarStep[,diftol]) ⇒ matrix ;; rk23(SystemOfExpr,Var,ListOfDepVars,{Var0,VarMax},ListOfDepVars0,VarStep[,diftol]) ⇒ matrix ¦ Runge-Kutta: a numeric solution table of an ODE or system. ¦ rk23(0.1*y*(100-y),t,y,{0,10},10,1) ¦ ¦ Expr=the right side of y'=f(t,y); Var0=start of Var; VarMax=end of Var; depVar0=the start value; VarStep=the step of the output; diftol=error tolerance{0.001}; SystemOfExpr=a system of right sides; ListOfDepVars=the dependent variables; ListOfDepVars0=their start values
+' ¦ C ¦ ?!► key ¦ variable' ;; variable'' ¦ Prime: y' is the derivative in deSolve(. ¦ deSolve(y''+y=0,x,y) ¦ ¦ variable=the dependent variable
+# ---- Trig and hyperbolic ----
+sin( ¦ M ¦ trig ¦ sin(Expr1) ⇒ expression ;; sin(List1) ⇒ list ;; sin(squareMatrix1) ⇒ squareMatrix ¦ Sine, in the document's angle mode. ¦ sin(pi/6) ¦ Override the mode with ° or r: sin(30°).
+cos( ¦ M ¦ trig ¦ cos(Expr1) ⇒ expression ;; cos(List1) ⇒ list ¦ Cosine. ¦ cos(pi/3) ¦
+tan( ¦ M ¦ trig ¦ tan(Expr1) ⇒ expression ;; tan(List1) ⇒ list ¦ Tangent. ¦ tan(pi/4) ¦
+sin⁻¹( ¦ M ¦ trig ¦ sin⁻¹(Expr1) ⇒ expression ;; sin⁻¹(List1) ⇒ list ¦ Inverse sine. ¦ arcsin(1/2) ¦ Type arcsin( on a keyboard. ¦ ¦ pc=arcsin(
+cos⁻¹( ¦ M ¦ trig ¦ cos⁻¹(Expr1) ⇒ expression ;; cos⁻¹(List1) ⇒ list ¦ Inverse cosine. ¦ arccos(0) ¦ ¦ ¦ pc=arccos(
+tan⁻¹( ¦ M ¦ trig ¦ tan⁻¹(Expr1) ⇒ expression ;; tan⁻¹(List1) ⇒ list ¦ Inverse tangent. ¦ arctan(1) ¦ ¦ ¦ pc=arctan(
+sec( ¦ M ¦ trig ¦ sec(Expr1) ⇒ expression ¦ Secant. ¦ sec(0) ¦
+csc( ¦ M ¦ trig ¦ csc(Expr1) ⇒ expression ¦ Cosecant. ¦ csc(pi/2) ¦
+cot( ¦ M ¦ trig ¦ cot(Expr1) ⇒ expression ¦ Cotangent. ¦ cot(pi/4) ¦
+sec⁻¹( ¦ M ¦ trig ¦ sec⁻¹(Expr1) ⇒ expression ¦ Inverse secant. ¦ arcsec(2) ¦ ¦ ¦ pc=arcsec(
+csc⁻¹( ¦ M ¦ trig ¦ csc⁻¹(Expr1) ⇒ expression ¦ Inverse cosecant. ¦ arccsc(2) ¦ ¦ ¦ pc=arccsc(
+cot⁻¹( ¦ M ¦ trig ¦ cot⁻¹(Expr1) ⇒ expression ¦ Inverse cotangent. ¦ arccot(1) ¦ ¦ ¦ pc=arccot(
+sinh( ¦ M ¦ catalog ¦ sinh(Expr1) ⇒ expression ¦ Hyperbolic sine. ¦ sinh(1) ¦
+cosh( ¦ M ¦ catalog ¦ cosh(Expr1) ⇒ expression ¦ Hyperbolic cosine. ¦ cosh(1) ¦
+tanh( ¦ M ¦ catalog ¦ tanh(Expr1) ⇒ expression ¦ Hyperbolic tangent. ¦ tanh(1) ¦
+sinh⁻¹( ¦ M ¦ catalog ¦ sinh⁻¹(Expr1) ⇒ expression ¦ Inverse hyperbolic sine. ¦ arcsinh(1) ¦ ¦ ¦ pc=arcsinh(
+cosh⁻¹( ¦ M ¦ catalog ¦ cosh⁻¹(Expr1) ⇒ expression ¦ Inverse hyperbolic cosine. ¦ arccosh(2) ¦ ¦ ¦ pc=arccosh(
+tanh⁻¹( ¦ M ¦ catalog ¦ tanh⁻¹(Expr1) ⇒ expression ¦ Inverse hyperbolic tangent. ¦ arctanh(0.5) ¦ ¦ ¦ pc=arctanh(
+sech( ¦ M ¦ catalog ¦ sech(Expr1) ⇒ expression ¦ Hyperbolic secant. ¦ sech(0) ¦
+csch( ¦ M ¦ catalog ¦ csch(Expr1) ⇒ expression ¦ Hyperbolic cosecant. ¦ csch(1) ¦
+coth( ¦ M ¦ catalog ¦ coth(Expr1) ⇒ expression ¦ Hyperbolic cotangent. ¦ coth(1) ¦
+sech⁻¹( ¦ M ¦ catalog ¦ sech⁻¹(Expr1) ⇒ expression ¦ Inverse hyperbolic secant. ¦ arcsech(1) ¦ ¦ ¦ pc=arcsech(
+csch⁻¹( ¦ M ¦ catalog ¦ csch⁻¹(Expr1) ⇒ expression ¦ Inverse hyperbolic cosecant. ¦ arccsch(1) ¦ ¦ ¦ pc=arccsch(
+coth⁻¹( ¦ M ¦ catalog ¦ coth⁻¹(Expr1) ⇒ expression ¦ Inverse hyperbolic cotangent. ¦ arccoth(2) ¦ ¦ ¦ pc=arccoth(
+# ---- Complex ----
+conj( ¦ Z ¦ menu > Number > Complex Number Tools ¦ conj(Expr1) ⇒ expression ;; conj(List1) ⇒ list ¦ Complex conjugate. ¦ conj(1+2*@i) ¦
+real( ¦ Z ¦ menu > Number > Complex Number Tools ¦ real(Expr1) ⇒ expression ¦ Real part. ¦ real(2+3*@i) ¦
+imag( ¦ Z ¦ menu > Number > Complex Number Tools ¦ imag(Expr1) ⇒ expression ¦ Imaginary part. ¦ imag(1+2*@i) ¦
+angle( ¦ Z ¦ menu > Number > Complex Number Tools ¦ angle(Expr1) ⇒ expression ;; angle(List1) ⇒ list ¦ The argument (angle) of a complex number. ¦ angle(1+@i) ¦
+►Polar ¦ Z ¦ menu > Number > Complex Number Tools ¦ Vector►Polar ;; complexValue►Polar ¦ Shows a vector or complex number in polar form. ¦ (1+@i)►Polar ¦ ¦ Vector=a 2-element vector; complexValue=a complex number ¦ pc=@>Polar
+►Rect ¦ Z ¦ menu > Number > Complex Number Tools ¦ Vector►Rect ;; complexValue►Rect ¦ Shows a vector or complex number in rectangular form. ¦ [[2,@<pi/4]]►Rect ¦ ¦ Vector=a vector; complexValue=a complex number ¦ pc=@>Rect
+∠ ¦ Z ¦ ctrl catalog (symbols) ¦ [Radius,∠θ_Angle] ;; (Magnitude∠Angle) ⇒ complexValue ¦ The angle mark for polar vectors and complex numbers. ¦ (2∠pi/3) ¦ Type @< on a keyboard. ¦ Radius=the length; θ_Angle=the angle; Magnitude=the size; Angle=the angle ¦ pc=@<
+# ---- Matrices and vectors ----
+det( ¦ X ¦ menu > Matrix & Vector > Determinant ¦ det(squareMatrix[,Tolerance]) ⇒ expression ¦ Determinant. ¦ det([[1,2][3,4]]) ¦ Matrices: [[row][row]] or [1,2;3,4]. ¦ Tolerance=entries smaller than this count as zero
+ref( ¦ X ¦ menu > Matrix & Vector ¦ ref(Matrix1[,Tol]) ⇒ matrix ¦ Row-echelon form. ¦ ref([[2,4][1,3]]) ¦
+rref( ¦ X ¦ menu > Matrix & Vector ¦ rref(Matrix1[,Tol]) ⇒ matrix ¦ Reduced row-echelon form. ¦ rref([[1,1,3][1,-1,1]]) ¦
+simult( ¦ X ¦ menu > Matrix & Vector ¦ simult(coeffMatrix,constVector[,Tol]) ⇒ matrix ;; simult(coeffMatrix,constMatrix[,Tol]) ⇒ matrix ¦ Solves the linear system A·x = b. ¦ simult([[1,2][3,4]],[[5][6]]) ¦
+identity( ¦ X ¦ menu > Matrix & Vector > Create ¦ identity(Integer) ⇒ matrix ¦ Identity matrix. ¦ identity(3) ¦ ¦ Integer=the size
+newMat( ¦ X ¦ menu > Matrix & Vector > Create ¦ newMat(numRows,numColumns) ⇒ matrix ¦ A matrix of zeros. ¦ newMat(2,3) ¦
+randMat( ¦ X ¦ menu > Matrix & Vector > Create ¦ randMat(numRows,numColumns) ⇒ matrix ¦ Random integers -9 to 9. ¦ randMat(2,2) ¦
+diag( ¦ X ¦ menu > Matrix & Vector > Create ¦ diag(List) ⇒ matrix ;; diag(squareMatrix) ⇒ rowMatrix ¦ A diagonal matrix from a list, or a matrix's diagonal. ¦ diag({1,2,3}) ¦
+constructMat( ¦ X ¦ menu > Matrix & Vector > Create ¦ constructMat(Expr,Var1,Var2,numRows,numCols) ⇒ matrix ¦ Builds a matrix from a formula in the row and column numbers. ¦ constructMat(1/(i+j),i,j,3,3) ¦ ¦ Expr=the element formula; Var1=the row variable; Var2=the column variable
+augment( ¦ X ¦ menu > Matrix & Vector ¦ augment(List1,List2) ⇒ list ;; augment(Matrix1,Matrix2) ⇒ matrix ¦ Joins lists, or matrices side by side. ¦ augment([[1][2]],[[3][4]]) ¦
+colAugment( ¦ X ¦ menu > Matrix & Vector ¦ colAugment(Matrix1,Matrix2) ⇒ matrix ¦ Stacks two matrices (Matrix2 below Matrix1). ¦ colAugment([[1,2]],[[3,4]]) ¦
+subMat( ¦ X ¦ menu > Matrix & Vector ¦ subMat(Matrix1[,startRow][,startCol][,endRow][,endCol]) ⇒ matrix ¦ A block cut out of a matrix. ¦ subMat([[1,2,3][4,5,6]],1,2,2,3) ¦
+dim( ¦ X ¦ menu > Matrix & Vector > Dimensions ¦ dim(List) ⇒ integer ;; dim(Matrix) ⇒ list ;; dim(String) ⇒ integer ¦ Size of a list, matrix or string. ¦ dim({4,5,6}) ¦
+rowDim( ¦ X ¦ menu > Matrix & Vector > Dimensions ¦ rowDim(Matrix) ⇒ expression ¦ Number of rows. ¦ rowDim([[1,2][3,4][5,6]]) ¦
+colDim( ¦ X ¦ menu > Matrix & Vector > Dimensions ¦ colDim(Matrix) ⇒ expression ¦ Number of columns. ¦ colDim([[0,1,2][3,4,5]]) ¦
+T ¦ X ¦ menu > Matrix & Vector > Transpose ¦ Matrix1ᵀ ⇒ matrix ¦ Transpose. ¦ [[1,2,3]]@t ¦ Type @t on a keyboard. ¦ ¦ pc=@t
+norm( ¦ X ¦ menu > Matrix & Vector > Norms ¦ norm(Matrix) ⇒ expression ;; norm(Vector) ⇒ expression ¦ Frobenius norm (a vector's length). ¦ norm([[3,4]]) ¦
+colNorm( ¦ X ¦ menu > Matrix & Vector > Norms ¦ colNorm(Matrix) ⇒ expression ¦ Largest column sum of absolute values. ¦ colNorm([[1,-2][3,4]]) ¦
+rowNorm( ¦ X ¦ menu > Matrix & Vector > Norms ¦ rowNorm(Matrix) ⇒ expression ¦ Largest row sum of absolute values. ¦ rowNorm([[1,-2][3,4]]) ¦
+eigVl( ¦ X ¦ menu > Matrix & Vector ¦ eigVl(squareMatrix) ⇒ list ¦ Eigenvalues. ¦ eigVl([[2,0][0,3]]) ¦
+eigVc( ¦ X ¦ menu > Matrix & Vector ¦ eigVc(squareMatrix) ⇒ matrix ¦ Eigenvectors (columns, unit length). ¦ eigVc([[2,0][0,3]]) ¦
+charPoly( ¦ X ¦ menu > Matrix & Vector ¦ charPoly(squareMatrix,Var) ⇒ polynomial expression ¦ The characteristic polynomial det(A − λI). ¦ charPoly([[1,2][3,4]],x) ¦
+trace( ¦ X ¦ menu > Matrix & Vector ¦ trace(squareMatrix) ⇒ expression ¦ Sum of the diagonal. ¦ trace([[1,2][3,4]]) ¦
+LU ¦ X ¦ menu > Matrix & Vector ¦ LU Matrix,lMatrix,uMatrix,pMatrix[,Tol] ¦ LU factorization with pivoting: stores L, U and P with P·A = L·U. ¦ LU [[1,2][3,4]],l,u,p ¦
+QR ¦ X ¦ menu > Matrix & Vector ¦ QR Matrix,qMatrix,rMatrix[,Tol] ¦ QR factorization A = Q·R. ¦ QR [[1,2][3,4]],q,r ¦
+mRow( ¦ X ¦ menu > Matrix & Vector > Row Operations ¦ mRow(Expr,Matrix1,Index) ⇒ matrix ¦ Multiplies a row by a value. ¦ mRow(-1/3,[[1,2][3,4]],2) ¦ ¦ Expr=the multiplier; Index=the row
+mRowAdd( ¦ X ¦ menu > Matrix & Vector > Row Operations ¦ mRowAdd(Expr,Matrix1,Index1,Index2) ⇒ matrix ¦ Adds a multiple of one row to another. ¦ mRowAdd(-3,[[1,2][3,4]],1,2) ¦ ¦ Expr=the multiplier; Index1=the row multiplied; Index2=the row changed
+rowAdd( ¦ X ¦ menu > Matrix & Vector > Row Operations ¦ rowAdd(Matrix1,rIndex1,rIndex2) ⇒ matrix ¦ Adds one row to another. ¦ rowAdd([[1,2][3,4]],1,2) ¦
+rowSwap( ¦ X ¦ menu > Matrix & Vector > Row Operations ¦ rowSwap(Matrix1,rIndex1,rIndex2) ⇒ matrix ¦ Swaps two rows. ¦ rowSwap([[1,2][3,4]],1,2) ¦
+dotP( ¦ X ¦ menu > Matrix & Vector > Vector ¦ dotP(List1,List2) ⇒ expression ;; dotP(Vector1,Vector2) ⇒ expression ¦ Dot product. ¦ dotP([[1,2,3]],[[4,5,6]]) ¦
+crossP( ¦ X ¦ menu > Matrix & Vector > Vector ¦ crossP(List1,List2) ⇒ list ;; crossP(Vector1,Vector2) ⇒ vector ¦ Cross product. ¦ crossP([[1,0,0]],[[0,1,0]]) ¦
+unitV( ¦ X ¦ menu > Matrix & Vector > Vector ¦ unitV(Vector1) ⇒ vector ¦ Unit vector in the same direction. ¦ unitV([[3,4]]) ¦
+►Cylind ¦ X ¦ menu > Matrix & Vector > Vector ¦ Vector►Cylind ¦ Shows a 3D vector in cylindrical form. ¦ [[1,1,1]]►Cylind ¦ ¦ ¦ pc=@>Cylind
+►Sphere ¦ X ¦ menu > Matrix & Vector > Vector ¦ Vector►Sphere ¦ Shows a 3D vector in spherical form. ¦ [[1,1,1]]►Sphere ¦ ¦ ¦ pc=@>Sphere
+cumulativeSum( ¦ L ¦ menu > Statistics > List Operations ¦ cumulativeSum(List1) ⇒ list ;; cumulativeSum(Matrix1) ⇒ matrix ¦ Running totals. ¦ cumulativeSum({1,2,3,4}) ¦
+mat►list( ¦ L ¦ menu > Matrix & Vector ¦ mat►list(Matrix) ⇒ list ¦ A matrix's elements as one list. ¦ mat►list([[1,2][3,4]]) ¦ ¦ ¦ pc=mat@>list(
+list►mat( ¦ X ¦ catalog ¦ list►mat(List[,elementsPerRow]) ⇒ matrix ¦ Fills a matrix row by row from a list. ¦ list►mat({1,2,3,4},2) ¦ ¦ ¦ pc=list@>mat(
+Fill ¦ X ¦ catalog ¦ Fill Expr,matrixVar ⇒ matrix ;; Fill Expr,listVar ⇒ list ¦ Sets every element of a stored matrix or list. ¦ Fill 0,m ¦ ¦ Expr=the value
+# ---- Lists ----
+seq( ¦ L ¦ menu > Statistics > List Operations ¦ seq(Expr,Var,Low,High[,Step]) ⇒ list ¦ Builds a list from an expression. ¦ seq(n^2,n,1,6) ¦ ¦ Step=the step{1}
+seqGen( ¦ L ¦ catalog ¦ seqGen(Expr,Var,depVar,{Var0,VarMax}[,ListOfInitTerms[,VarStep[,CeilingValue]]]) ⇒ list ¦ Terms of a recursive sequence u(n)=f(n,u(n-1)...). ¦ seqGen(u(n-1)*2,n,u,{1,6},{1}) ¦ ¦ Expr=the recursion; depVar=the sequence name; Var0=first n; VarMax=last n; ListOfInitTerms=the first terms; VarStep=step of n{1}; CeilingValue=stop when a term passes this
+seqn( ¦ L ¦ catalog ¦ seqn(Expr(u,n)[,ListOfInitTerms[,nMax[,CeilingValue]]]) ⇒ list ¦ Terms of a recursive sequence in u and n. ¦ seqn(u(n-1)+2,{1},5) ¦ ¦ u=the sequence (u(n-1) is the term before); ListOfInitTerms=the first terms; nMax=last n{255}; CeilingValue=stop when a term passes this
+sum( ¦ L ¦ menu > Statistics > List Math ¦ sum(List[,Start[,End]]) ⇒ expression ;; sum(Matrix1[,Start[,End]]) ⇒ matrix ¦ Adds a list's elements. ¦ sum({1,2,3,4,5}) ¦
+sumIf( ¦ L ¦ catalog ¦ sumIf(List,Criteria[,SumList]) ⇒ value ¦ Adds the elements that meet a test. ¦ sumIf({1,2,3,4},?>2) ¦ ? stands for each element.
+product( ¦ L ¦ menu > Statistics > List Math ¦ product(List[,Start[,End]]) ⇒ expression ¦ Multiplies a list's elements. ¦ product({1,2,3,4}) ¦
+ΔList( ¦ L ¦ menu > Statistics > List Operations ¦ ΔList(List1) ⇒ list ¦ Differences between neighbours. ¦ deltaList({20,30,45,70}) ¦ Type deltaList( on a keyboard. ¦ ¦ pc=deltaList(
+count( ¦ L ¦ catalog ¦ count(Value1orList1[,Value2orList2[,...]]) ⇒ value ¦ Counts the numbers among the arguments (and list elements). ¦ count(2,{4,6},x) ¦ ¦ Value1orList1=a value or list; Value2orList2=another
+countif( ¦ L ¦ catalog ¦ countif(List,Criteria) ⇒ value ¦ Counts the elements that meet a test. ¦ countif({1,3,5,3},3) ¦
+frequency( ¦ L ¦ catalog ¦ frequency(List1,binsList) ⇒ list ¦ Counts how many values fall in each bin. ¦ frequency({1,2,2,5,7},{2,4}) ¦
+SortA ¦ L ¦ menu > Statistics > List Operations ¦ SortA List1[,List2][,List3]... ¦ Sorts stored lists ascending (the first decides the order). ¦ SortA l1 ¦ Give names of stored lists.
+SortD ¦ L ¦ menu > Statistics > List Operations ¦ SortD List1[,List2][,List3]... ¦ Sorts stored lists descending. ¦ SortD l1,l2 ¦
+newList( ¦ L ¦ catalog ¦ newList(numElements) ⇒ list ¦ A list of zeros. ¦ newList(4) ¦
+mid( ¦ S ¦ catalog ¦ mid(sourceString,Start[,Count]) ⇒ string ;; mid(sourceList,Start[,Count]) ⇒ list ¦ Part of a string or list. ¦ mid("Hello there",7,3) ¦ ¦ sourceList=the list taken from
+delVoid( ¦ L ¦ catalog ¦ delVoid(List1) ⇒ list ¦ Removes empty (void) elements from a list. ¦ delVoid({1,_,3}) ¦ _ is an empty element.
+isVoid( ¦ L ¦ catalog ¦ isVoid(Var) ⇒ Boolean constant ;; isVoid(List) ⇒ list of Boolean constants ¦ true for an empty (void) element. ¦ isVoid({1,_,3}) ¦
+freqTable►list( ¦ L ¦ catalog ¦ freqTable►list(List1,freqIntegerList) ⇒ list ¦ Expands a value list with counts into the full data list. ¦ freqTable►list({1,2,3},{2,1,3}) ¦ ¦ ¦ pc=freqTable@>list(
+# ---- Statistics ----
+mean( ¦ T ¦ menu > Statistics > List Math ¦ mean(List[,freqList]) ⇒ expression ;; mean(Matrix1[,freqMatrix]) ⇒ matrix ¦ Average. ¦ mean({1,2,3,6}) ¦ ¦ freqMatrix=a matrix of frequencies
+median( ¦ T ¦ menu > Statistics > List Math ¦ median(List[,freqList]) ⇒ expression ¦ Middle value. ¦ median({5,1,3}) ¦
+stDevSamp( ¦ T ¦ menu > Statistics > List Math ¦ stDevSamp(List[,freqList]) ⇒ expression ¦ Sample standard deviation (n−1). ¦ stDevSamp({1,2,5,-6,3,-2}) ¦
+stDevPop( ¦ T ¦ menu > Statistics > List Math ¦ stDevPop(List[,freqList]) ⇒ expression ¦ Population standard deviation (n). ¦ stDevPop({1,2,3,4}) ¦
+varSamp( ¦ T ¦ menu > Statistics > List Math ¦ varSamp(List[,freqList]) ⇒ expression ¦ Sample variance. ¦ varSamp({1,2,3,4}) ¦
+varPop( ¦ T ¦ menu > Statistics > List Math ¦ varPop(List[,freqList]) ⇒ expression ¦ Population variance. ¦ varPop({1,2,3,4}) ¦
+corrMat( ¦ T ¦ catalog ¦ corrMat(List1,List2[,...[,List20]]) ⇒ matrix ¦ Correlation matrix of several lists. ¦ corrMat({1,2,3},{2,4,7}) ¦
+OneVar ¦ T ¦ menu > Statistics > Stat Calculations ¦ OneVar [1,]X[,[Freq][,Category,Include]] ;; OneVar [n,]X1,X2[X3[,...[,X20]]] ¦ One-variable statistics, into stat.results. ¦ OneVar {1,2,3,4} ¦ The results are variables stat.x̄, stat.σx...; stat.results shows them. ¦ X=the data list; X1=the first data list; X2=the second
+TwoVar ¦ T ¦ menu > Statistics > Stat Calculations ¦ TwoVar X,Y[,[Freq][,Category,Include]] ¦ Two-variable statistics. ¦ TwoVar {1,2,3},{2,4,7} ¦ ¦ X=x data; Y=y data
+FiveNumSummary ¦ T ¦ catalog ¦ FiveNumSummary X[,[Freq][,Category,Include]] ¦ Minimum, quartiles, median and maximum. ¦ FiveNumSummary {1,2,3,4,5,6} ¦ ¦ X=the data list
+LinRegMx ¦ T ¦ menu > Statistics > Stat Calculations ¦ LinRegMx X,Y[,[Freq][,Category,Include]] ¦ Fits y=m·x+b. ¦ LinRegMx {1,2,3},{2,4,7} ¦ Results in stat.RegEqn, stat.m, stat.b, stat.r². ¦ X=x data; Y=y data
+LinRegBx ¦ T ¦ menu > Statistics > Stat Calculations ¦ LinRegBx X,Y[,[Freq][,Category,Include]] ¦ Fits y=a+b·x. ¦ LinRegBx {1,2,3},{2,4,7} ¦ ¦ X=x data; Y=y data
+MedMed ¦ T ¦ menu > Statistics > Stat Calculations ¦ MedMed X,Y[,Freq][,Category,Include] ¦ Fits a median-median line. ¦ MedMed {1,2,3,4},{2,4,7,8} ¦ ¦ X=x data; Y=y data
+QuadReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ QuadReg X,Y[,Freq][,Category,Include] ¦ Fits a parabola. ¦ QuadReg {1,2,3,4},{1,4,9,16} ¦ ¦ X=x data; Y=y data
+CubicReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ CubicReg X,Y[,[Freq][,Category,Include]] ¦ Fits a cubic. ¦ CubicReg {0,1,2,3},{0,1,8,27} ¦ ¦ X=x data; Y=y data
+QuartReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ QuartReg X,Y[,Freq][,Category,Include] ¦ Fits a quartic. ¦ QuartReg {0,1,2,3,4},{0,1,16,81,256} ¦ ¦ X=x data; Y=y data
+PowerReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ PowerReg X,Y[,Freq][,Category,Include] ¦ Fits y=a·x^b. ¦ PowerReg {1,2,3},{1,4,9} ¦ ¦ X=x data; Y=y data
+ExpReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ ExpReg X,Y[,[Freq][,Category,Include]] ¦ Fits y=a·b^x. ¦ ExpReg {1,2,3},{2,4,8} ¦ ¦ X=x data; Y=y data
+LnReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ LnReg X,Y[,[Freq][,Category,Include]] ¦ Fits y=a+b·ln(x). ¦ LnReg {1,2,3},{1,2,2.5} ¦ ¦ X=x data; Y=y data
+Logistic ¦ T ¦ menu > Statistics > Stat Calculations ¦ Logistic X,Y[,[Freq][,Category,Include]] ¦ Fits y=c/(1+a·e^(−bx)). ¦ Logistic {1,2,3,4,5},{1,3,6,8,9} ¦ ¦ X=x data; Y=y data
+LogisticD ¦ T ¦ menu > Statistics > Stat Calculations ¦ LogisticD X,Y[,[Iterations],[Freq][,Category,Include]] ¦ Fits y=c/(1+a·e^(−bx))+d. ¦ LogisticD {1,2,3,4,5},{1,3,6,8,9} ¦ ¦ X=x data; Y=y data
+SinReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ SinReg X,Y[,[Iterations],[Period][,Category,Include]] ¦ Fits y=a·sin(bx+c)+d. ¦ SinReg {1,2,3,4,5},{0,1,0,-1,0} ¦ ¦ X=x data; Y=y data
+MultReg ¦ T ¦ menu > Statistics > Stat Calculations ¦ MultReg Y,X1[,X2[,X3,...[,X10]]] ¦ Multiple linear regression of Y on several X lists. ¦ MultReg {3,5,7,10},{1,2,3,4},{0,1,1,2} ¦ ¦ Y=the dependent data; X1=the first independent list; X2=the second
+MultRegIntervals ¦ T ¦ catalog ¦ MultRegIntervals Y,X1[,X2[,X3,...[,X10]]],XValList[,CLevel] ¦ Prediction and confidence intervals from a multiple regression. ¦ MultRegIntervals {3,5,7,10},{1,2,3,4},{2.5} ¦ ¦ Y=the dependent data; X1=the first independent list; X2=the second; XValList=x values to predict at
+MultRegTests ¦ T ¦ catalog ¦ MultRegTests Y,X1[,X2[,X3,...[,X10]]] ¦ Tests for a multiple regression (F test, coefficient t tests). ¦ MultRegTests {3,5,7,10},{1,2,3,4} ¦ ¦ Y=the dependent data; X1=the first independent list; X2=the second
+LinRegtTest ¦ T ¦ menu > Statistics > Stat Tests ¦ LinRegtTest X,Y[,Freq[,Hypoth]] ¦ t test on a regression slope and r. ¦ LinRegtTest {1,2,3,4},{2,4,7,8} ¦ ¦ X=x data; Y=y data
+LinRegtIntervals ¦ T ¦ menu > Statistics > Confidence Intervals ¦ LinRegtIntervals X,Y[,F[,0[,CLev]]] ;; LinRegtIntervals X,Y[,F[,1,Xval[,CLev]]] ¦ Confidence intervals for the slope, or for a prediction at Xval. ¦ LinRegtIntervals {1,2,3,4},{2,4,7,8} ¦ ¦ X=x data; Y=y data; F=frequencies{1}; Xval=the x to predict at
+ANOVA ¦ T ¦ menu > Statistics > Stat Tests ¦ ANOVA List1,List2[,List3,...,List20][,Flag] ¦ One-way analysis of variance of 2 to 20 groups. ¦ ANOVA {1,2,3},{4,5,6} ¦ ¦ Flag=0 for data lists, 1 for stats lists{0}
+ANOVA2way ¦ T ¦ menu > Statistics > Stat Tests ¦ ANOVA2way List1,List2[,List3,...,List10][,levRow] ¦ Two-way analysis of variance. ¦ ANOVA2way {1,2},{3,4},{5,6} ¦ ¦ levRow=levels of the row factor
+zTest ¦ T ¦ menu > Statistics > Stat Tests ¦ zTest μ0,σ,List[,Freq[,Hypoth]] ;; zTest μ0,σ,x̄,n[,Hypoth] ¦ z test of a mean, σ known. ¦ zTest 100,15,105,30,1 ¦ Hypoth: -1 <, 0 ≠, 1 >.
+tTest ¦ T ¦ menu > Statistics > Stat Tests ¦ tTest μ0,List[,Freq[,Hypoth]] ;; tTest μ0,x̄,sx,n[,Hypoth] ¦ t test of a mean. ¦ tTest 100,105,15,30,1 ¦
+zTest_2Samp ¦ T ¦ menu > Statistics > Stat Tests ¦ zTest_2Samp σ1,σ2,List1,List2[,Freq1[,Freq2[,Hypoth]]] ;; zTest_2Samp σ1,σ2,x̄1,n1,x̄2,n2[,Hypoth] ¦ Compares two means, σ known. ¦ zTest_2Samp 2,3,10,40,11,50 ¦
+tTest_2Samp ¦ T ¦ menu > Statistics > Stat Tests ¦ tTest_2Samp List1,List2[,Freq1[,Freq2[,Hypoth[,Pooled]]]] ;; tTest_2Samp x̄1,sx1,n1,x̄2,sx2,n2[,Hypoth[,Pooled]] ¦ Compares two means, σ unknown. ¦ tTest_2Samp 10,2,40,11,3,50 ¦
+zTest_1Prop ¦ T ¦ menu > Statistics > Stat Tests ¦ zTest_1Prop p0,x,n[,Hypoth] ¦ Tests one proportion. ¦ zTest_1Prop 0.5,60,100,1 ¦ ¦ p0=the null proportion; x=successes
+zTest_2Prop ¦ T ¦ menu > Statistics > Stat Tests ¦ zTest_2Prop x1,n1,x2,n2[,Hypoth] ¦ Compares two proportions. ¦ zTest_2Prop 45,100,60,110 ¦ ¦ x1=successes in sample 1; x2=successes in sample 2
+FTest_2Samp ¦ T ¦ menu > Statistics > Stat Tests ¦ FTest_2Samp List1,List2[,Freq1[,Freq2[,Hypoth]]] ;; FTest_2Samp sx1,n1,sx2,n2[,Hypoth] ¦ F test comparing two variances. ¦ FTest_2Samp 2,40,3,50 ¦
+χ²GOF ¦ T ¦ menu > Statistics > Stat Tests ¦ χ²GOF obsList,expList,df ¦ Chi-square goodness of fit. ¦ chi2GOF {10,20,30},{15,20,25},2 ¦ Type chi2GOF on a keyboard. ¦ ¦ pc=chi2GOF
+χ²2way ¦ T ¦ menu > Statistics > Stat Tests ¦ χ²2way obsMatrix ¦ Chi-square test of independence of a two-way table. ¦ chi22way [[10,20][30,40]] ¦ Type chi22way on a keyboard. ¦ ¦ pc=chi22way
+zInterval ¦ T ¦ menu > Statistics > Confidence Intervals ¦ zInterval σ,List[,Freq[,CLevel]] ;; zInterval σ,x̄,n[,CLevel] ¦ Confidence interval for a mean, σ known. ¦ zInterval 15,105,30,0.95 ¦
+tInterval ¦ T ¦ menu > Statistics > Confidence Intervals ¦ tInterval List[,Freq[,CLevel]] ;; tInterval x̄,sx,n[,CLevel] ¦ Confidence interval for a mean, σ unknown. ¦ tInterval 105,15,30,0.95 ¦
+zInterval_2Samp ¦ T ¦ menu > Statistics > Confidence Intervals ¦ zInterval_2Samp σ1,σ2,List1,List2[,Freq1[,Freq2,[CLevel]]] ;; zInterval_2Samp σ1,σ2,x̄1,n1,x̄2,n2[,CLevel] ¦ Interval for the difference of two means, σ known. ¦ zInterval_2Samp 2,3,10,40,11,50 ¦
+tInterval_2Samp ¦ T ¦ menu > Statistics > Confidence Intervals ¦ tInterval_2Samp List1,List2[,Freq1[,Freq2[,CLevel[,Pooled]]]] ;; tInterval_2Samp x̄1,sx1,n1,x̄2,sx2,n2[,CLevel[,Pooled]] ¦ Interval for the difference of two means, σ unknown. ¦ tInterval_2Samp 10,2,40,11,3,50 ¦
+zInterval_1Prop ¦ T ¦ menu > Statistics > Confidence Intervals ¦ zInterval_1Prop x,n[,CLevel] ¦ Confidence interval for one proportion. ¦ zInterval_1Prop 60,100,0.95 ¦ ¦ x=successes
+zInterval_2Prop ¦ T ¦ menu > Statistics > Confidence Intervals ¦ zInterval_2Prop x1,n1,x2,n2[,CLevel] ¦ Interval for the difference of two proportions. ¦ zInterval_2Prop 45,100,60,110 ¦ ¦ x1=successes in sample 1; x2=successes in sample 2
+stat.results ¦ T ¦ catalog ¦ stat.results ¦ Shows the results of the last statistics command as a table. ¦ stat.results ¦
+stat.values ¦ T ¦ catalog ¦ stat.values ¦ The values of the last statistics results, as a matrix. ¦ stat.values ¦
+# ---- Distributions and probability ----
+normPdf( ¦ P ¦ menu > Probability > Distributions ¦ normPdf(XVal[,μ[,σ]]) ⇒ number ¦ Normal density at XVal. ¦ normPdf(0) ¦
+normCdf( ¦ P ¦ menu > Probability > Distributions ¦ normCdf(lowBound,upBound[,μ[,σ]]) ⇒ number ¦ Normal probability between two bounds. ¦ normCdf(-1,1) ¦ Use -∞ or ∞ for open ends.
+invNorm( ¦ P ¦ menu > Probability > Distributions ¦ invNorm(Area[,μ[,σ]]) ⇒ number ¦ Inverse normal: the value with a given left area. ¦ invNorm(0.975) ¦
+tPdf( ¦ P ¦ menu > Probability > Distributions ¦ tPdf(XVal,df) ⇒ number ¦ Student-t density. ¦ tPdf(0,10) ¦
+tCdf( ¦ P ¦ menu > Probability > Distributions ¦ tCdf(lowBound,upBound,df) ⇒ number ¦ Student-t probability between bounds. ¦ tCdf(-2,2,10) ¦
+invt( ¦ P ¦ menu > Probability > Distributions ¦ invt(Area,df) ⇒ number ¦ Inverse Student-t. ¦ invt(0.975,10) ¦
+χ²Pdf( ¦ P ¦ menu > Probability > Distributions ¦ χ²Pdf(XVal,df) ⇒ number ¦ Chi-square density. ¦ chi2Pdf(2,3) ¦ Type chi2Pdf( on a keyboard. ¦ ¦ pc=chi2Pdf(
+χ²Cdf( ¦ P ¦ menu > Probability > Distributions ¦ χ²Cdf(lowBound,upBound,df) ⇒ number ¦ Chi-square probability between bounds. ¦ chi2Cdf(0,3.84,1) ¦ ¦ ¦ pc=chi2Cdf(
+invχ²( ¦ P ¦ menu > Probability > Distributions ¦ invχ²(Area,df) ⇒ number ¦ Inverse chi-square. ¦ invchi2(0.95,1) ¦  ¦  ¦ pc=invchi2(;g
+FPdf( ¦ P ¦ menu > Probability > Distributions ¦ FPdf(XVal,dfNumer,dfDenom) ⇒ number ¦ F density. ¦ FPdf(1,5,10) ¦
+FCdf( ¦ P ¦ menu > Probability > Distributions ¦ FCdf(lowBound,upBound,dfNumer,dfDenom) ⇒ number ¦ F probability between bounds. ¦ FCdf(0,2,5,10) ¦
+invF( ¦ P ¦ menu > Probability > Distributions ¦ invF(Area,dfNumer,dfDenom) ⇒ number ¦ Inverse F. ¦ invF(0.95,5,10) ¦
+binomPdf( ¦ P ¦ menu > Probability > Distributions ¦ binomPdf(n,p) ⇒ list ;; binomPdf(n,p,XVal) ⇒ number ¦ Binomial probability of exactly XVal successes (or the whole table). ¦ binomPdf(10,0.5,3) ¦ ¦ n=the number of trials; XVal=the number of successes
+binomCdf( ¦ P ¦ menu > Probability > Distributions ¦ binomCdf(n,p) ⇒ list ;; binomCdf(n,p,upBound) ⇒ number ;; binomCdf(n,p,lowBound,upBound) ⇒ number ¦ Binomial probability of a range of successes. ¦ binomCdf(10,0.5,2,5) ¦ ¦ n=the number of trials
+invBinom( ¦ P ¦ menu > Probability > Distributions ¦ invBinom(CumulativeProb,NumTrials,Prob,OutputForm) ⇒ scalar or matrix ¦ Inverse binomial: the success count where the cumulative probability reaches a value. ¦ invBinom(0.5,10,0.5,0) ¦ OS 5.0 and later. ¦ CumulativeProb=the cumulative probability; NumTrials=number of trials; Prob=chance of success; OutputForm=0 for the count, 1 for a table
+invBinomN( ¦ P ¦ menu > Probability > Distributions ¦ invBinomN(CumulativeProb,Prob,NumSuccess,OutputForm) ⇒ scalar or matrix ¦ Inverse binomial: the number of trials needed. ¦ invBinomN(0.05,0.5,2,0) ¦ ¦ CumulativeProb=the cumulative probability; Prob=chance of success; NumSuccess=successes; OutputForm=0 for the count, 1 for a table
+geomPdf( ¦ P ¦ menu > Probability > Distributions ¦ geomPdf(p,XVal) ⇒ number ¦ Geometric probability that the first success is on trial XVal. ¦ geomPdf(0.2,3) ¦
+geomCdf( ¦ P ¦ menu > Probability > Distributions ¦ geomCdf(p,lowBound,upBound) ⇒ number ;; geomCdf(p,upBound) ⇒ number ¦ Geometric probability of the first success in a range of trials. ¦ geomCdf(0.2,1,3) ¦
+poissPdf( ¦ P ¦ menu > Probability > Distributions ¦ poissPdf(λ,XVal) ⇒ number ¦ Poisson probability of exactly XVal events. ¦ poissPdf(3,2) ¦
+poissCdf( ¦ P ¦ menu > Probability > Distributions ¦ poissCdf(λ,lowBound,upBound) ⇒ number ;; poissCdf(λ,upBound) ⇒ number ¦ Poisson probability of a range of counts. ¦ poissCdf(3,0,2) ¦
+nCr( ¦ P ¦ menu > Probability ¦ nCr(Expr1,Expr2) ⇒ expression ¦ Combinations. ¦ nCr(5,2) ¦ ¦ Expr1=how many items (n); Expr2=how many chosen (r)
+nPr( ¦ P ¦ menu > Probability ¦ nPr(Expr1,Expr2) ⇒ expression ¦ Permutations. ¦ nPr(5,2) ¦ ¦ Expr1=how many items (n); Expr2=how many chosen (r)
+rand( ¦ P ¦ menu > Probability > Random ¦ rand() ⇒ expression ;; rand(#Trials) ⇒ list ¦ Random number(s) between 0 and 1. ¦ rand(3) ¦
+randInt( ¦ P ¦ menu > Probability > Random ¦ randInt(lowBound,upBound) ⇒ expression ;; randInt(lowBound,upBound,#Trials) ⇒ list ¦ Random integer(s) in a range. ¦ randInt(1,6) ¦
+randNorm( ¦ P ¦ menu > Probability > Random ¦ randNorm(μ,σ) ⇒ expression ;; randNorm(μ,σ,#Trials) ⇒ list ¦ Random normal number(s). ¦ randNorm(0,1) ¦
+randBin( ¦ P ¦ menu > Probability > Random ¦ randBin(n,p) ⇒ expression ;; randBin(n,p,#Trials) ⇒ list ¦ Random binomial count(s). ¦ randBin(10,0.5) ¦ ¦ n=number of trials
+randSamp( ¦ P ¦ menu > Probability > Random ¦ randSamp(List,#Trials[,noRepl]) ⇒ list ¦ A random sample from a list. ¦ randSamp({1,2,3,4,5},3,1) ¦
+RandSeed ¦ P ¦ menu > Probability > Random ¦ RandSeed Number ¦ Seeds the random generator (0 resets it). ¦ RandSeed 1147 ¦
+# ---- Strings ----
+" ¦ S ¦ ctrl × ¦ "text" ¦ A string. ¦ "hello"=:s ¦ =: is typed store (→). ¦ ¦ noex
+& ¦ S ¦ ctrl × ¦ String1&String2 ⇒ string ¦ Joins two strings. ¦ "ab"&"cd" ¦
+char( ¦ S ¦ catalog ¦ char(Integer) ⇒ character ¦ The character with a code. ¦ char(65) ¦
+ord( ¦ S ¦ catalog ¦ ord(String) ⇒ integer ;; ord(List1) ⇒ list ¦ Code of the first character. ¦ ord("A") ¦
+string( ¦ S ¦ catalog ¦ string(Expr) ⇒ string ¦ An expression as a string. ¦ string(1+2) ¦
+expr( ¦ S ¦ catalog ¦ expr(String) ⇒ expression ¦ Evaluates a string. ¦ expr("1+2+x^2") ¦
+inString( ¦ S ¦ catalog ¦ inString(srcString,subString[,Start]) ⇒ integer ¦ Position of a substring (0 if absent). ¦ inString("Hello there","the") ¦
+format( ¦ S ¦ catalog ¦ format(Expr[,formatString]) ⇒ string ¦ A number as text in a format: "F3" fixed, "S2" sci, "E2" eng, "G2" general. ¦ format(1.234567,"f3") ¦ ¦ formatString=e.g. "F3", "S2", "E2", "G2"{the document's format}
+rotate( ¦ B ¦ catalog ¦ rotate(Integer1[,#ofRotations]) ⇒ integer ;; rotate(List1[,#ofRotations]) ⇒ list ;; rotate(String1[,#ofRotations]) ⇒ string ¦ Rotates bits, list elements or characters. ¦ rotate("abcd",1) ¦ ¦ String1=a string
+shift( ¦ B ¦ catalog ¦ shift(Integer1[,#ofShifts]) ⇒ integer ;; shift(List1[,#ofShifts]) ⇒ list ;; shift(String1[,#ofShifts]) ⇒ string ¦ Shifts bits, elements (filling with void) or characters (filling with spaces). ¦ shift({1,2,3,4},1) ¦ ¦ String1=a string
+# ---- Base and logic ----
+►Base2 ¦ B ¦ menu > Number > Base ¦ Integer1►Base2 ⇒ integer ¦ Shows an integer in binary. ¦ 256►Base2 ¦ Type @>Base2 on a keyboard. ¦ ¦ pc=@>Base2
+►Base10 ¦ B ¦ menu > Number > Base ¦ Integer1►Base10 ⇒ integer ¦ Shows an integer in decimal. ¦ 0b10011►Base10 ¦ ¦ ¦ pc=@>Base10
+►Base16 ¦ B ¦ menu > Number > Base ¦ Integer1►Base16 ⇒ integer ¦ Shows an integer in hexadecimal. ¦ 255►Base16 ¦ ¦ ¦ pc=@>Base16
+and ¦ B ¦ catalog ¦ BooleanExpr1 and BooleanExpr2 ⇒ Boolean expression ;; Integer1 and Integer2 ⇒ integer ¦ Logical and; on integers bit by bit (64-bit). ¦ x>=3 and x<=4 ¦
+or ¦ B ¦ catalog ¦ BooleanExpr1 or BooleanExpr2 ⇒ Boolean expression ;; Integer1 or Integer2 ⇒ integer ¦ Logical or; bitwise on integers. ¦ x<0 or x>5 ¦
+xor ¦ B ¦ catalog ¦ BooleanExpr1 xor BooleanExpr2 ⇒ Boolean expression ;; Integer1 xor Integer2 ⇒ integer ¦ Exclusive or. ¦ true xor false ¦
+not ¦ B ¦ catalog ¦ not BooleanExpr ⇒ Boolean expression ;; not Integer1 ⇒ integer ¦ Logical not; on an integer the one's complement. ¦ not 2>=3 ¦
+nand ¦ B ¦ ctrl = ¦ BooleanExpr1 nand BooleanExpr2 ⇒ Boolean expression ;; Integer1 nand Integer2 ⇒ integer ¦ Not-and. ¦ true nand false ¦
+nor ¦ B ¦ ctrl = ¦ BooleanExpr1 nor BooleanExpr2 ⇒ Boolean expression ;; Integer1 nor Integer2 ⇒ integer ¦ Not-or. ¦ false nor false ¦
+⇒ ¦ B ¦ ctrl = ¦ BooleanExpr1 ⇒ BooleanExpr2 ¦ Logical implication (false only when the left is true and the right false). ¦ true=>false ¦ Type => on a keyboard. ¦ ¦ pc==>
+⇔ ¦ B ¦ ctrl = ¦ BooleanExpr1 ⇔ BooleanExpr2 ¦ Logical double implication (XNOR). ¦ true<=>true ¦ Type <=> on a keyboard. ¦ ¦ pc=<=>
+= ¦ B ¦ = ¦ Expr1=Expr2 ⇒ Boolean expression ¦ Equation, or a test of equality. ¦ 2+2=4 ¦
+≠ ¦ B ¦ ctrl = ¦ Expr1≠Expr2 ⇒ Boolean expression ¦ Not equal. ¦ 3/=4 ¦ Type /= on a keyboard. ¦ ¦ pc=/=
+< ¦ B ¦ ctrl = ¦ Expr1<Expr2 ⇒ Boolean expression ¦ Less than. ¦ 2<3 ¦
+≤ ¦ B ¦ ctrl = ¦ Expr1≤Expr2 ⇒ Boolean expression ¦ Less or equal. ¦ 2<=3 ¦ Type <= on a keyboard. ¦ ¦ pc=<=
+> ¦ B ¦ ctrl = ¦ Expr1>Expr2 ⇒ Boolean expression ¦ Greater than. ¦ 3>2 ¦
+≥ ¦ B ¦ ctrl = ¦ Expr1≥Expr2 ⇒ Boolean expression ¦ Greater or equal. ¦ 3>=3 ¦ ¦ ¦ pc=>=
+# ---- Angles and units ----
+° ¦ U ¦ π key menu ¦ Expr1° ⇒ expression ¦ Marks an angle as degrees. ¦ cos(60@d) ¦ Type @d on a keyboard. ¦ ¦ pc=@d
+ʳ ¦ U ¦ π key menu ¦ Expr1ʳ ⇒ expression ¦ Marks an angle as radians. ¦ cos((pi/3)@r) ¦ Type @r on a keyboard. ¦  ¦ pc=@r;g
+ᵍ ¦ U ¦ π key menu ¦ Expr1ᵍ ⇒ expression ¦ Marks an angle as gradians. ¦ cos(100@g) ¦ Type @g on a keyboard. ¦  ¦ pc=@g;g
+►DMS ¦ U ¦ catalog ¦ Expr►DMS ¦ Shows an angle in degrees, minutes, seconds. ¦ 45.371►DMS ¦ ¦ ¦ pc=@>DMS
+►DD ¦ U ¦ catalog ¦ Expr1►DD ⇒ value ¦ Shows an angle in decimal degrees. ¦ 1.5@r►DD ¦ ¦ ¦ pc=@>DD
+►Rad ¦ U ¦ catalog ¦ Expr1►Rad ⇒ expression ¦ Converts an angle to radians. ¦ 90@d►Rad ¦ ¦ ¦ pc=@>Rad
+►Grad ¦ U ¦ catalog ¦ Expr1►Grad ⇒ expression ¦ Converts an angle to gradians. ¦ 90@d►Grad ¦ ¦ ¦ pc=@>Grad
+P►Rx( ¦ U ¦ catalog ¦ P►Rx(rExpr,θExpr) ⇒ expression ¦ x of a polar point. ¦ P►Rx(2,pi/3) ¦ ¦ rExpr=the distance; θExpr=the angle ¦ pc=P@>Rx(
+P►Ry( ¦ U ¦ catalog ¦ P►Ry(rExpr,θExpr) ⇒ expression ¦ y of a polar point. ¦ P►Ry(2,pi/3) ¦ ¦ rExpr=the distance; θExpr=the angle ¦ pc=P@>Ry(
+R►Pr( ¦ U ¦ catalog ¦ R►Pr(xExpr,yExpr) ⇒ expression ¦ Distance r of a rectangular point. ¦ R►Pr(3,4) ¦ ¦ xExpr=the x coordinate; yExpr=the y coordinate ¦ pc=R@>Pr(
+R►Pθ( ¦ U ¦ catalog ¦ R►Pθ(xExpr,yExpr) ⇒ expression ¦ Angle θ of a rectangular point. ¦ R►Pθ(-1,1) ¦ ¦ xExpr=the x coordinate; yExpr=the y coordinate ¦ pc=R@>Ptheta(
+► ¦ U ¦ ctrl catalog (symbols) ¦ Expr_Unit1►_Unit2 ⇒ Expr_Unit2 ¦ Converts a value with units. ¦ 3_m►_ft ¦ Type @> on a keyboard; units start with _. ¦ Expr_Unit1=a value with its unit; _Unit2=the unit wanted ¦ pc=@>
+_ ¦ U ¦ ctrl catalog (symbols) ¦ Expr_Unit ¦ Marks a unit (5_m), or a void element when alone. ¦ 5_m ¦ ¦ Expr_Unit=a value followed by _ and a unit
+tmpCnv( ¦ U ¦ catalog ¦ tmpCnv(Expr_°tempUnit,_°tempUnit2) ⇒ expression ¦ Converts a temperature reading. ¦ tmpCnv(100_°C,_°F) ¦ For differences use ΔtmpCnv(. ¦ Expr_°tempUnit=a temperature with its unit; _°tempUnit2=the unit wanted
+ΔtmpCnv( ¦ U ¦ catalog ¦ ΔtmpCnv(Expr_°tempUnit,_°tempUnit2) ⇒ expression ¦ Converts a temperature difference. ¦ deltaTmpCnv(100_°C,_°F) ¦ Type deltaTmpCnv( on a keyboard. ¦ Expr_°tempUnit=a temperature range with its unit; _°tempUnit2=the unit wanted ¦ pc=deltaTmpCnv(
+►Decimal ¦ U ¦ catalog ¦ Expression1►Decimal ⇒ expression ¦ Shows a result as a decimal. ¦ 1/3►Decimal ¦ ¦ Expression1=the value ¦ pc=@>Decimal
+# ---- Finance ----
+tvmFV( ¦ N ¦ menu > Finance > TVM Functions ¦ tvmFV(N,I,PV,Pmt,[PpY],[CpY],[PmtAt]) ⇒ value ¦ Future value of money. ¦ tvmFV(120,4,0,-100,12,12) ¦ ¦ N=number of payments
+tvmI( ¦ N ¦ menu > Finance > TVM Functions ¦ tvmI(N,PV,Pmt,FV,[PpY],[CpY],[PmtAt]) ⇒ value ¦ Yearly interest rate. ¦ tvmI(60,20000,-400,0,12,12) ¦ ¦ N=number of payments
+tvmN( ¦ N ¦ menu > Finance > TVM Functions ¦ tvmN(I,PV,Pmt,FV,[PpY],[CpY],[PmtAt]) ⇒ value ¦ Number of payments. ¦ tvmN(5,20000,-400,0,12,12) ¦
+tvmPmt( ¦ N ¦ menu > Finance > TVM Functions ¦ tvmPmt(N,I,PV,FV,[PpY],[CpY],[PmtAt]) ⇒ value ¦ Payment per period. ¦ tvmPmt(360,6,200000,0,12,12) ¦ ¦ N=number of payments
+tvmPV( ¦ N ¦ menu > Finance > TVM Functions ¦ tvmPV(N,I,Pmt,FV,[PpY],[CpY],[PmtAt]) ⇒ value ¦ Present value. ¦ tvmPV(60,5,-400,0,12,12) ¦ ¦ N=number of payments
+amortTbl( ¦ N ¦ menu > Finance > Amortization ¦ amortTbl(NPmt,N,I,PV,[Pmt],[FV],[PpY],[CpY],[PmtAt],[roundValue]) ⇒ matrix ¦ An amortization table: payment, interest, principal, balance. ¦ amortTbl(12,60,5,20000) ¦ ¦ NPmt=how many payments in the table; N=number of payments
+bal( ¦ N ¦ menu > Finance > Amortization ¦ bal(NPmt,N,I,PV,[Pmt],[FV],[PpY],[CpY],[PmtAt],[roundValue]) ⇒ value ;; bal(NPmt,amortTable) ⇒ value ¦ Balance after a payment. ¦ bal(12,60,5,20000) ¦ ¦ N=number of payments
+ΣInt( ¦ N ¦ menu > Finance > Amortization ¦ ΣInt(NPmt1,NPmt2,N,I,PV,[Pmt],[FV],[PpY],[CpY],[PmtAt],[roundValue]) ⇒ value ;; ΣInt(NPmt1,NPmt2,amortTable) ⇒ value ¦ Interest paid over a range of payments. ¦ ΣInt(1,12,60,5,20000) ¦ ¦ N=number of payments
+ΣPrn( ¦ N ¦ menu > Finance > Amortization ¦ ΣPrn(NPmt1,NPmt2,N,I,PV,[Pmt],[FV],[PpY],[CpY],[PmtAt],[roundValue]) ⇒ value ;; ΣPrn(NPmt1,NPmt2,amortTable) ⇒ value ¦ Principal paid over a range of payments. ¦ ΣPrn(1,12,60,5,20000) ¦ ¦ N=number of payments
+npv( ¦ N ¦ menu > Finance > Cash Flows ¦ npv(InterestRate,CFO,CFList[,CFFreq]) ⇒ value ¦ Net present value. ¦ npv(10,-1000,{300,400,500}) ¦ ¦ CFO=the cash flow at time 0
+irr( ¦ N ¦ menu > Finance > Cash Flows ¦ irr(CF0,CFList[,CFFreq]) ⇒ value ¦ Internal rate of return. ¦ irr(-1000,{300,400,500}) ¦
+mirr( ¦ N ¦ menu > Finance > Cash Flows ¦ mirr(financeRate,reinvestRate,CF0,CFList[,CFFreq]) ⇒ value ¦ Modified internal rate of return. ¦ mirr(4.65,12,5000,{-6000,-8000,2000,-3000}) ¦ ¦ financeRate=rate paid on borrowed money; reinvestRate=rate earned on reinvestment
+eff( ¦ N ¦ menu > Finance > Interest Conversion ¦ eff(nominalRate,CpY) ⇒ value ¦ Nominal to effective rate. ¦ eff(5.75,12) ¦
+nom( ¦ N ¦ menu > Finance > Interest Conversion ¦ nom(effectiveRate,CpY) ⇒ value ¦ Effective to nominal rate. ¦ nom(5.90,12) ¦
+dbd( ¦ N ¦ menu > Finance ¦ dbd(date1,date2) ⇒ value ¦ Days between two dates (MM.DDYY or DDMM.YY). ¦ dbd(12.3103,1.0104) ¦ ¦ date1=the first date; date2=the second date
+# ---- Programming ----
+Define ¦ F ¦ menu > Functions & Programs ¦ Define Var=Expression ;; Define Function(Param1,Param2,...)=Expression ;; Define Function(Param1,Param2,...)=Func Block EndFunc ;; Define Program(Param1,Param2,...)=Prgm Block EndPrgm ¦ Defines a variable, function or program. ¦ Define f(x)=x^2+1 ¦ In the Program Editor the Define line is written for you. ¦ Var=the name; Expression=its value; Function=the function's name; Param1=a parameter; Param2=another; Block=the commands; Program=the program's name
+Define LibPub ¦ F ¦ catalog ¦ Define LibPub Var=Expression ;; Define LibPub Function(Param1,Param2,...)=Expression ;; Define LibPub Program(Param1,Param2,...)=Prgm Block EndPrgm ¦ Defines a public library object (shows in the catalog after Refresh Libraries). ¦ Define LibPub f(x)=x^2 ¦ The document must be saved in MyLib. ¦ Var=the name; Expression=its value; Function=the function's name; Param1=a parameter; Param2=another; Block=the commands; Program=the program's name
+Define LibPriv ¦ F ¦ catalog ¦ Define LibPriv Var=Expression ;; Define LibPriv Function(Param1,Param2,...)=Expression ;; Define LibPriv Program(Param1,Param2,...)=Prgm Block EndPrgm ¦ Defines a private library object (usable by full name, not in the catalog). ¦ Define LibPriv g(x)=x+1 ¦ ¦ Var=the name; Expression=its value; Function=the function's name; Param1=a parameter; Param2=another; Block=the commands; Program=the program's name
+Prgm ¦ F ¦ catalog ¦ Prgm Block EndPrgm ¦ The body of a program. ¦ Prgm ¦ ¦ Block=the commands
+EndPrgm ¦ F ¦ catalog ¦ EndPrgm ¦ Ends a program. ¦ EndPrgm ¦ ¦ ¦ g
+Func ¦ F ¦ catalog ¦ Func Block EndFunc ¦ The body of a function (returns a value; can't change globals). ¦ Func ¦ ¦ Block=the commands
+EndFunc ¦ F ¦ catalog ¦ EndFunc ¦ Ends a function. ¦ EndFunc ¦ ¦ ¦ g
+Local ¦ F ¦ menu > Define Variables (editor) ¦ Local Var1[,Var2][,Var3]... ¦ Declares variables that exist only inside the program or function. ¦ Local i,s ¦
+Return ¦ F ¦ menu > Transfers (editor) ¦ Return [Expr] ¦ Leaves a function with a value (or a program early). ¦ Return x^2 ¦
+If ¦ F ¦ menu > Control (editor) ¦ If BooleanExpr Statement ;; If BooleanExpr Then Block EndIf ;; If BooleanExpr1 Then Block1 ElseIf BooleanExpr2 Then Block2 Else Block3 EndIf ¦ Runs a statement or block only when a condition is true. ¦ If x>5 Then:Disp "big":EndIf ¦ ¦ Statement=one command; Block=commands; Block1=commands when BooleanExpr1 holds; Block2=commands when BooleanExpr2 holds; Block3=commands otherwise
+Then ¦ F ¦ menu > Control (editor) ¦ If BooleanExpr Then ¦ Starts an If block. ¦ If x=1 Then:Disp 1:EndIf ¦ ¦ ¦ g
+ElseIf ¦ F ¦ menu > Control (editor) ¦ ElseIf BooleanExpr Then ¦ Another test inside an If block. ¦ If x<0 Then:Disp "neg":ElseIf x=0 Then:Disp "zero":EndIf ¦
+Else ¦ F ¦ menu > Control (editor) ¦ Else ¦ Starts the block run when the If test is false. ¦ If x Then:Disp 1:Else:Disp 0:EndIf ¦ ¦ ¦ g
+EndIf ¦ F ¦ menu > Control (editor) ¦ EndIf ¦ Ends an If block. ¦ EndIf ¦ ¦ ¦ g
+For ¦ F ¦ menu > Control (editor) ¦ For Var,Low,High[,Step] Block EndFor ¦ Repeats a block while Var steps from Low to High. ¦ For i,1,5:Disp i:EndFor ¦ ¦ Step=the step{1}; Block=the loop body
+EndFor ¦ F ¦ menu > Control (editor) ¦ EndFor ¦ Ends a For loop. ¦ EndFor ¦ ¦ ¦ g
+While ¦ F ¦ menu > Control (editor) ¦ While Condition Block EndWhile ¦ Repeats a block while a condition is true. ¦ While x<10:x:=x+1:EndWhile ¦ ¦ Block=the loop body
+EndWhile ¦ F ¦ menu > Control (editor) ¦ EndWhile ¦ Ends a While loop. ¦ EndWhile ¦ ¦ ¦ g
+Loop ¦ F ¦ menu > Control (editor) ¦ Loop Block EndLoop ¦ Repeats a block forever (leave with Exit, Goto or Return). ¦ Loop:If getKey()="esc":Exit:EndLoop ¦ ¦ Block=the loop body
+EndLoop ¦ F ¦ menu > Control (editor) ¦ EndLoop ¦ Ends a Loop. ¦ EndLoop ¦ ¦ ¦ g
+Exit ¦ F ¦ menu > Transfers (editor) ¦ Exit ¦ Leaves the current For, While or Loop. ¦ Exit ¦
+Cycle ¦ F ¦ menu > Transfers (editor) ¦ Cycle ¦ Goes on to the next pass of a loop. ¦ Cycle ¦
+Lbl ¦ F ¦ menu > Transfers (editor) ¦ Lbl labelName ¦ Marks a place for Goto. ¦ Lbl top ¦
+Goto ¦ F ¦ menu > Transfers (editor) ¦ Goto labelName ¦ Jumps to a Lbl. ¦ Goto top ¦
+Try ¦ F ¦ catalog ¦ Try Block1 Else Block2 EndTry ¦ Runs Block1; on an error runs Block2 (errCode has the error number). ¦ Try:a:=1/0:Else:Disp "error":ClrErr:EndTry ¦ ¦ Block1=commands that might fail; Block2=what to do on an error
+EndTry ¦ F ¦ catalog ¦ EndTry ¦ Ends a Try block. ¦ EndTry ¦ ¦ ¦ g
+ClrErr ¦ F ¦ catalog ¦ ClrErr ¦ Clears the error inside a Try's Else block. ¦ ClrErr ¦
+PassErr ¦ F ¦ catalog ¦ PassErr ¦ Passes the error on to the next handler. ¦ PassErr ¦
+Stop ¦ F ¦ menu > Transfers (editor) ¦ Stop ¦ Ends the program (not allowed in functions). ¦ Stop ¦
+Wait ¦ F ¦ catalog ¦ Wait timeInSeconds ¦ Pauses for a number of seconds (CX II). ¦ Wait 0.5 ¦ Up to 100 s; ESC breaks it.
+warnCodes( ¦ F ¦ catalog ¦ warnCodes(Expr1,StatusVar) ⇒ expression ¦ Evaluates an expression and stores any warning codes in a list. ¦ warnCodes(solve(x^2=1,x),w) ¦ ¦ StatusVar=the list of warning numbers
+Disp ¦ I ¦ menu > I/O (editor) ¦ Disp exprOrString1[,exprOrString2]... ¦ Shows values or text in the Calculator history. ¦ Disp "x=",x ¦
+DispAt ¦ I ¦ menu > I/O (editor) ¦ DispAt int,expr1[,expr2...]... ¦ Writes on a given line of the Calculator page, replacing what was there (CX II). ¦ DispAt 1,"N: ",n ¦ Lines 1-8. ¦ int=the line number 1-8; expr1=what to show; expr2=more to show
+Request ¦ I ¦ menu > I/O (editor) ¦ Request promptString,var[,DispFlag[,statusVar]] ;; Request promptString,func(arg1,...argn)[,DispFlag[,statusVar]] ¦ A dialog asking for a value (stored as an expression). ¦ Request "Radius: ",r ¦ ¦ var=where the answer goes; func=a function to define; arg1=its parameter
+RequestStr ¦ I ¦ menu > I/O (editor) ¦ RequestStr promptString,var[,DispFlag] ¦ A dialog asking for text (stored as a string). ¦ RequestStr "Your name:",name,0 ¦ ¦ var=where the text goes
+Text ¦ I ¦ menu > I/O (editor) ¦ Text promptString[,DispFlag] ¦ A message dialog with OK. ¦ Text "Done" ¦
+getKey( ¦ I ¦ menu > I/O (editor) ¦ getKey([0|1]) ⇒ returnString ¦ The key pressed, as a name like "enter" or "a" ("" if none); getKey(1) waits. ¦ getKey(1) ¦ CX II, OS 5.0 and later. ¦ 0=don't wait; 1=wait for a key
+ClearAZ ¦ V ¦ catalog ¦ ClearAZ ¦ Deletes every one-letter variable in the problem. ¦ ClearAZ ¦
+DelVar ¦ V ¦ catalog ¦ DelVar Var1[,Var2][,Var3]... ;; DelVar Var. ¦ Deletes variables (or a whole group with "name."). ¦ DelVar x,y ¦ Needed before using a stored letter as an unknown in solve( or d(.
+CopyVar ¦ V ¦ catalog ¦ CopyVar Var1,Var2 ;; CopyVar Var1.,Var2. ¦ Copies a variable (or a group). ¦ CopyVar a,b ¦ ¦ Var1=the source; Var2=the copy
+Lock ¦ V ¦ catalog ¦ Lock Var1[,Var2][,Var3]... ;; Lock Var. ¦ Locks variables against changes. ¦ Lock a ¦
+unLock ¦ V ¦ catalog ¦ unLock Var1[,Var2][,Var3]... ;; unLock Var. ¦ Unlocks variables. ¦ unLock a ¦
+getLockInfo( ¦ V ¦ catalog ¦ getLockInfo(Var) ⇒ value ¦ 1 if a variable is locked, 0 if not. ¦ getLockInfo(a) ¦
+getType( ¦ V ¦ catalog ¦ getType(var) ⇒ string ¦ A variable's type: "NUM", "EXPR", "LIST", "MAT", "STR", "FUNC", "PRGM"... ¦ getType(a) ¦
+getVarInfo( ¦ V ¦ catalog ¦ getVarInfo() ⇒ matrix or string ;; getVarInfo(LibNameString) ⇒ matrix or string ¦ A table of the variables in the problem (or in a library). ¦ getVarInfo() ¦ ¦ LibNameString=a library document's name
+libShortcut( ¦ V ¦ catalog ¦ libShortcut(LibNameString,ShortcutNameString[,LibPrivFlag]) ⇒ list of variables ¦ Makes short names for a library's objects in a group. ¦ libShortcut("linalg","la") ¦ ¦ LibNameString=the library; ShortcutNameString=the short group name; LibPrivFlag=1 to include private objects{0}
+# ¦ V ¦ ctrl catalog (symbols) ¦ #varNameString ¦ Indirection: uses the variable named by a string. ¦ #("x"&"1") ¦
+→ ¦ V ¦ ctrl var ¦ Expr→Var ¦ Stores a value in a variable. ¦ 5=:a ¦ Type =: on a keyboard. ¦ Expr=what to store; Var=the variable ¦ pc==:
+:= ¦ V ¦ ctrl catalog (symbols) ¦ Var:=Expr ¦ Assigns a value to a variable. ¦ a:=5 ¦ Same as → the other way round. ¦ Var=the variable; Expr=its value
+© ¦ F ¦ ctrl catalog (symbols) ¦ © text ¦ A comment: the rest of the line is ignored. ¦ ©a note ¦ ¦ text=any text
+getMode( ¦ O ¦ catalog ¦ getMode(ModeNameInteger) ⇒ value ;; getMode(0) ⇒ list ¦ A document setting as a number (getMode(0) gives all). ¦ getMode(2) ¦ 1 display digits, 2 angle, 3 exponential format, 4 real or complex, 5 auto or approx, 6 vector format, 7 base, 8 unit system.
+setMode( ¦ O ¦ catalog ¦ setMode(modeNameInteger,settingInteger) ⇒ integer ;; setMode(list) ⇒ integer list ¦ Changes a setting while a program or function runs (back afterwards). ¦ setMode(2,1) ¦ Angle 2: 1 radian, 2 degree, 3 gradian. ¦ list=pairs of mode and setting numbers
+getLangInfo( ¦ O ¦ catalog ¦ getLangInfo() ⇒ string ¦ The language, as a short code like "en". ¦ getLangInfo() ¦
+getPlatform( ¦ O ¦ catalog ¦ getPlatform() ¦ "hh" on the handheld, "dt" on the desktop, "ios" on the app. ¦ getPlatform() ¦ CX II.
+RefreshProbeVars ¦ I ¦ catalog ¦ RefreshProbeVars ¦ Reads the connected sensors into their variables. ¦ RefreshProbeVars ¦
+# ---- CX II drawing (the program's graphics screen) ----
+Clear ¦ G ¦ menu > Drawing (editor) ¦ Clear x,y,width,height ;; Clear ¦ Clears the drawing screen, or a rectangle of it. ¦ Clear 10,10,100,50 ¦ Pixels: 318 x 212, (0,0) top left.
+DrawArc ¦ G ¦ menu > Drawing (editor) ¦ DrawArc x,y,width,height,startAngle,arcAngle ¦ Draws an arc inside a box. ¦ DrawArc 20,20,100,100,0,90 ¦ ¦ x=left of the box; y=top of the box
+DrawCircle ¦ G ¦ menu > Drawing (editor) ¦ DrawCircle x,y,radius ¦ Draws a circle. ¦ DrawCircle 150,150,40 ¦ ¦ x=centre x; y=centre y
+DrawLine ¦ G ¦ menu > Drawing (editor) ¦ DrawLine x1,y1,x2,y2 ¦ Draws a line. ¦ DrawLine 10,10,150,200 ¦ ¦ x1=start x; y1=start y; x2=end x; y2=end y
+DrawPoly ¦ G ¦ menu > Drawing (editor) ¦ DrawPoly xlist,ylist ;; DrawPoly x1,y1,x2,y2,x3,y3...xn,yn ¦ Draws a polygon outline. ¦ DrawPoly {0,100,50},{0,0,80} ¦ ¦ x1=first x; y1=first y; x2=second x; y2=second y; x3=third x; y3=third y; xn=last x; yn=last y
+DrawRect ¦ G ¦ menu > Drawing (editor) ¦ DrawRect x,y,width,height ¦ Draws a rectangle outline. ¦ DrawRect 25,25,100,50 ¦ ¦ x=left; y=top
+DrawText ¦ G ¦ menu > Drawing (editor) ¦ DrawText x,y,exprOrString1[,exprOrString2]... ¦ Writes text at a pixel position. ¦ DrawText 50,50,"Hello World" ¦ ¦ x=left; y=the text's baseline
+FillArc ¦ G ¦ menu > Drawing (editor) ¦ FillArc x,y,width,height,startAngle,arcAngle ¦ Draws a filled arc (a pie slice). ¦ FillArc 50,50,100,100,0,180 ¦ ¦ x=left of the box; y=top of the box
+FillCircle ¦ G ¦ menu > Drawing (editor) ¦ FillCircle x,y,radius ¦ Draws a filled circle. ¦ FillCircle 150,150,40 ¦ ¦ x=centre x; y=centre y
+FillPoly ¦ G ¦ menu > Drawing (editor) ¦ FillPoly xlist,ylist ;; FillPoly x1,y1,x2,y2,x3,y3...xn,yn ¦ Draws a filled polygon. ¦ FillPoly {0,100,50},{0,0,80} ¦ ¦ x1=first x; y1=first y; x2=second x; y2=second y; x3=third x; y3=third y; xn=last x; yn=last y
+FillRect ¦ G ¦ menu > Drawing (editor) ¦ FillRect x,y,width,height ¦ Draws a filled rectangle. ¦ FillRect 25,25,100,50 ¦ ¦ x=left; y=top
+PlotXY ¦ G ¦ menu > Drawing (editor) ¦ PlotXY x,y,shape ¦ Plots a point with a marker shape (1-13). ¦ PlotXY 100,100,1 ¦
+SetColor ¦ G ¦ menu > Drawing (editor) ¦ SetColor r-value,g-value,b-value ¦ Sets the colour for later drawing. ¦ SetColor 255,0,0 ¦ ¦ r-value=red 0-255; g-value=green 0-255; b-value=blue 0-255
+SetPen ¦ G ¦ menu > Drawing (editor) ¦ SetPen thickness,style ¦ Sets the line thickness (1-3) and style (1 solid, 2 dashed, 3 dotted). ¦ SetPen 3,3 ¦ ¦ thickness=1 thin, 2 medium, 3 thick; style=1 solid, 2 dashed, 3 dotted
+SetWindow ¦ G ¦ menu > Drawing (editor) ¦ SetWindow xMin,xMax,yMin,yMax ¦ Switches to math coordinates (0,0,0,0 returns to pixels). ¦ SetWindow 0,160,0,120 ¦
+UseBuffer ¦ G ¦ menu > Drawing (editor) ¦ UseBuffer ¦ Draws off-screen until PaintBuffer (smooth animation). ¦ UseBuffer ¦
+PaintBuffer ¦ G ¦ menu > Drawing (editor) ¦ PaintBuffer ¦ Shows what was drawn since UseBuffer. ¦ PaintBuffer ¦

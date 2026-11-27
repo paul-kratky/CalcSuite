@@ -1,0 +1,399 @@
+# TI-84 Plus CE. name ¦ cat ¦ key ¦ forms ¦ summary ¦ example ¦ notes ¦ args ¦ flags
+# ---- Math: arithmetic, powers, roots, logs ----
++ ¦ M ¦ + ¦ valueA+valueB ⇒ number, list or matrix ¦ Adds two numbers, lists (element by element) or matrices of the same size. ¦ {1,2,3}+10 ¦ Also joins two strings: "AB"+"CD". ¦ valueA=first value, list, matrix or string; valueB=second value, list, matrix or string
+- ¦ M ¦ - ¦ valueA-valueB ⇒ number, list or matrix ¦ Subtracts; for a negative number use the (-) key instead. ¦ 10-4 ¦ The subtraction key and the (-) key are different tokens. ¦ valueA=the value to subtract from; valueB=the value taken away
+* ¦ M ¦ × ¦ valueA*valueB ⇒ number, list or matrix ¦ Multiplies; with two matrices it is the matrix product. ¦ [[1,2][3,4]]*[[1][1]] ¦ Matrix product needs inner sizes to match. ¦  ¦ g
+/ ¦ M ¦ ÷ ¦ valueA/valueB ⇒ number or list ¦ Divides. ¦ 22/7 ¦ In MathPrint mode the n/d template is a different token. ¦  ¦ g
+^ ¦ M ¦ ^ ¦ value^power ⇒ number, list or matrix ¦ Raises a value to a power; a square matrix only to a whole power. ¦ 2^10 ¦ ¦ value=the base; power=the exponent
+² ¦ M ¦ x² ¦ value² ⇒ number, list or matrix ¦ Squares a number or each list element; with a square matrix, multiplies it by itself. ¦ 5^2 ¦ Type ^2 on the PC for the ² token. ¦  ¦ pc=^2;g
+³ ¦ M ¦ MATH > MATH > 3 ¦ value³ ⇒ number, list or matrix ¦ Cubes a value. ¦ 3^3 ¦ Type ^3 on the PC for the ³ token. ¦  ¦ pc=^3;g
+⁻¹ ¦ M ¦ x⁻¹ ¦ value⁻¹ ⇒ number, list or matrix ¦ Reciprocal of a number, or the inverse of a square matrix. ¦ [[2,0][0,4]]^-1 ¦ A singular matrix gives ERR:SINGULAR MAT. ¦ ¦ pc=^-1
+√( ¦ M ¦ 2nd x² ¦ √(value) ⇒ number or list ¦ Square root. ¦ sqrt(144) ¦ A negative value needs a+bi mode, or it gives ERR:NONREAL ANS.
+³√( ¦ M ¦ MATH > MATH > 4 ¦ ³√(value) ⇒ number or list ¦ Cube root, also of negative numbers. ¦ cbrt(-27) ¦  ¦  ¦ pc=cbrt(;g
+ˣ√ ¦ M ¦ MATH > MATH > 5 ¦ n ˣ√ value ⇒ number or list ¦ The n-th root of a value: typed between the index and the value. ¦ 4ˣ√81 ¦ The index comes first: 3ˣ√8 is 2. ¦ n=which root (2 square, 3 cube, ...); value=the number to take the root of ¦ g
+⁻ ¦ M ¦ (-) ¦ ⁻value ⇒ number, list or matrix ¦ The negative sign (the (-) key), not subtraction. ¦ -5+2 ¦ On the PC a leading "-" or one after an operator becomes this token. ¦  ¦ pc=~;g
+! ¦ P ¦ MATH > PROB > 4 ¦ value! ⇒ number or list ¦ Factorial of a whole number from 0 to 69 (or of a half-integer). ¦ 5! ¦ ¦ value=a whole number 0-69, or a multiple of .5
+% ¦ M ¦ 2nd CATALOG ¦ value% ⇒ number ¦ Divides by 100 (percent). ¦ 25% ¦ OS 5.3 and later (catalog). ¦ ¦ ?
+₁₀^( ¦ M ¦ 2nd LOG ¦ ₁₀^(power) ⇒ number or list ¦ Ten to a power. ¦ 10^(3) ¦ The token is ₁₀^( (one token, not 10 and ^). ¦  ¦ g
+𝑒^( ¦ M ¦ 2nd LN ¦ e^(power) ⇒ number or list ¦ The exponential function, e to a power. ¦ e^(1) ¦ Not the same as e followed by ^. ¦ ¦ pc=e^(
+log( ¦ M ¦ LOG ¦ log(value) ⇒ number or list ¦ Common (base 10) logarithm. ¦ log(1000) ¦ For another base use logBASE(.
+ln( ¦ M ¦ LN ¦ ln(value) ⇒ number or list ¦ Natural logarithm (base e). ¦ ln(e^(2)) ¦
+logBASE( ¦ M ¦ MATH > MATH > A ¦ logBASE(value,base) ⇒ number ¦ Logarithm of a value in any base. ¦ logBASE(8,2) ¦ MathPrint shows it as a template.
+abs( ¦ M ¦ MATH > NUM > 1 ¦ abs(value) ⇒ number, list or matrix ¦ Absolute value; for a complex number its magnitude (MATH > CMPLX > 5 is the same token). ¦ abs(-7.5) ¦
+round( ¦ M ¦ MATH > NUM > 2 ¦ round(value[,#decimals]) ⇒ number, list or matrix ¦ Rounds to a number of decimal places (to 10 digits if none is given). ¦ round(pi,3) ¦ Type pi on the PC for π. ¦ #decimals=decimal places, 0-9{10 digits} ¦
+iPart( ¦ M ¦ MATH > NUM > 3 ¦ iPart(value) ⇒ number, list or matrix ¦ Integer part: drops the fraction (toward zero). ¦ iPart(-3.7) ¦ iPart(-3.7) is -3; int( would give -4.
+fPart( ¦ M ¦ MATH > NUM > 4 ¦ fPart(value) ⇒ number, list or matrix ¦ Fractional part (keeps the sign). ¦ fPart(5.25) ¦
+int( ¦ M ¦ MATH > NUM > 5 ¦ int(value) ⇒ number, list or matrix ¦ Greatest integer not above the value (floor). ¦ int(-3.7) ¦ int(-3.7) is -4.
+min( ¦ M ¦ MATH > NUM > 6 ¦ min(valueA,valueB) ⇒ number ;; min(list) ⇒ number ;; min(listA,listB) ⇒ list ;; min(value,list) ⇒ list ¦ The smaller of two values, the smallest list element, or element-wise minimums. ¦ min({4,1,7}) ¦ Also 2nd LIST > MATH > 1.
+max( ¦ M ¦ MATH > NUM > 7 ¦ max(valueA,valueB) ⇒ number ;; max(list) ⇒ number ;; max(listA,listB) ⇒ list ;; max(value,list) ⇒ list ¦ The larger of two values, the largest list element, or element-wise maximums. ¦ max(3,8) ¦ Also 2nd LIST > MATH > 2.
+lcm( ¦ M ¦ MATH > NUM > 8 ¦ lcm(valueA,valueB) ⇒ number or list ¦ Least common multiple of two whole numbers. ¦ lcm(4,6) ¦
+gcd( ¦ M ¦ MATH > NUM > 9 ¦ gcd(valueA,valueB) ⇒ number or list ¦ Greatest common divisor of two whole numbers. ¦ gcd(84,36) ¦
+remainder( ¦ M ¦ MATH > NUM > 0 ¦ remainder(dividend,divisor) ⇒ number or list ¦ Remainder of a whole-number division; lists work element by element. ¦ remainder(17,5) ¦ OS 5.2 and later.
+►n⁄d◄►Un⁄d ¦ U ¦ MATH > NUM > A ¦ value►n⁄d◄►Un⁄d ⇒ fraction ¦ Switches a result between an improper fraction and a mixed number. ¦ 7/3►n⁄d◄►Un⁄d ¦ MathPrint mode. ¦ value=a fraction or mixed number ¦ g
+►F◄►D ¦ U ¦ MATH > NUM > B ¦ value►F◄►D ⇒ number ¦ Switches a result between fraction and decimal form. ¦ 0.75►F◄►D ¦  ¦ value=a fraction or decimal ¦ g
+n⁄d ¦ M ¦ MATH > FRAC > 1 ¦ n⁄d ¦ The fraction template (numerator over denominator) in MathPrint mode. ¦ 3⁄4+1⁄4 ¦ ALPHA Y= also opens the FRAC shortcut menu. ¦ ¦ pc=n/d;noex
+Un⁄d ¦ M ¦ MATH > FRAC > 2 ¦ Un⁄d ¦ The mixed-number template (whole part, numerator, denominator). ¦ 3⁄4 ¦ ¦ ¦ noex
+►Frac ¦ U ¦ MATH > MATH > 1 ¦ value►Frac ⇒ fraction ¦ Shows a result as a fraction when it can. ¦ 0.125►Frac ¦ Works after an expression or Ans. ¦ value=a number, list or matrix
+►Dec ¦ U ¦ MATH > MATH > 2 ¦ value►Dec ⇒ number ¦ Shows a result as a decimal. ¦ 1/3►Dec ¦ ¦ value=a number, list or matrix
+fMin( ¦ C ¦ MATH > MATH > 6 ¦ fMin(expression,variable,lower,upper[,tolerance]) ⇒ number ¦ Finds where an expression is smallest on an interval (returns the x, not the y). ¦ fMin(X^2-4X,X,0,5) ¦ Numeric: a local minimum inside the interval. ¦ tolerance=accuracy{1E-5}
+fMax( ¦ C ¦ MATH > MATH > 7 ¦ fMax(expression,variable,lower,upper[,tolerance]) ⇒ number ¦ Finds where an expression is largest on an interval (returns the x). ¦ fMax(sin(X),X,0,pi) ¦ Radian mode for trig. ¦ tolerance=accuracy{1E-5}
+nDeriv( ¦ C ¦ MATH > MATH > 8 ¦ nDeriv(expression,variable,value[,H]) ⇒ number ¦ Numerical derivative of an expression at one point (central difference). ¦ nDeriv(X^3,X,2) ¦ Numeric only; can be wrong at corners or jumps. In MathPrint it pastes the d/dx template. ¦ value=the point to evaluate the derivative at; H=step size{1E-3}
+fnInt( ¦ C ¦ MATH > MATH > 9 ¦ fnInt(expression,variable,lower,upper[,tolerance]) ⇒ number ¦ Numerical definite integral of an expression between two limits. ¦ fnInt(X^2,X,0,3) ¦ Numeric (Gauss-Kronrod); radian mode for trig. MathPrint pastes the ∫ template. ¦ tolerance=accuracy{1E-5}
+Σ( ¦ C ¦ MATH > MATH > 0 ¦ Σ(expression,variable,start,end) ⇒ number ¦ Sum of an expression as a variable steps by 1 from start to end. ¦ Σ(K^2,K,1,10) ¦ Shown as "summation Σ(" in the menu. OS 5.2 and later. ¦ start=first value of the variable; end=last value of the variable ¦ pc=Sigma(
+piecewise( ¦ M ¦ MATH > MATH > B ¦ piecewise(expression1,condition1[,expression2,condition2,...]) ⇒ number ¦ A function made of pieces, each used where its condition is true (for Y= graphs). ¦ piecewise(X^2,X<0,X,X>=0) ¦ OS 5.3 and later; up to 5 pieces. ¦ expression1=the value used where condition1 is true; condition1=a test such as X<0; expression2=the next piece; condition2=its condition ¦ ?
+solve( ¦ C ¦ 2nd CATALOG ¦ solve(expression,variable,guess[,{lower,upper}]) ⇒ number ¦ Numerically finds one value of the variable that makes the expression zero, near a guess. ¦ solve(X^2-2,X,1) ¦ Catalog only; the expression is set equal to 0. Use the Numeric Solver (MATH > MATH > C) for an editor. ¦ guess=a starting value near the root; lower=left end of the search; upper=right end of the search
+sin( ¦ M ¦ SIN ¦ sin(value) ⇒ number or list ¦ Sine, in the current angle mode. ¦ sin(pi/6) ¦ Check Radian/Degree in MODE.
+cos( ¦ M ¦ COS ¦ cos(value) ⇒ number or list ¦ Cosine, in the current angle mode. ¦ cos(0) ¦
+tan( ¦ M ¦ TAN ¦ tan(value) ⇒ number or list ¦ Tangent, in the current angle mode. ¦ tan(pi/4) ¦
+sin⁻¹( ¦ M ¦ 2nd SIN ¦ sin⁻¹(value) ⇒ number or list ¦ Inverse sine (arcsine); the answer is in the current angle mode. ¦ sin^-1(0.5) ¦ value from -1 to 1. ¦ ¦ nokeys
+cos⁻¹( ¦ M ¦ 2nd COS ¦ cos⁻¹(value) ⇒ number or list ¦ Inverse cosine (arccosine). ¦ cos^-1(0) ¦ ¦ ¦ nokeys
+tan⁻¹( ¦ M ¦ 2nd TAN ¦ tan⁻¹(value) ⇒ number or list ¦ Inverse tangent (arctangent). ¦ tan^-1(1) ¦ For a quadrant-correct angle use R►Pθ(. ¦ ¦ nokeys
+sinh( ¦ M ¦ 2nd CATALOG ¦ sinh(value) ⇒ number or list ¦ Hyperbolic sine. ¦ sinh(1) ¦ Catalog only.
+cosh( ¦ M ¦ 2nd CATALOG ¦ cosh(value) ⇒ number or list ¦ Hyperbolic cosine. ¦ cosh(1) ¦ Catalog only.
+tanh( ¦ M ¦ 2nd CATALOG ¦ tanh(value) ⇒ number or list ¦ Hyperbolic tangent. ¦ tanh(1) ¦ Catalog only.
+sinh⁻¹( ¦ M ¦ 2nd CATALOG ¦ sinh⁻¹(value) ⇒ number or list ¦ Inverse hyperbolic sine. ¦ sinh^-1(1) ¦ Catalog only.
+cosh⁻¹( ¦ M ¦ 2nd CATALOG ¦ cosh⁻¹(value) ⇒ number or list ¦ Inverse hyperbolic cosine (value 1 or more). ¦ cosh^-1(2) ¦ Catalog only.
+tanh⁻¹( ¦ M ¦ 2nd CATALOG ¦ tanh⁻¹(value) ⇒ number or list ¦ Inverse hyperbolic tangent (value between -1 and 1). ¦ tanh^-1(0.5) ¦ Catalog only.
+π ¦ M ¦ 2nd ^ ¦ π ¦ The constant pi, 3.14159265359. ¦ 2pi ¦ Type pi on the PC. ¦ ¦ pc=pi
+𝑒 ¦ M ¦ 2nd ÷ ¦ 𝑒 ¦ The constant e, 2.71828182846. ¦ e^(1)-e ¦ The constant, not the letter E (EE). ¦ ¦ pc=e
+Ans ¦ V ¦ 2nd (-) ¦ Ans ¦ The last answer the home screen calculated. ¦ Ans*2 ¦ Programs can read it too; it changes with every calculation.
+ᴇ ¦ M ¦ 2nd , ¦ mantissaᴇexponent ¦ Scientific notation: times ten to a power (the EE key). ¦ 6.02E23 ¦ On the PC, E inside a number (1.5E-3) becomes this token. ¦ mantissa=the digits part; exponent=the power of ten, -99 to 99 ¦ pc=E
+→ ¦ V ¦ STO→ ¦ value→variable ¦ Stores a value in a variable (STO→). ¦ 5->A ¦ Type -> on the PC. Storing to a list element L1(3) works too. ¦ value=what to store; variable=where: a letter, θ, a list, matrix, string, Y= function...
+# ---- Complex ----
+conj( ¦ Z ¦ MATH > CMPLX > 1 ¦ conj(value) ⇒ complex number or list ¦ Complex conjugate (flips the sign of the imaginary part). ¦ conj(3+4[i]) ¦ [i] is the i key (2nd .). ¦ value=a complex number or list of them ¦ pc=conj(
+real( ¦ Z ¦ MATH > CMPLX > 2 ¦ real(value) ⇒ number or list ¦ Real part of a complex number. ¦ real(3+4[i]) ¦ ¦ value=a complex number or list of them
+imag( ¦ Z ¦ MATH > CMPLX > 3 ¦ imag(value) ⇒ number or list ¦ Imaginary part of a complex number. ¦ imag(3+4[i]) ¦ ¦ value=a complex number or list of them
+angle( ¦ Z ¦ MATH > CMPLX > 4 ¦ angle(value) ⇒ number or list ¦ Polar angle (argument) of a complex number. ¦ angle(1+[i]) ¦ In the current angle mode. ¦ value=a complex number or list of them
+►Rect ¦ Z ¦ MATH > CMPLX > 6 ¦ value►Rect ¦ Shows a complex result in a+bi form. ¦ 2e^(pi/2[i])►Rect ¦ ¦ value=a complex number
+►Polar ¦ Z ¦ MATH > CMPLX > 7 ¦ value►Polar ¦ Shows a complex result in polar re^θi form. ¦ (1+[i])►Polar ¦ ¦ value=a complex number
+𝑖 ¦ Z ¦ 2nd . ¦ 𝑖 ¦ The imaginary unit, square root of -1. ¦ (2+3[i])(1-[i]) ¦ Type [i] on the PC. ¦ ¦ pc=[i]
+a+b𝑖 ¦ O ¦ MODE ¦ a+b𝑖 ¦ Mode: complex results shown as a+bi. ¦ a+bi ¦ In a program: sets the mode. ¦ ¦ pc=a+bi
+r𝑒^θ𝑖 ¦ O ¦ MODE ¦ r𝑒^θ𝑖 ¦ Mode: complex results shown in polar form. ¦ re^thetai ¦ ¦ ¦ pc=re^thetai
+Real ¦ O ¦ MODE ¦ Real ¦ Mode: no complex results (ERR:NONREAL ANS unless you type a complex number). ¦ Real ¦
+# ---- Probability ----
+rand ¦ P ¦ MATH > PROB > 1 ¦ rand[(numtrials)] ⇒ number or list ¦ A random number between 0 and 1, or a list of them. ¦ rand(5) ¦ Seed it with value->rand for repeatable runs. ¦ numtrials=how many random numbers (a list)
+nPr ¦ P ¦ MATH > PROB > 2 ¦ valueA nPr valueB ⇒ number or list ¦ Permutations: ordered picks of valueB items from valueA. ¦ 5 nPr 2 ¦ Typed between the two numbers. ¦ valueA=how many items in all (n); valueB=how many are picked (r)
+nCr ¦ P ¦ MATH > PROB > 3 ¦ valueA nCr valueB ⇒ number or list ¦ Combinations: unordered picks of valueB items from valueA. ¦ 5 nCr 2 ¦ Typed between the two numbers. ¦ valueA=how many items in all (n); valueB=how many are picked (r)
+randInt( ¦ P ¦ MATH > PROB > 5 ¦ randInt(lower,upper[,numtrials]) ⇒ integer or list ¦ A random whole number from lower to upper, or a list of them. ¦ randInt(1,6) ¦ ¦ lower=smallest possible integer; upper=largest possible integer; numtrials=how many (a list)
+randNorm( ¦ P ¦ MATH > PROB > 6 ¦ randNorm(μ,σ[,numtrials]) ⇒ number or list ¦ A random number from a normal distribution. ¦ randNorm(0,1,3) ¦ ¦ μ=the mean; σ=the standard deviation; numtrials=how many (a list)
+randBin( ¦ P ¦ MATH > PROB > 7 ¦ randBin(numtrials,prob[,numsimulations]) ⇒ integer or list ¦ A random count of successes from a binomial distribution. ¦ randBin(10,0.5) ¦ ¦ numtrials=trials per experiment; prob=chance of success per trial; numsimulations=how many experiments (a list)
+randIntNoRep( ¦ P ¦ MATH > PROB > 8 ¦ randIntNoRep(lowerint,upperint[,numelements]) ⇒ list ¦ The whole numbers from lower to upper in a random order (no repeats). ¦ randIntNoRep(1,10) ¦ numelements needs OS 5.2 or later. ¦ lowerint=smallest integer; upperint=largest integer; numelements=how many to return{all}
+randM( ¦ X ¦ 2nd MATRIX > MATH > 6 ¦ randM(rows,columns) ⇒ matrix ¦ A matrix of random integers from -9 to 9. ¦ randM(2,3) ¦
+# ---- Test and logic ----
+= ¦ B ¦ 2nd TEST > TEST > 1 ¦ valueA=valueB ⇒ 1 or 0 ¦ Tests equality: 1 (true) or 0 (false). ¦ 2+2=4 ¦ Not assignment: store with →.
+≠ ¦ B ¦ 2nd TEST > TEST > 2 ¦ valueA≠valueB ⇒ 1 or 0 ¦ Tests that two values differ. ¦ 3!=4 ¦ Type != on the PC.
+> ¦ B ¦ 2nd TEST > TEST > 3 ¦ valueA>valueB ⇒ 1 or 0 ¦ Tests greater than. ¦ 5>3 ¦
+≥ ¦ B ¦ 2nd TEST > TEST > 4 ¦ valueA≥valueB ⇒ 1 or 0 ¦ Tests greater than or equal. ¦ 5>=5 ¦ Type >= on the PC.
+< ¦ B ¦ 2nd TEST > TEST > 5 ¦ valueA<valueB ⇒ 1 or 0 ¦ Tests less than. ¦ 2<3 ¦
+≤ ¦ B ¦ 2nd TEST > TEST > 6 ¦ valueA≤valueB ⇒ 1 or 0 ¦ Tests less than or equal. ¦ 2<=3 ¦ Type <= on the PC. ¦  ¦ g
+and ¦ B ¦ 2nd TEST > LOGIC > 1 ¦ valueA and valueB ⇒ 1 or 0 ¦ True (1) when both sides are non-zero. ¦ X>0 and X<10 ¦ The token has spaces around it.
+or ¦ B ¦ 2nd TEST > LOGIC > 2 ¦ valueA or valueB ⇒ 1 or 0 ¦ True (1) when either side is non-zero. ¦ X<0 or X>10 ¦
+xor ¦ B ¦ 2nd TEST > LOGIC > 3 ¦ valueA xor valueB ⇒ 1 or 0 ¦ True (1) when exactly one side is non-zero. ¦ 1 xor 0 ¦
+not( ¦ B ¦ 2nd TEST > LOGIC > 4 ¦ not(value) ⇒ 1 or 0 ¦ Logical not: 1 for zero, 0 for anything else. ¦ not(X=0) ¦
+# ---- Angle ----
+° ¦ U ¦ 2nd ANGLE > 1 ¦ value° ¦ Marks a value as degrees, whatever the angle mode. ¦ sin(30°) ¦ Type ^^o on the PC. ¦  ¦ pc=^^o;g
+' ¦ U ¦ 2nd ANGLE > 2 ¦ degrees°minutes'seconds" ¦ The minutes mark of a degrees-minutes-seconds angle. ¦ 30°15' ¦ Seconds use ALPHA + (the " key).
+ʳ ¦ U ¦ 2nd ANGLE > 3 ¦ valueʳ ¦ Marks a value as radians, whatever the angle mode. ¦ sin(1.5708ʳ) ¦ Type ^^r on the PC. ¦  ¦ pc=^^r;g
+►DMS ¦ U ¦ 2nd ANGLE > 4 ¦ value►DMS ¦ Shows an angle in degrees, minutes and seconds. ¦ 30.2575►DMS ¦ ¦ value=an angle in degrees
+R►Pr( ¦ U ¦ 2nd ANGLE > 5 ¦ R►Pr(x,y) ⇒ number or list ¦ The distance r of a rectangular point (x,y) from the origin. ¦ R>Pr(3,4) ¦ ¦ x=the x coordinate; y=the y coordinate
+R►Pθ( ¦ U ¦ 2nd ANGLE > 6 ¦ R►Pθ(x,y) ⇒ number or list ¦ The polar angle θ of a rectangular point (x,y), in the right quadrant. ¦ R>Ptheta(-1,1) ¦ In the current angle mode. ¦ x=the x coordinate; y=the y coordinate
+P►Rx( ¦ U ¦ 2nd ANGLE > 7 ¦ P►Rx(r,θ) ⇒ number or list ¦ The x coordinate of a polar point (r,θ). ¦ P>Rx(2,pi/3) ¦ ¦ r=the distance from the origin; θ=the angle
+P►Ry( ¦ U ¦ 2nd ANGLE > 8 ¦ P►Ry(r,θ) ⇒ number or list ¦ The y coordinate of a polar point (r,θ). ¦ P>Ry(2,pi/3) ¦ ¦ r=the distance from the origin; θ=the angle
+# ---- Lists ----
+SortA( ¦ L ¦ 2nd LIST > OPS > 1 ¦ SortA(listname) ;; SortA(keylistname,dependlist1[,dependlist2,...]) ¦ Sorts a list into ascending order in place; dependent lists follow the key list. ¦ SortA(L1) ¦ Also STAT > EDIT > 2. Changes the list itself. ¦ keylistname=the list sorted; dependlist1=a list reordered the same way
+SortD( ¦ L ¦ 2nd LIST > OPS > 2 ¦ SortD(listname) ;; SortD(keylistname,dependlist1[,dependlist2,...]) ¦ Sorts a list into descending order in place; dependent lists follow. ¦ SortD(L1,L2) ¦ Also STAT > EDIT > 3. ¦ keylistname=the list sorted; dependlist1=a list reordered the same way
+dim( ¦ L ¦ 2nd LIST > OPS > 3 ¦ dim(list) ⇒ integer ;; dim(matrix) ⇒ {rows,columns} ;; length→dim(listname) ;; {rows,columns}→dim(matrixname) ¦ Length of a list or size of a matrix; storing to it resizes or creates one. ¦ dim({4,5,6}) ¦ Same token in 2nd MATRIX > MATH > 3. ¦ length=the new number of elements; rows=new row count; columns=new column count
+Fill( ¦ L ¦ 2nd LIST > OPS > 4 ¦ Fill(value,listname) ;; Fill(value,matrixname) ¦ Sets every element of an existing list or matrix to one value. ¦ Fill(0,L1) ¦ The list must exist (set its dim first).
+seq( ¦ L ¦ 2nd LIST > OPS > 5 ¦ seq(expression,variable,begin,end[,increment]) ⇒ list ¦ Builds a list by evaluating an expression as a variable steps from begin to end. ¦ seq(X^2,X,1,5) ¦ Up to 999 elements. ¦ begin=first value of the variable; end=last value of the variable; increment=step{1}
+cumSum( ¦ L ¦ 2nd LIST > OPS > 6 ¦ cumSum(list) ⇒ list ;; cumSum(matrix) ⇒ matrix ¦ Running totals of a list (or of each matrix column). ¦ cumSum({1,2,3,4}) ¦ Also 2nd MATRIX > MATH > 0.
+ΔList( ¦ L ¦ 2nd LIST > OPS > 7 ¦ ΔList(list) ⇒ list ¦ Differences between consecutive list elements (one shorter). ¦ DeltaList({1,4,9,16}) ¦ ¦ ¦ pc=DeltaList(
+Select( ¦ L ¦ 2nd LIST > OPS > 8 ¦ Select(Xlistname,Ylistname) ¦ Lets you pick a range of points on a scatter or xyLine plot and keeps only those in the two lists. ¦ Select(L1,L2) ¦ Interactive: needs a plot turned on.
+augment( ¦ L ¦ 2nd LIST > OPS > 9 ¦ augment(listA,listB) ⇒ list ;; augment(matrixA,matrixB) ⇒ matrix ¦ Joins two lists end to end, or two matrices side by side. ¦ augment({1,2},{3,4}) ¦ Matrices need the same number of rows (2nd MATRIX > MATH > 7).
+List►matr( ¦ X ¦ 2nd LIST > OPS > 0 ¦ List►matr(list1,list2,...,matrixname) ¦ Builds a matrix whose columns are the given lists. ¦ List>matr(L1,L2,[A]) ¦ Shorter lists are padded with zeros. ¦ list1=the first column; list2=the second column
+Matr►list( ¦ X ¦ 2nd LIST > OPS > A ¦ Matr►list(matrix,listnameA,...,listname n) ;; Matr►list(matrix,column#,listname) ¦ Copies matrix columns into lists. ¦ Matr>list([A],L1,L2) ¦ ¦ listnameA=list that gets column 1; column#=which column to copy
+ʟ ¦ L ¦ 2nd LIST > OPS > B ¦ ʟlistname ¦ Marks the letters after it as a user list name. ¦ {1,2}->|LDATA ¦ Type |L on the PC; names are up to 5 letters. ¦ listname=1-5 letters and digits, a letter first ¦ pc=|L
+mean( ¦ T ¦ 2nd LIST > MATH > 3 ¦ mean(list[,freqlist]) ⇒ number ¦ The average of a list (weighted by frequencies if given). ¦ mean({2,4,9}) ¦
+median( ¦ T ¦ 2nd LIST > MATH > 4 ¦ median(list[,freqlist]) ⇒ number ¦ The middle value of a list. ¦ median({5,1,3,2}) ¦
+sum( ¦ L ¦ 2nd LIST > MATH > 5 ¦ sum(list[,start,end]) ⇒ number ¦ Adds the elements of a list (or the part from start to end). ¦ sum({1,2,3,4}) ¦ ¦ start=first element index{1}; end=last element index{last}
+prod( ¦ L ¦ 2nd LIST > MATH > 6 ¦ prod(list[,start,end]) ⇒ number ¦ Multiplies the elements of a list (or a part of it). ¦ prod({1,2,3,4}) ¦ ¦ start=first element index{1}; end=last element index{last}
+stdDev( ¦ T ¦ 2nd LIST > MATH > 7 ¦ stdDev(list[,freqlist]) ⇒ number ¦ Sample standard deviation of a list. ¦ stdDev({2,4,4,4,5,5,7,9}) ¦ Sample (n-1), not population.
+variance( ¦ T ¦ 2nd LIST > MATH > 8 ¦ variance(list[,freqlist]) ⇒ number ¦ Sample variance of a list. ¦ variance({1,2,3,4}) ¦
+# ---- Matrices ----
+det( ¦ X ¦ 2nd MATRIX > MATH > 1 ¦ det(matrix) ⇒ number ¦ Determinant of a square matrix. ¦ det([[1,2][3,4]]) ¦
+ᵀ ¦ X ¦ 2nd MATRIX > MATH > 2 ¦ matrixᵀ ⇒ matrix ¦ Transpose: rows become columns. ¦ [[1,2,3]]ᵀ ¦  ¦  ¦ nokeys;g
+identity( ¦ X ¦ 2nd MATRIX > MATH > 5 ¦ identity(dimension) ⇒ matrix ¦ The identity matrix of a given size. ¦ identity(3) ¦ ¦ dimension=rows and columns (1-99)
+ref( ¦ X ¦ 2nd MATRIX > MATH > A ¦ ref(matrix) ⇒ matrix ¦ Row-echelon form of a matrix. ¦ ref([[2,4][1,3]]) ¦
+rref( ¦ X ¦ 2nd MATRIX > MATH > B ¦ rref(matrix) ⇒ matrix ¦ Reduced row-echelon form: solves a linear system written as an augmented matrix. ¦ rref([[1,1,3][1,-1,1]]) ¦ For Ax=b, augment A with b and rref it.
+rowSwap( ¦ X ¦ 2nd MATRIX > MATH > C ¦ rowSwap(matrix,rowA,rowB) ⇒ matrix ¦ Swaps two rows of a matrix. ¦ rowSwap([[1,2][3,4]],1,2) ¦
+row+( ¦ X ¦ 2nd MATRIX > MATH > D ¦ row+(matrix,rowA,rowB) ⇒ matrix ¦ Adds row A to row B. ¦ row+([[1,2][3,4]],1,2) ¦
+*row( ¦ X ¦ 2nd MATRIX > MATH > E ¦ *row(value,matrix,row) ⇒ matrix ¦ Multiplies one row by a value. ¦ *row(2,[[1,2][3,4]],1) ¦  ¦  ¦ g
+*row+( ¦ X ¦ 2nd MATRIX > MATH > F ¦ *row+(value,matrix,rowA,rowB) ⇒ matrix ¦ Adds a multiple of row A to row B (a row operation). ¦ *row+(-3,[[1,2][3,4]],1,2) ¦  ¦  ¦ g
+# ---- Strings ----
+" ¦ S ¦ ALPHA + ¦ "text" ¦ Starts or ends a string. ¦ "HELLO"->Str1 ¦ A → or the end of the line also ends a string. ¦ ¦ noex
+length( ¦ S ¦ 2nd CATALOG ¦ length(string) ⇒ integer ¦ Number of characters (tokens) in a string. ¦ length("HELLO") ¦ Counts tokens: "sin(" is one.
+sub( ¦ S ¦ 2nd CATALOG ¦ sub(string,begin,length) ⇒ string ¦ The part of a string from position begin, length characters long. ¦ sub("HELLO",2,3) ¦ Positions start at 1. ¦ begin=start position (1 is the first character); length=how many characters
+inString( ¦ S ¦ 2nd CATALOG ¦ inString(string,substring[,start]) ⇒ integer ¦ Where a substring first appears in a string (0 if it doesn't). ¦ inString("BANANA","NA") ¦ ¦ substring=the text to find; start=position to start looking{1}
+expr( ¦ S ¦ 2nd CATALOG ¦ expr(string) ⇒ value ¦ Evaluates a string as an expression. ¦ expr("2+3") ¦ Also PRGM > I/O in some OS versions.
+String►Equ( ¦ S ¦ PRGM > I/O > F ¦ String►Equ(string,Y= var) ¦ Puts the text of a string into a Y= function. ¦ String>Equ("2X+1",{Y1}) ¦ Type {Y1} or Y1 on the PC for the Y₁ token. ¦ Y= var=the function to write, Y1-Y0 ¦ g
+Equ►String( ¦ S ¦ 2nd CATALOG ¦ Equ►String(Y= var,Strn) ¦ Copies a Y= function's text into a string variable. ¦ Equ>String({Y1},Str1) ¦ ¦ Y= var=the function to read, Y1-Y0; Strn=a string variable Str1-Str0
+toString( ¦ S ¦ PRGM > I/O > E ¦ toString(value[,format]) ⇒ string ¦ Turns a number into a string. ¦ toString(1/3) ¦ OS 5.3 and later. ¦ format=0 for the current mode, 1 for decimal{0} ¦ g
+eval( ¦ S ¦ PRGM > I/O > C ¦ eval(expression) ⇒ string ¦ Evaluates an expression and gives the result as a string (for Send( and Text(). ¦ eval(2+3) ¦ OS 5.3 and later, made for the TI-Innovator Hub. ¦  ¦ g
+# ---- Statistics ----
+1-Var Stats ¦ T ¦ STAT > CALC > 1 ¦ 1-Var Stats [Xlistname,freqlist] ¦ One-variable statistics: mean, sums, deviations, five-number summary. ¦ 1-Var Stats L1 ¦ Results in VARS > Statistics. ¦ Xlistname=the data list{L1}
+2-Var Stats ¦ T ¦ STAT > CALC > 2 ¦ 2-Var Stats [Xlistname,Ylistname,freqlist] ¦ Two-variable statistics for paired data. ¦ 2-Var Stats L1,L2 ¦ ¦ Xlistname=the x data{L1}; Ylistname=the y data{L2}
+Med-Med ¦ T ¦ STAT > CALC > 3 ¦ Med-Med [Xlistname,Ylistname,freqlist,regequ] ¦ Fits a median-median line y=ax+b. ¦ Med-Med L1,L2 ¦
+LinReg(ax+b) ¦ T ¦ STAT > CALC > 4 ¦ LinReg(ax+b) [Xlistname,Ylistname,freqlist,regequ] ¦ Least-squares line y=ax+b. ¦ LinReg(ax+b) L1,L2,{Y1} ¦ DiagnosticOn shows r and r². regequ stores the fit in a Y= function.
+QuadReg ¦ T ¦ STAT > CALC > 5 ¦ QuadReg [Xlistname,Ylistname,freqlist,regequ] ¦ Fits a parabola y=ax²+bx+c. ¦ QuadReg L1,L2 ¦ Needs 3 points or more.
+CubicReg ¦ T ¦ STAT > CALC > 6 ¦ CubicReg [Xlistname,Ylistname,freqlist,regequ] ¦ Fits a cubic. ¦ CubicReg L1,L2 ¦ Needs 4 points or more.
+QuartReg ¦ T ¦ STAT > CALC > 7 ¦ QuartReg [Xlistname,Ylistname,freqlist,regequ] ¦ Fits a quartic. ¦ QuartReg L1,L2 ¦ Needs 5 points or more.
+LinReg(a+bx) ¦ T ¦ STAT > CALC > 8 ¦ LinReg(a+bx) [Xlistname,Ylistname,freqlist,regequ] ¦ Least-squares line written y=a+bx. ¦ LinReg(a+bx) L1,L2 ¦
+LnReg ¦ T ¦ STAT > CALC > 9 ¦ LnReg [Xlistname,Ylistname,freqlist,regequ] ¦ Fits y=a+b ln(x). ¦ LnReg L1,L2 ¦ x values must be positive.
+ExpReg ¦ T ¦ STAT > CALC > 0 ¦ ExpReg [Xlistname,Ylistname,freqlist,regequ] ¦ Fits y=a·b^x. ¦ ExpReg L1,L2 ¦ y values must be positive.
+PwrReg ¦ T ¦ STAT > CALC > A ¦ PwrReg [Xlistname,Ylistname,freqlist,regequ] ¦ Fits y=a·x^b. ¦ PwrReg L1,L2 ¦ x and y must be positive.
+Logistic ¦ T ¦ STAT > CALC > B ¦ Logistic [Xlistname,Ylistname,freqlist,regequ] ¦ Fits a logistic curve y=c/(1+a·e^(-bx)). ¦ Logistic L1,L2 ¦ Iterative: can take a while.
+SinReg ¦ T ¦ STAT > CALC > C ¦ SinReg [iterations,Xlistname,Ylistname,period,regequ] ¦ Fits a sine curve y=a·sin(bx+c)+d. ¦ SinReg L1,L2 ¦ Needs 4 points or more, evenly spaced x helps. ¦ iterations=most tries, 1-16{3}; period=a guess of the period
+Manual-Fit ¦ T ¦ STAT > CALC > D ¦ Manual-Fit [equname,color#,linestyle#] ¦ Draws a line on the graph that you drag to fit the data by eye. ¦ Manual-Fit {Y1} ¦ Interactive.
+QuickPlot&Fit-EQ ¦ T ¦ STAT > CALC > E ¦ QuickPlot&Fit-EQ ¦ Lets you place points on the graph and fit a line to them. ¦ QuickPlot&Fit-EQ ¦ Interactive. ¦ ¦ ?
+Z-Test( ¦ T ¦ STAT > TESTS > 1 ¦ Z-Test(μ0,σ,listname[,freqlist,alternative,drawflag,color#]) ;; Z-Test(μ0,σ,x̄,n[,alternative,drawflag,color#]) ¦ Hypothesis test of a mean when the population σ is known. ¦ Z-Test(100,15,105,30,1) ¦ alternative: -1 for <, 0 for ≠, 1 for >. Results in VARS > Statistics > TEST.
+T-Test ¦ T ¦ STAT > TESTS > 2 ¦ T-Test μ0[,listname,freqlist,alternative,drawflag,color#] ;; T-Test μ0,x̄,Sx,n[,alternative,drawflag,color#] ¦ Hypothesis test of a mean when σ is unknown (Student t). ¦ T-Test 100,105,15,30,1 ¦ alternative: -1 for <, 0 for ≠, 1 for >.
+2-SampZTest( ¦ T ¦ STAT > TESTS > 3 ¦ 2-SampZTest(σ1,σ2[,listname1,listname2,freqlist1,freqlist2,alternative,drawflag,color#]) ;; 2-SampZTest(σ1,σ2,x̄1,n1,x̄2,n2[,alternative,drawflag,color#]) ¦ Compares two means when both population σ are known. ¦ 2-SampZTest(2,3,10,40,11,50,0) ¦
+2-SampTTest ¦ T ¦ STAT > TESTS > 4 ¦ 2-SampTTest [listname1,listname2,freqlist1,freqlist2,alternative,pooled,drawflag,color#] ;; 2-SampTTest x̄1,Sx1,n1,x̄2,Sx2,n2[,alternative,pooled,drawflag,color#] ¦ Compares two means with unknown σ (t test). ¦ 2-SampTTest 10,2,40,11,3,50,0,0 ¦ pooled: 1 to pool the variances, 0 not to.
+1-PropZTest( ¦ T ¦ STAT > TESTS > 5 ¦ 1-PropZTest(p0,x,n[,alternative,drawflag,color#]) ¦ Tests a single proportion. ¦ 1-PropZTest(0.5,60,100,1) ¦ ¦ p0=the proportion in the null hypothesis; x=number of successes; n=sample size
+2-PropZTest( ¦ T ¦ STAT > TESTS > 6 ¦ 2-PropZTest(x1,n1,x2,n2[,alternative,drawflag,color#]) ¦ Compares two proportions. ¦ 2-PropZTest(45,100,60,110,0) ¦ ¦ x1=successes in sample 1; n1=size of sample 1; x2=successes in sample 2; n2=size of sample 2
+ZInterval ¦ T ¦ STAT > TESTS > 7 ¦ ZInterval σ[,listname,freqlist,confidence level,color#] ;; ZInterval σ,x̄,n[,confidence level] ¦ Confidence interval for a mean with known σ. ¦ ZInterval 15,105,30,0.95 ¦
+TInterval ¦ T ¦ STAT > TESTS > 8 ¦ TInterval [listname,freqlist,confidence level] ;; TInterval x̄,Sx,n[,confidence level] ¦ Confidence interval for a mean with unknown σ. ¦ TInterval 105,15,30,0.95 ¦
+2-SampZInt( ¦ T ¦ STAT > TESTS > 9 ¦ 2-SampZInt(σ1,σ2[,listname1,listname2,freqlist1,freqlist2,confidence level]) ;; 2-SampZInt(σ1,σ2,x̄1,n1,x̄2,n2[,confidence level]) ¦ Confidence interval for the difference of two means, σ known. ¦ 2-SampZInt(2,3,10,40,11,50,0.95) ¦
+2-SampTInt ¦ T ¦ STAT > TESTS > 0 ¦ 2-SampTInt [listname1,listname2,freqlist1,freqlist2,confidence level,pooled] ;; 2-SampTInt x̄1,Sx1,n1,x̄2,Sx2,n2[,confidence level,pooled] ¦ Confidence interval for the difference of two means, σ unknown. ¦ 2-SampTInt 10,2,40,11,3,50,0.95,0 ¦
+1-PropZInt( ¦ T ¦ STAT > TESTS > A ¦ 1-PropZInt(x,n[,confidence level]) ¦ Confidence interval for one proportion. ¦ 1-PropZInt(60,100,0.95) ¦ ¦ x=number of successes; n=sample size
+2-PropZInt( ¦ T ¦ STAT > TESTS > B ¦ 2-PropZInt(x1,n1,x2,n2[,confidence level]) ¦ Confidence interval for the difference of two proportions. ¦ 2-PropZInt(45,100,60,110,0.95) ¦ ¦ x1=successes in sample 1; n1=size of sample 1; x2=successes in sample 2; n2=size of sample 2
+χ²-Test( ¦ T ¦ STAT > TESTS > C ¦ χ²-Test(observedmatrix,expectedmatrix[,drawflag,color#]) ¦ Chi-square test of independence on a two-way table. ¦ chi^2-Test([A],[B]) ¦ The expected matrix is written for you. ¦  ¦ pc=chi^2-Test(;g
+χ²GOF-Test( ¦ T ¦ STAT > TESTS > D ¦ χ²GOF-Test(observedlist,expectedlist,df[,drawflag,color#]) ¦ Chi-square goodness-of-fit test. ¦ chi^2GOF-Test(L1,L2,3) ¦ ¦ ¦ pc=chi^2GOF-Test(
+2-Samp𝙵Test ¦ T ¦ STAT > TESTS > E ¦ 2-Samp𝙵Test [listname1,listname2,freqlist1,freqlist2,alternative,drawflag,color#] ;; 2-Samp𝙵Test Sx1,n1,Sx2,n2[,alternative,drawflag,color#] ¦ F test comparing two standard deviations. ¦ 2-SampFTest 2,40,3,50,0 ¦ ¦ ¦ pc=2-SampFTest
+LinRegTTest ¦ T ¦ STAT > TESTS > F ¦ LinRegTTest [Xlistname,Ylistname,freqlist,alternative,regequ] ¦ t test on the slope of a regression line (and r). ¦ LinRegTTest L1,L2,1,0 ¦
+LinRegTInt ¦ T ¦ STAT > TESTS > G ¦ LinRegTInt [Xlistname,Ylistname,freqlist,confidence level,regequ] ¦ Confidence interval for the slope of a regression line. ¦ LinRegTInt L1,L2,1,0.95 ¦
+ANOVA( ¦ T ¦ STAT > TESTS > H ¦ ANOVA(list1,list2[,...,list20]) ¦ One-way analysis of variance comparing 2 to 20 means. ¦ ANOVA(L1,L2,L3) ¦
+# ---- Distributions ----
+normalpdf( ¦ P ¦ 2nd DISTR > DISTR > 1 ¦ normalpdf(x[,μ,σ]) ⇒ number ¦ Normal density at x (the height of the bell curve). ¦ normalpdf(0) ¦ For probabilities use normalcdf(. ¦ μ=the mean{0}; σ=the standard deviation{1}
+normalcdf( ¦ P ¦ 2nd DISTR > DISTR > 2 ¦ normalcdf(lowerbound,upperbound[,μ,σ]) ⇒ number ¦ Normal probability between two bounds. ¦ normalcdf(-1,1) ¦ Use -1E99 or 1E99 for an open end. ¦ μ=the mean{0}; σ=the standard deviation{1}
+invNorm( ¦ P ¦ 2nd DISTR > DISTR > 3 ¦ invNorm(area[,μ,σ,tail]) ⇒ number ¦ The x with a given area under the normal curve (inverse normal). ¦ invNorm(0.975) ¦ tail (OS 5.2+): LEFT, CENTER or RIGHT. ¦ μ=the mean{0}; σ=the standard deviation{1}; tail=LEFT, CENTER or RIGHT{LEFT}
+invT( ¦ P ¦ 2nd DISTR > DISTR > 4 ¦ invT(area,df) ⇒ number ¦ Inverse Student-t: the t value with a given left area. ¦ invT(0.975,10) ¦
+tpdf( ¦ P ¦ 2nd DISTR > DISTR > 5 ¦ tpdf(x,df) ⇒ number ¦ Student-t density at x. ¦ tpdf(0,10) ¦
+tcdf( ¦ P ¦ 2nd DISTR > DISTR > 6 ¦ tcdf(lowerbound,upperbound,df) ⇒ number ¦ Student-t probability between two bounds. ¦ tcdf(-2,2,10) ¦
+χ²pdf( ¦ P ¦ 2nd DISTR > DISTR > 7 ¦ χ²pdf(x,df) ⇒ number ¦ Chi-square density at x. ¦ chi^2pdf(2,3) ¦ ¦ ¦ pc=chi^2pdf(
+χ²cdf( ¦ P ¦ 2nd DISTR > DISTR > 8 ¦ χ²cdf(lowerbound,upperbound,df) ⇒ number ¦ Chi-square probability between two bounds. ¦ chi^2cdf(0,3.84,1) ¦ ¦ ¦ pc=chi^2cdf(
+𝙵pdf( ¦ P ¦ 2nd DISTR > DISTR > 9 ¦ 𝙵pdf(x,numerator df,denominator df) ⇒ number ¦ F-distribution density at x. ¦ Fpdf(1,5,10) ¦ ¦ ¦ pc=Fpdf(
+𝙵cdf( ¦ P ¦ 2nd DISTR > DISTR > 0 ¦ 𝙵cdf(lowerbound,upperbound,numerator df,denominator df) ⇒ number ¦ F-distribution probability between two bounds. ¦ Fcdf(0,2,5,10) ¦ ¦ ¦ pc=Fcdf(
+binompdf( ¦ P ¦ 2nd DISTR > DISTR > A ¦ binompdf(numtrials,p[,x]) ⇒ number or list ¦ Binomial probability of exactly x successes (all of them as a list if x is left out). ¦ binompdf(10,0.5,3) ¦ ¦ x=number of successes{all, 0 to numtrials}
+binomcdf( ¦ P ¦ 2nd DISTR > DISTR > B ¦ binomcdf(numtrials,p[,x]) ⇒ number or list ¦ Binomial probability of x successes or fewer. ¦ binomcdf(10,0.5,3) ¦ ¦ x=most successes counted{all}
+invBinom( ¦ P ¦ 2nd CATALOG ¦ invBinom(area,trials,p) ⇒ integer ¦ The smallest number of successes whose cumulative binomial probability reaches an area. ¦ invBinom(0.5,10,0.5) ¦ Newer OS (5.5 and later). ¦ area=cumulative probability, 0-1; trials=number of trials; p=chance of success ¦ g
+poissonpdf( ¦ P ¦ 2nd CATALOG ¦ poissonpdf(μ,x) ⇒ number ¦ Poisson probability of exactly x events. ¦ poissonpdf(3,2) ¦ In 2nd DISTR; its letter differs between OS versions. ¦ μ=the mean number of events
+poissoncdf( ¦ P ¦ 2nd CATALOG ¦ poissoncdf(μ,x) ⇒ number ¦ Poisson probability of x events or fewer. ¦ poissoncdf(3,2) ¦ In 2nd DISTR. ¦ μ=the mean number of events
+geometpdf( ¦ P ¦ 2nd CATALOG ¦ geometpdf(p,x) ⇒ number ¦ Geometric probability that the first success is on trial x. ¦ geometpdf(0.2,3) ¦ In 2nd DISTR. ¦ x=trial number of the first success
+geometcdf( ¦ P ¦ 2nd CATALOG ¦ geometcdf(p,x) ⇒ number ¦ Geometric probability that the first success comes by trial x. ¦ geometcdf(0.2,3) ¦ In 2nd DISTR. ¦ x=last trial counted
+ShadeNorm( ¦ G ¦ 2nd DISTR > DRAW > 1 ¦ ShadeNorm(lowerbound,upperbound[,μ,σ,color#]) ¦ Draws the normal curve and shades the area between two bounds. ¦ ShadeNorm(-1,1) ¦ Set a window that fits first.
+Shade_t( ¦ G ¦ 2nd DISTR > DRAW > 2 ¦ Shade_t(lowerbound,upperbound,df[,color#]) ¦ Draws a t curve and shades an area. ¦ Shade_t(-2,2,10) ¦
+Shadeχ²( ¦ G ¦ 2nd DISTR > DRAW > 3 ¦ Shadeχ²(lowerbound,upperbound,df[,color#]) ¦ Draws a chi-square curve and shades an area. ¦ Shadechi^2(0,3,2) ¦ ¦ ¦ pc=Shadechi^2(
+Shade𝙵( ¦ G ¦ 2nd DISTR > DRAW > 4 ¦ Shade𝙵(lowerbound,upperbound,numerator df,denominator df[,color#]) ¦ Draws an F curve and shades an area. ¦ ShadeF(0,2,5,10) ¦ ¦ ¦ pc=ShadeF(
+LEFT ¦ P ¦ 2nd CATALOG ¦ LEFT ¦ The tail argument of invNorm( for the left tail. ¦ invNorm(0.05,0,1,LEFT) ¦
+CENTER ¦ P ¦ 2nd CATALOG ¦ CENTER ¦ The tail argument of invNorm( for a centred area. ¦ invNorm(0.95,0,1,CENTER) ¦
+RIGHT ¦ P ¦ 2nd CATALOG ¦ RIGHT ¦ The tail argument of invNorm( for the right tail. ¦ invNorm(0.05,0,1,RIGHT) ¦
+# ---- Stat plots and list editor ----
+Plot1( ¦ G ¦ 2nd STAT PLOT > 1 ¦ Plot1(type,Xlist[,Ylist,mark,color#]) ¦ Sets up stat plot 1 (Plot2( and Plot3( work the same). ¦ Plot1(Scatter,L1,L2) ¦ In a program: type Scatter, xyLine, Histogram, Boxplot, ModBoxplot or NormProbPlot. ¦ type=the plot type token; mark=the point mark: □, ﹢ or ·
+Plot2( ¦ G ¦ 2nd STAT PLOT > 2 ¦ Plot2(type,Xlist[,Ylist,mark,color#]) ¦ Sets up stat plot 2. ¦ Plot2(Histogram,L1) ¦ ¦ type=the plot type token; mark=the point mark
+Plot3( ¦ G ¦ 2nd STAT PLOT > 3 ¦ Plot3(type,Xlist[,Ylist,mark,color#]) ¦ Sets up stat plot 3. ¦ Plot3(Boxplot,L1) ¦ ¦ type=the plot type token; mark=the point mark
+PlotsOff ¦ G ¦ 2nd STAT PLOT > 4 ¦ PlotsOff [1,2,3] ¦ Turns stat plots off (all of them, or the ones listed). ¦ PlotsOff ¦ ¦ 1=plot number to turn off
+PlotsOn ¦ G ¦ 2nd STAT PLOT > 5 ¦ PlotsOn [1,2,3] ¦ Turns stat plots on (all, or the ones listed). ¦ PlotsOn 1 ¦ ¦ 1=plot number to turn on
+Scatter ¦ G ¦ 2nd STAT PLOT ¦ Scatter ¦ Plot type for Plot1(: separate points. ¦ Plot1(Scatter,L1,L2) ¦
+xyLine ¦ G ¦ 2nd STAT PLOT ¦ xyLine ¦ Plot type: points joined in list order. ¦ Plot1(xyLine,L1,L2) ¦
+Histogram ¦ G ¦ 2nd STAT PLOT ¦ Histogram ¦ Plot type: a bar chart of one list (Xscl sets the bar width). ¦ Plot1(Histogram,L1) ¦
+Boxplot ¦ G ¦ 2nd STAT PLOT ¦ Boxplot ¦ Plot type: box-and-whisker. ¦ Plot1(Boxplot,L1) ¦
+ModBoxplot ¦ G ¦ 2nd STAT PLOT ¦ ModBoxplot ¦ Plot type: box plot that shows outliers as points. ¦ Plot1(ModBoxplot,L1) ¦
+NormProbPlot ¦ G ¦ 2nd STAT PLOT ¦ NormProbPlot ¦ Plot type: normal probability plot. ¦ Plot1(NormProbPlot,L1) ¦
+ClrList ¦ L ¦ STAT > EDIT > 4 ¦ ClrList listname1[,listname2,...] ¦ Empties lists (they keep existing, with no elements). ¦ ClrList L1,L2 ¦
+SetUpEditor ¦ L ¦ STAT > EDIT > 5 ¦ SetUpEditor [listname1,listname2,...,listname20] ¦ Chooses which lists the STAT editor shows (L1-L6 if none given). ¦ SetUpEditor L1,L2 ¦
+ClrAllLists ¦ V ¦ 2nd MEM > 4 ¦ ClrAllLists ¦ Empties every list in memory. ¦ ClrAllLists ¦
+STATWIZARD ON ¦ O ¦ 2nd CATALOG ¦ STATWIZARD ON ¦ Turns on the argument wizards for stat commands. ¦ STATWIZARD ON ¦
+STATWIZARD OFF ¦ O ¦ 2nd CATALOG ¦ STATWIZARD OFF ¦ Turns off the stat wizards: commands paste bare. ¦ STATWIZARD OFF ¦
+DiagnosticOn ¦ O ¦ 2nd CATALOG ¦ DiagnosticOn ¦ Regressions also show r and r² (or R²). ¦ DiagnosticOn ¦ Newer OS: a STAT DIAGNOSTICS line in MODE.
+DiagnosticOff ¦ O ¦ 2nd CATALOG ¦ DiagnosticOff ¦ Regressions hide r and r². ¦ DiagnosticOff ¦
+# ---- Finance (APPS > Finance) ----
+tvm_Pmt ¦ N ¦ APPS > Finance > CALC > 2 ¦ tvm_Pmt[(N,I%,PV,FV,P/Y,C/Y)] ⇒ number ¦ Payment per period of a loan or annuity. ¦ tvm_Pmt(360,6,200000,0,12,12) ¦ Without arguments it uses the TVM Solver's values. ¦ N=number of payments; I%=yearly interest rate in percent; PV=present value; FV=future value; P/Y=payments per year; C/Y=compounding periods per year
+tvm_I% ¦ N ¦ APPS > Finance > CALC > 3 ¦ tvm_I%[(N,PV,PMT,FV,P/Y,C/Y)] ⇒ number ¦ Yearly interest rate that fits the other TVM values. ¦ tvm_I%(60,20000,-400,0,12,12) ¦ ¦ N=number of payments; PV=present value; PMT=payment per period; FV=future value; P/Y=payments per year; C/Y=compounding periods per year
+tvm_PV ¦ N ¦ APPS > Finance > CALC > 4 ¦ tvm_PV[(N,I%,PMT,FV,P/Y,C/Y)] ⇒ number ¦ Present value from the other TVM values. ¦ tvm_PV(60,5,-400,0,12,12) ¦ ¦ N=number of payments; I%=yearly interest rate in percent; PMT=payment per period; FV=future value; P/Y=payments per year; C/Y=compounding periods per year
+tvm_𝗡 ¦ N ¦ APPS > Finance > CALC > 5 ¦ tvm_𝗡[(I%,PV,PMT,FV,P/Y,C/Y)] ⇒ number ¦ Number of payment periods from the other TVM values. ¦ tvm_N(5,20000,-400,0,12,12) ¦ ¦ I%=yearly interest rate in percent; PV=present value; PMT=payment per period; FV=future value; P/Y=payments per year; C/Y=compounding periods per year ¦ pc=tvm_N
+tvm_FV ¦ N ¦ APPS > Finance > CALC > 6 ¦ tvm_FV[(N,I%,PV,PMT,P/Y,C/Y)] ⇒ number ¦ Future value from the other TVM values. ¦ tvm_FV(120,4,0,-100,12,12) ¦ ¦ N=number of payments; I%=yearly interest rate in percent; PV=present value; PMT=payment per period; P/Y=payments per year; C/Y=compounding periods per year
+npv( ¦ N ¦ APPS > Finance > CALC > 7 ¦ npv(interest rate,CF0,CFList[,CFFreq]) ⇒ number ¦ Net present value of a series of cash flows. ¦ npv(10,-1000,{300,400,500}) ¦ ¦ interest rate=rate per period in percent
+irr( ¦ N ¦ APPS > Finance > CALC > 8 ¦ irr(CF0,CFList[,CFFreq]) ⇒ number ¦ Internal rate of return: the rate where the net present value is zero. ¦ irr(-1000,{300,400,500}) ¦
+bal( ¦ N ¦ APPS > Finance > CALC > 9 ¦ bal(npmt[,roundvalue]) ⇒ number ¦ Loan balance after a payment, from the TVM Solver's values. ¦ bal(12) ¦ ¦ npmt=the payment number; roundvalue=decimal places for rounding{2}
+ΣPrn( ¦ N ¦ APPS > Finance > CALC > 0 ¦ ΣPrn(pmt1,pmt2[,roundvalue]) ⇒ number ¦ Principal paid between two payments of the TVM Solver's loan. ¦ SigmaPrn(1,12) ¦ ¦ pmt1=first payment; pmt2=last payment; roundvalue=decimal places for rounding{2}
+ΣInt( ¦ N ¦ APPS > Finance > CALC > A ¦ ΣInt(pmt1,pmt2[,roundvalue]) ⇒ number ¦ Interest paid between two payments of the TVM Solver's loan. ¦ SigmaInt(1,12) ¦ ¦ pmt1=first payment; pmt2=last payment; roundvalue=decimal places for rounding{2}
+►Nom( ¦ N ¦ APPS > Finance > CALC > B ¦ ►Nom(effective rate,compounding periods) ⇒ number ¦ Converts an effective yearly rate to a nominal one. ¦ >Nom(6.17,12) ¦ ¦ effective rate=the effective rate in percent; compounding periods=periods per year
+►Eff( ¦ N ¦ APPS > Finance > CALC > C ¦ ►Eff(nominal rate,compounding periods) ⇒ number ¦ Converts a nominal yearly rate to an effective one. ¦ >Eff(6,12) ¦ ¦ nominal rate=the nominal rate in percent; compounding periods=periods per year
+dbd( ¦ N ¦ APPS > Finance > CALC > D ¦ dbd(date1,date2) ⇒ integer ¦ Days between two dates, written MM.DDYY or DDMM.YY. ¦ dbd(1.0126,7.0426) ¦ Years 1950-2049.
+Pmt_End ¦ N ¦ APPS > Finance > CALC > E ¦ Pmt_End ¦ Payments are due at the end of each period (ordinary annuity). ¦ Pmt_End ¦
+Pmt_Bgn ¦ N ¦ APPS > Finance > CALC > F ¦ Pmt_Bgn ¦ Payments are due at the start of each period (annuity due). ¦ Pmt_Bgn ¦
+# ---- Programming: control flow ----
+If ¦ F ¦ PRGM > CTL > 1 ¦ If condition:command ;; If condition:Then:commands:End ;; If condition:Then:commands:Else:commands:End ¦ Runs the next command only when a condition is true (non-zero); with Then, runs a block. ¦ If X>5:Disp "BIG" ¦ Without Then only ONE command is conditional. ¦ condition=a test that gives 1 (true) or 0 (false); command=the single command run when it's true
+Then ¦ F ¦ PRGM > CTL > 2 ¦ If condition:Then:commands:End ¦ Starts the block an If runs when its condition is true. ¦ If X=1:Then:Disp 1:End ¦ Needs a matching End. ¦ condition=a test; commands=the block
+Else ¦ F ¦ PRGM > CTL > 3 ¦ If condition:Then:commands:Else:commands:End ¦ Starts the block run when the If condition is false. ¦ If X:Then:Disp 1:Else:Disp 0:End ¦ ¦ condition=a test; commands=a block of commands
+For( ¦ F ¦ PRGM > CTL > 4 ¦ For(variable,begin,end[,increment]):commands:End ¦ Repeats a block while a counter steps from begin to end. ¦ For(I,1,10):Disp I:End ¦ The closing ) is optional; End closes the loop. ¦ variable=the loop counter; begin=its first value; end=its last value; increment=step{1}; commands=the loop body
+While ¦ F ¦ PRGM > CTL > 5 ¦ While condition:commands:End ¦ Repeats a block as long as a condition is true (tested first). ¦ While X<10:X+1->X:End ¦ ¦ condition=tested before each pass; commands=the loop body
+Repeat ¦ F ¦ PRGM > CTL > 6 ¦ Repeat condition:commands:End ¦ Repeats a block until a condition becomes true (tested after each pass). ¦ Repeat getKey:End ¦ Runs at least once. ¦ condition=tested after each pass; commands=the loop body
+End ¦ F ¦ PRGM > CTL > 7 ¦ End ¦ Closes an If-Then, For(, While or Repeat block. ¦ For(I,1,3):Disp I:End ¦
+Pause ¦ I ¦ PRGM > CTL > 8 ¦ Pause [value] ;; Pause [value,time] ¦ Stops until ENTER is pressed, showing a value if given; with a time it waits that many seconds. ¦ Pause "PRESS ENTER" ¦ The time form is OS 5.2 and later. ¦ value=text or a value to show; time=seconds to wait
+Lbl ¦ F ¦ PRGM > CTL > 9 ¦ Lbl label ¦ Marks a place in a program that Goto and Menu( can jump to. ¦ Lbl A ¦ ¦ label=1-2 letters or digits (A, B1, 99)
+Goto ¦ F ¦ PRGM > CTL > 0 ¦ Goto label ¦ Jumps to a Lbl. ¦ Goto A ¦ Jumping out of loops leaks memory (ERR:MEMORY over time). ¦ label=the Lbl name to jump to
+IS>( ¦ F ¦ PRGM > CTL > A ¦ IS>(variable,value):command ¦ Adds 1 to a variable and skips the next command if it is now above value. ¦ IS>(A,5):Disp A ¦ ¦ variable=the counter; value=the limit
+DS<( ¦ F ¦ PRGM > CTL > B ¦ DS<(variable,value):command ¦ Subtracts 1 from a variable and skips the next command if it is now below value. ¦ DS<(A,0):Disp A ¦ ¦ variable=the counter; value=the limit
+Menu( ¦ I ¦ PRGM > CTL > C ¦ Menu("title","text1",label1[,...,"text7",label7]) ¦ Shows a menu of up to 7 items; picking one jumps to its Lbl. ¦ Menu("piCK","ONE",A,"TWO",B) ¦ ¦ title=the menu's heading; text1=an item's text; label1=the Lbl it goes to
+prgm ¦ F ¦ PRGM > CTL > D ¦ prgmname ¦ Runs another program as a subroutine. ¦ prgmHELLO ¦ The name follows with no space.
+Return ¦ F ¦ PRGM > CTL > E ¦ Return ¦ Ends a subprogram and goes back to the program that called it. ¦ Return ¦
+Stop ¦ F ¦ PRGM > CTL > F ¦ Stop ¦ Ends the program (and any that called it). ¦ Stop ¦
+DelVar ¦ V ¦ PRGM > CTL > G ¦ DelVar variable ¦ Deletes a variable from memory. ¦ DelVar A ¦ Several can follow on one line: DelVar ADelVar B. ¦ variable=the variable to delete
+GraphStyle( ¦ G ¦ PRGM > CTL > H ¦ GraphStyle(function#,graphstyle#) ¦ Sets how a Y= function is drawn (line, thick, shade, path, dotted...). ¦ GraphStyle(1,2) ¦ Styles 1-7. ¦ function#=Y= number 1-9 or 0; graphstyle#=1 line, 2 thick, 3 shade above, 4 shade below, 5 path, 6 animate, 7 dotted
+GraphColor( ¦ G ¦ PRGM > CTL > I ¦ GraphColor(function#,color#) ¦ Sets the colour of a Y= function. ¦ GraphColor(1,RED) ¦ Colours 10-24 or a name from VARS > COLOR. ¦ function#=Y= number 1-9 or 0
+OpenLib( ¦ F ¦ PRGM > CTL > J ¦ OpenLib(name) ¦ Opens a function library app for ExecLib (for libraries such as usb8x). ¦ OpenLib(USBDRV8X) ¦ Needs a matching library app. ¦ name=the library's name
+ExecLib ¦ F ¦ PRGM > CTL > K ¦ ExecLib ¦ Runs a routine of the library opened with OpenLib(. ¦ ExecLib ¦
+Wait ¦ F ¦ 2nd CATALOG ¦ Wait time ¦ Pauses the program for a number of seconds. ¦ Wait 0.5 ¦ OS 5.3 and later; up to 100 s. ¦ time=seconds to wait
+Asm( ¦ F ¦ 2nd CATALOG ¦ Asm(prgmname) ¦ Runs an assembly program. ¦ Asm(prgmA) ¦ OS 5.5 and later removed it: assembly programs no longer run there. ¦ prgmname=the program, with its prgm token
+AsmComp( ¦ F ¦ 2nd CATALOG ¦ AsmComp(prgmASM1,prgmASM2) ¦ Turns an assembly program written in hex into a compact one. ¦ AsmComp(prgmA,prgmB) ¦ ¦ prgmASM1=the hex source program; prgmASM2=the program written
+Asm84CEPrgm ¦ F ¦ 2nd CATALOG ¦ Asm84CEPrgm ¦ First line of an assembly program written in hex. ¦ Asm84CEPrgm ¦
+# ---- Programming: input and output ----
+Input ¦ I ¦ PRGM > I/O > 1 ¦ Input [variable] ;; Input ["text",variable] ;; Input [Strn,variable] ¦ Asks for a value and stores it; with no variable it lets you pick a point on the graph. ¦ Input "N=",N ¦ A string variable gets the text typed. ¦ variable=where the answer goes; text=the prompt shown; Strn=a string variable used as the prompt
+Prompt ¦ I ¦ PRGM > I/O > 2 ¦ Prompt variableA[,variableB,...,variable n] ¦ Asks for each variable in turn, showing its name with "=?". ¦ Prompt A,B,C ¦ ¦ variableA=the first variable to ask for
+Disp ¦ I ¦ PRGM > I/O > 3 ¦ Disp [valueA,valueB,...,value n] ¦ Shows values or text on the home screen, one per line. ¦ Disp "X=",X ¦ Text is left-aligned, numbers right-aligned. ¦ valueA=a value, expression or "text"
+DispGraph ¦ G ¦ PRGM > I/O > 4 ¦ DispGraph ¦ Shows the graph screen. ¦ DispGraph ¦
+DispTable ¦ I ¦ PRGM > I/O > 5 ¦ DispTable ¦ Shows the table screen. ¦ DispTable ¦
+Output( ¦ I ¦ PRGM > I/O > 6 ¦ Output(row,column,"text") ;; Output(row,column,value) ¦ Writes text or a value at a row and column of the home screen. ¦ Output(1,1,"HI") ¦ The CE home screen has 10 rows and 26 columns. ¦ row=1-10; column=1-26; text=what to show
+getKey ¦ I ¦ PRGM > I/O > 7 ¦ getKey ⇒ integer ¦ The code of the key being pressed (0 if none); doesn't wait. ¦ Repeat getKey:End ¦ Codes are row and column: ENTER is 105.
+ClrHome ¦ I ¦ PRGM > I/O > 8 ¦ ClrHome ¦ Clears the home screen. ¦ ClrHome ¦
+ClrTable ¦ I ¦ PRGM > I/O > 9 ¦ ClrTable ¦ Clears the values in the table. ¦ ClrTable ¦
+GetCalc( ¦ I ¦ PRGM > I/O > 0 ¦ GetCalc(variable[,portflag]) ¦ Copies a variable from another calculator connected by cable. ¦ GetCalc(A) ¦ ¦ variable=the variable to fetch; portflag=0 USB, 1 I/O port{0}
+Get( ¦ I ¦ PRGM > I/O > A ¦ Get(variable) ¦ Reads a value sent by a connected TI-Innovator Hub or CBR/CBL. ¦ Get(A) ¦ ¦ variable=where the value goes
+Send( ¦ I ¦ PRGM > I/O > B ¦ Send(string) ¦ Sends a command string to a connected TI-Innovator Hub. ¦ Send("SET LIGHT ON") ¦ ¦ string=the Hub command
+TextColor( ¦ G ¦ 2nd DRAW > DRAW > A ¦ TextColor(color#) ¦ Sets the colour of text drawn with Text(. ¦ TextColor(BLUE) ¦  ¦  ¦ g
+# ---- Draw ----
+ClrDraw ¦ G ¦ 2nd DRAW > DRAW > 1 ¦ ClrDraw ¦ Erases everything drawn on the graph (the graph is redrawn). ¦ ClrDraw ¦
+Line( ¦ G ¦ 2nd DRAW > DRAW > 2 ¦ Line(X1,Y1,X2,Y2[,erase#,color#,linestyle#]) ¦ Draws (or erases with 0) a line between two points in graph coordinates. ¦ Line(0,0,5,5) ¦ ¦ X1=x of the start point; Y1=y of the start point; X2=x of the end point; Y2=y of the end point; erase#=1 draws, 0 erases{1}
+Horizontal ¦ G ¦ 2nd DRAW > DRAW > 3 ¦ Horizontal y[,color#,linestyle#] ¦ Draws a horizontal line at y. ¦ Horizontal 2 ¦ ¦ y=the height of the line
+Vertical ¦ G ¦ 2nd DRAW > DRAW > 4 ¦ Vertical x[,color#,linestyle#] ¦ Draws a vertical line at x. ¦ Vertical -1 ¦ ¦ x=where the line goes
+Tangent( ¦ G ¦ 2nd DRAW > DRAW > 5 ¦ Tangent(expression,value[,color#,linestyle#]) ¦ Draws the tangent line to a function at x = value. ¦ Tangent({Y1},2) ¦ ¦ value=the x where the line touches
+DrawF ¦ G ¦ 2nd DRAW > DRAW > 6 ¦ DrawF expression[,color#] ¦ Draws a function of X on the graph (not saved in Y=). ¦ DrawF X^2 ¦
+Shade( ¦ G ¦ 2nd DRAW > DRAW > 7 ¦ Shade(lowerfunc,upperfunc[,Xleft,Xright,pattern,patres,color#]) ¦ Shades the area between two functions. ¦ Shade(X^2,X+2,-1,2) ¦ ¦ lowerfunc=the lower boundary in X; upperfunc=the upper boundary; Xleft=left end; Xright=right end; pattern=1-4 hatch direction{1}; patres=hatch spacing 1-8{1}
+DrawInv ¦ G ¦ 2nd DRAW > DRAW > 8 ¦ DrawInv expression[,color#] ¦ Draws the inverse of a function (x and y swapped). ¦ DrawInv X^2 ¦
+Circle( ¦ G ¦ 2nd DRAW > DRAW > 9 ¦ Circle(X,Y,radius[,color#,linestyle#]) ¦ Draws a circle, centre and radius in graph units. ¦ Circle(0,0,3) ¦ Looks round only in a square window (ZSquare). ¦ X=x of the centre; Y=y of the centre; radius=the radius
+Text( ¦ G ¦ 2nd DRAW > DRAW > 0 ¦ Text(row,column,text1,text2,...,text n) ¦ Writes text or values on the graph at a pixel row and column. ¦ Text(10,10,"HI") ¦ Row 0-164, column 0-264 on the CE. Row -1 uses the big font. ¦ row=pixel row from the top; column=pixel column from the left; text1=text or a value
+Pt-On( ¦ G ¦ 2nd DRAW > POINTS > 1 ¦ Pt-On(x,y[,mark,color#]) ¦ Turns on a point at graph coordinates. ¦ Pt-On(1,2) ¦ ¦ x=the x coordinate; y=the y coordinate; mark=1 dot, 2 box, 3 cross, 4 big dot{1}
+Pt-Off( ¦ G ¦ 2nd DRAW > POINTS > 2 ¦ Pt-Off(x,y[,mark]) ¦ Turns off a point. ¦ Pt-Off(1,2) ¦ ¦ x=the x coordinate; y=the y coordinate; mark=1 dot, 2 box, 3 cross, 4 big dot{1}
+Pt-Change( ¦ G ¦ 2nd DRAW > POINTS > 3 ¦ Pt-Change(x,y[,color#]) ¦ Flips a point on or off. ¦ Pt-Change(1,2) ¦ ¦ x=the x coordinate; y=the y coordinate
+Pxl-On( ¦ G ¦ 2nd DRAW > POINTS > 4 ¦ Pxl-On(row,column[,color#]) ¦ Turns on a pixel by row and column. ¦ Pxl-On(10,20) ¦ Row 0-164, column 0-264 on the CE.
+Pxl-Off( ¦ G ¦ 2nd DRAW > POINTS > 5 ¦ Pxl-Off(row,column) ¦ Turns off a pixel. ¦ Pxl-Off(10,20) ¦
+Pxl-Change( ¦ G ¦ 2nd DRAW > POINTS > 6 ¦ Pxl-Change(row,column[,color#]) ¦ Flips a pixel. ¦ Pxl-Change(10,20) ¦
+pxl-Test( ¦ G ¦ 2nd DRAW > POINTS > 7 ¦ pxl-Test(row,column) ⇒ 1 or 0 ¦ 1 if a pixel is on, 0 if off. ¦ pxl-Test(10,20) ¦
+StorePic ¦ G ¦ 2nd DRAW > STO > 1 ¦ StorePic n ¦ Saves the graph screen as a picture variable. ¦ StorePic 1 ¦ ¦ n=picture number 0-9
+RecallPic ¦ G ¦ 2nd DRAW > STO > 2 ¦ RecallPic n ¦ Draws a saved picture over the graph. ¦ RecallPic 1 ¦ ¦ n=picture number 0-9
+StoreGDB ¦ G ¦ 2nd DRAW > STO > 3 ¦ StoreGDB n ¦ Saves the graph settings and functions as a graph database. ¦ StoreGDB 1 ¦ ¦ n=database number 0-9
+RecallGDB ¦ G ¦ 2nd DRAW > STO > 4 ¦ RecallGDB n ¦ Restores saved graph settings and functions. ¦ RecallGDB 1 ¦ ¦ n=database number 0-9
+BackgroundOn ¦ G ¦ 2nd DRAW > BACKGROUND > 1 ¦ BackgroundOn n ¦ Shows a background image (Image1-Image0) or colour behind the graph. ¦ BackgroundOn 1 ¦ ¦ n=image number or colour
+BackgroundOff ¦ G ¦ 2nd DRAW > BACKGROUND > 2 ¦ BackgroundOff ¦ Removes the graph's background image. ¦ BackgroundOff ¦
+FnOn ¦ G ¦ VARS > Y-VARS > On/Off ¦ FnOn [function#,function#,...] ¦ Turns Y= functions on (all, or the ones listed). ¦ FnOn 1,2 ¦ ¦ function#=Y= number 0-9
+FnOff ¦ G ¦ VARS > Y-VARS > On/Off ¦ FnOff [function#,function#,...] ¦ Turns Y= functions off (all, or the ones listed). ¦ FnOff ¦ ¦ function#=Y= number 0-9
+Trace ¦ G ¦ TRACE ¦ Trace ¦ Shows the graph with the trace cursor (a program pauses until ENTER). ¦ Trace ¦
+# ---- Zoom ----
+ZBox ¦ G ¦ ZOOM > ZOOM > 1 ¦ ZBox ¦ Zooms to a box you draw with the cursor. ¦ ZBox ¦
+Zoom In ¦ G ¦ ZOOM > ZOOM > 2 ¦ Zoom In ¦ Zooms in around the cursor by the zoom factors. ¦ Zoom In ¦
+Zoom Out ¦ G ¦ ZOOM > ZOOM > 3 ¦ Zoom Out ¦ Zooms out around the cursor. ¦ Zoom Out ¦
+ZDecimal ¦ G ¦ ZOOM > ZOOM > 4 ¦ ZDecimal ¦ A window where each pixel is 0.1 wide (clean trace values). ¦ ZDecimal ¦
+ZSquare ¦ G ¦ ZOOM > ZOOM > 5 ¦ ZSquare ¦ Adjusts the window so circles look round. ¦ ZSquare ¦
+ZStandard ¦ G ¦ ZOOM > ZOOM > 6 ¦ ZStandard ¦ The standard window, -10 to 10 on both axes. ¦ ZStandard ¦
+ZTrig ¦ G ¦ ZOOM > ZOOM > 7 ¦ ZTrig ¦ A window for trig graphs (x in multiples of π/2). ¦ ZTrig ¦
+ZInteger ¦ G ¦ ZOOM > ZOOM > 8 ¦ ZInteger ¦ A window where each pixel is one unit. ¦ ZInteger ¦
+ZoomStat ¦ G ¦ ZOOM > ZOOM > 9 ¦ ZoomStat ¦ A window that fits all the stat plot data. ¦ ZoomStat ¦
+ZoomFit ¦ G ¦ ZOOM > ZOOM > 0 ¦ ZoomFit ¦ Sets Ymin and Ymax to fit the functions over the current x range. ¦ ZoomFit ¦
+ZQuadrant1 ¦ G ¦ ZOOM > ZOOM > A ¦ ZQuadrant1 ¦ A window showing only the first quadrant. ¦ ZQuadrant1 ¦
+ZFrac1⁄2 ¦ G ¦ ZOOM > ZOOM > B ¦ ZFrac1⁄2 ¦ A window where each pixel is 1/2 unit. ¦ ZFrac1/2 ¦ ¦ ¦ pc=ZFrac1/2
+ZFrac1⁄3 ¦ G ¦ ZOOM > ZOOM > C ¦ ZFrac1⁄3 ¦ A window where each pixel is 1/3 unit. ¦ ZFrac1/3 ¦ ¦ ¦ pc=ZFrac1/3
+ZFrac1⁄4 ¦ G ¦ ZOOM > ZOOM > D ¦ ZFrac1⁄4 ¦ A window where each pixel is 1/4 unit. ¦ ZFrac1/4 ¦ ¦ ¦ pc=ZFrac1/4
+ZFrac1⁄5 ¦ G ¦ ZOOM > ZOOM > E ¦ ZFrac1⁄5 ¦ A window where each pixel is 1/5 unit. ¦ ZFrac1/5 ¦ ¦ ¦ pc=ZFrac1/5
+ZFrac1⁄8 ¦ G ¦ ZOOM > ZOOM > F ¦ ZFrac1⁄8 ¦ A window where each pixel is 1/8 unit. ¦ ZFrac1/8 ¦ ¦ ¦ pc=ZFrac1/8
+ZFrac1⁄10 ¦ G ¦ ZOOM > ZOOM > G ¦ ZFrac1⁄10 ¦ A window where each pixel is 1/10 unit. ¦ ZFrac1/10 ¦ ¦ ¦ pc=ZFrac1/10
+ZPrevious ¦ G ¦ ZOOM > MEMORY > 1 ¦ ZPrevious ¦ Goes back to the window before the last zoom. ¦ ZPrevious ¦
+ZoomSto ¦ G ¦ ZOOM > MEMORY > 2 ¦ ZoomSto ¦ Saves the current window as the user window. ¦ ZoomSto ¦
+ZoomRcl ¦ G ¦ ZOOM > MEMORY > 3 ¦ ZoomRcl ¦ Restores the window saved with ZoomSto. ¦ ZoomRcl ¦
+# ---- Graph format (2nd FORMAT) and mode (MODE) settings ----
+AxesOn ¦ G ¦ 2nd FORMAT ¦ AxesOn [color#] ¦ Shows the graph axes (in a colour if given). ¦ AxesOn ¦
+AxesOff ¦ G ¦ 2nd FORMAT ¦ AxesOff ¦ Hides the graph axes. ¦ AxesOff ¦
+GridDot ¦ G ¦ 2nd FORMAT ¦ GridDot [color#] ¦ Shows a grid of dots. ¦ GridDot ¦
+GridLine ¦ G ¦ 2nd FORMAT ¦ GridLine [color#] ¦ Shows a grid of lines. ¦ GridLine ¦
+GridOff ¦ G ¦ 2nd FORMAT ¦ GridOff ¦ Hides the grid. ¦ GridOff ¦ There is no GridOn: use GridDot or GridLine.
+LabelOn ¦ G ¦ 2nd FORMAT ¦ LabelOn ¦ Shows the axis labels. ¦ LabelOn ¦
+LabelOff ¦ G ¦ 2nd FORMAT ¦ LabelOff ¦ Hides the axis labels. ¦ LabelOff ¦
+CoordOn ¦ G ¦ 2nd FORMAT ¦ CoordOn ¦ Shows the cursor's coordinates on the graph. ¦ CoordOn ¦
+CoordOff ¦ G ¦ 2nd FORMAT ¦ CoordOff ¦ Hides the cursor's coordinates. ¦ CoordOff ¦
+ExprOn ¦ G ¦ 2nd FORMAT ¦ ExprOn ¦ Shows the function's formula while tracing. ¦ ExprOn ¦
+ExprOff ¦ G ¦ 2nd FORMAT ¦ ExprOff ¦ Hides the formula while tracing. ¦ ExprOff ¦
+RectGC ¦ G ¦ 2nd FORMAT ¦ RectGC ¦ Graph cursor shows x and y. ¦ RectGC ¦
+PolarGC ¦ G ¦ 2nd FORMAT ¦ PolarGC ¦ Graph cursor shows r and θ. ¦ PolarGC ¦
+BorderColor ¦ G ¦ 2nd FORMAT ¦ BorderColor color# ¦ Colour of the border around the graph (1-4). ¦ BorderColor 2 ¦ ¦ color#=1-4
+DetectAsymOn ¦ G ¦ 2nd FORMAT ¦ DetectAsymOn ¦ Graphs check for asymptotes and don't join across them (slower). ¦ DetectAsymOn ¦
+DetectAsymOff ¦ G ¦ 2nd FORMAT ¦ DetectAsymOff ¦ Graphs don't look for asymptotes (faster). ¦ DetectAsymOff ¦
+Time ¦ G ¦ 2nd FORMAT ¦ Time ¦ Sequence graphs plot against n. ¦ Time ¦
+Web ¦ G ¦ 2nd FORMAT ¦ Web ¦ Sequence graphs as cobweb plots. ¦ Web ¦
+uvAxes ¦ G ¦ 2nd FORMAT ¦ uvAxes ¦ Sequence graphs plot u(n) against v(n). ¦ uvAxes ¦
+uwAxes ¦ G ¦ 2nd FORMAT ¦ uwAxes ¦ Sequence graphs plot u(n) against w(n). ¦ uwAxes ¦
+vwAxes ¦ G ¦ 2nd FORMAT ¦ vwAxes ¦ Sequence graphs plot v(n) against w(n). ¦ vwAxes ¦
+Thick ¦ G ¦ MODE ¦ Thick ¦ All Y= functions drawn with thick lines. ¦ Thick ¦
+Thin ¦ G ¦ MODE ¦ Thin ¦ All Y= functions drawn with thin lines. ¦ Thin ¦
+Dot-Thick ¦ G ¦ MODE ¦ Dot-Thick ¦ All Y= functions drawn as large dots, not joined. ¦ Dot-Thick ¦
+Dot-Thin ¦ G ¦ MODE ¦ Dot-Thin ¦ All Y= functions drawn as small dots, not joined. ¦ Dot-Thin ¦
+Radian ¦ O ¦ MODE ¦ Radian ¦ Angle mode: radians. ¦ Radian ¦ Calculus and most physics want radians.
+Degree ¦ O ¦ MODE ¦ Degree ¦ Angle mode: degrees. ¦ Degree ¦
+Normal ¦ O ¦ MODE ¦ Normal ¦ Numbers shown normally (scientific only when needed). ¦ Normal ¦
+Sci ¦ O ¦ MODE ¦ Sci ¦ Numbers shown in scientific notation. ¦ Sci ¦
+Eng ¦ O ¦ MODE ¦ Eng ¦ Numbers shown in engineering notation (powers of ten in steps of 3). ¦ Eng ¦
+Float ¦ O ¦ MODE ¦ Float ¦ Show as many decimal places as needed. ¦ Float ¦
+Fix ¦ O ¦ MODE ¦ Fix n ¦ Show a fixed number of decimal places. ¦ Fix 2 ¦ ¦ n=decimal places 0-9
+Func ¦ O ¦ MODE ¦ Func ¦ Graph mode: functions y=f(x). ¦ Func ¦
+Param ¦ O ¦ MODE ¦ Param ¦ Graph mode: parametric x(t), y(t). ¦ Param ¦
+Polar ¦ O ¦ MODE ¦ Polar ¦ Graph mode: polar r(θ). ¦ Polar ¦
+Seq ¦ O ¦ MODE ¦ Seq ¦ Graph mode: sequences u(n), v(n), w(n). ¦ Seq ¦
+Sequential ¦ O ¦ MODE ¦ Sequential ¦ Graphs drawn one function at a time. ¦ Sequential ¦
+Simul ¦ O ¦ MODE ¦ Simul ¦ Graphs drawn all at once. ¦ Simul ¦
+Full ¦ O ¦ MODE ¦ Full ¦ No split screen. ¦ Full ¦
+Horiz ¦ O ¦ MODE ¦ Horiz ¦ Split screen: graph above, home screen below. ¦ Horiz ¦
+G-T ¦ O ¦ MODE ¦ G-T ¦ Split screen: graph and table side by side. ¦ G-T ¦
+MATHPRINT ¦ O ¦ MODE ¦ MATHPRINT ¦ Mode: math shown in textbook form (fractions, exponents raised). ¦ MATHPRINT ¦ ¦ ¦ pc=[MATHPRINT]
+CLASSIC ¦ O ¦ MODE ¦ CLASSIC ¦ Mode: input and output on one line, as typed. ¦ CLASSIC ¦ ¦ ¦ pc=[CLASSIC]
+AUTO ¦ O ¦ MODE ¦ AUTO ¦ Answers in the same form as the input (fraction or decimal). ¦ AUTO ¦ Shown as "AUTO Answer". ¦ ¦ pc=[AUTO]
+DEC ¦ O ¦ MODE ¦ DEC ¦ Answers as decimals. ¦ DEC ¦ Shown as "DEC Answer". ¦ ¦ pc=[DEC]
+FRAC-APPROX ¦ O ¦ MODE ¦ FRAC-APPROX ¦ Answers as fractions when possible. ¦ FRAC-APPROX ¦ ¦ ¦ pc=[FRAC-APPROX]
+IndpntAuto ¦ O ¦ 2nd TBLSET ¦ IndpntAuto ¦ The table fills in x values itself. ¦ IndpntAuto ¦
+IndpntAsk ¦ O ¦ 2nd TBLSET ¦ IndpntAsk ¦ The table asks for each x value. ¦ IndpntAsk ¦
+DependAuto ¦ O ¦ 2nd TBLSET ¦ DependAuto ¦ The table works out y values itself. ¦ DependAuto ¦
+DependAsk ¦ O ¦ 2nd TBLSET ¦ DependAsk ¦ The table works out a y value only when you ask. ¦ DependAsk ¦
+SEQ(𝑛) ¦ O ¦ MODE ¦ SEQ(𝑛) ¦ Sequence editor type u(n)= (OS 5.2+). ¦ SEQ(n) ¦ ¦ ¦ pc=SEQ(n)
+SEQ(𝑛+1) ¦ O ¦ MODE ¦ SEQ(𝑛+1) ¦ Sequence editor type u(n+1)=. ¦ SEQ(n+1) ¦ ¦ ¦ pc=SEQ(n+1)
+SEQ(𝑛+2) ¦ O ¦ MODE ¦ SEQ(𝑛+2) ¦ Sequence editor type u(n+2)=. ¦ SEQ(n+2) ¦ ¦ ¦ pc=SEQ(n+2)
+# ---- Clock ----
+ClockOn ¦ O ¦ 2nd CATALOG ¦ ClockOn ¦ Shows the clock in the status bar. ¦ ClockOn ¦
+ClockOff ¦ O ¦ 2nd CATALOG ¦ ClockOff ¦ Hides the clock. ¦ ClockOff ¦
+isClockOn ¦ O ¦ 2nd CATALOG ¦ isClockOn ⇒ 1 or 0 ¦ 1 if the clock is shown, 0 if not. ¦ isClockOn ¦
+setDate( ¦ O ¦ 2nd CATALOG ¦ setDate(year,month,day) ¦ Sets the clock's date. ¦ setDate(2026,11,27) ¦
+setTime( ¦ O ¦ 2nd CATALOG ¦ setTime(hour,minute,second) ¦ Sets the clock's time (24-hour). ¦ setTime(14,30,0) ¦
+setDtFmt( ¦ O ¦ 2nd CATALOG ¦ setDtFmt(integer) ¦ Date format: 1 M/D/Y, 2 D/M/Y, 3 Y/M/D. ¦ setDtFmt(3) ¦ ¦ integer=1 M/D/Y, 2 D/M/Y, 3 Y/M/D
+setTmFmt( ¦ O ¦ 2nd CATALOG ¦ setTmFmt(integer) ¦ Time format: 12 or 24 hour. ¦ setTmFmt(24) ¦ ¦ integer=12 or 24
+getDate ¦ O ¦ 2nd CATALOG ¦ getDate ⇒ list ¦ Today's date as {year,month,day}. ¦ getDate ¦
+getTime ¦ O ¦ 2nd CATALOG ¦ getTime ⇒ list ¦ The time as {hour,minute,second}. ¦ getTime ¦
+getDtFmt ¦ O ¦ 2nd CATALOG ¦ getDtFmt ⇒ integer ¦ The date format number (1-3). ¦ getDtFmt ¦
+getTmFmt ¦ O ¦ 2nd CATALOG ¦ getTmFmt ⇒ integer ¦ The time format (12 or 24). ¦ getTmFmt ¦
+getDtStr( ¦ O ¦ 2nd CATALOG ¦ getDtStr(integer) ⇒ string ¦ Today's date as text in a chosen format. ¦ getDtStr(1) ¦ ¦ integer=1 M/D/Y, 2 D/M/Y, 3 Y/M/D
+getTmStr( ¦ O ¦ 2nd CATALOG ¦ getTmStr(integer) ⇒ string ¦ The time as text, 12 or 24 hour. ¦ getTmStr(24) ¦ ¦ integer=12 or 24
+startTmr ¦ O ¦ 2nd CATALOG ¦ startTmr ⇒ integer ¦ The clock in seconds, to start a timer. ¦ startTmr->T ¦
+checkTmr( ¦ O ¦ 2nd CATALOG ¦ checkTmr(starttime) ⇒ integer ¦ Seconds since a value from startTmr. ¦ checkTmr(T) ¦ ¦ starttime=a value from startTmr
+timeCnv( ¦ O ¦ 2nd CATALOG ¦ timeCnv(seconds) ⇒ list ¦ Splits seconds into {days,hours,minutes,seconds}. ¦ timeCnv(100000) ¦
+dayOfWk( ¦ O ¦ 2nd CATALOG ¦ dayOfWk(year,month,day) ⇒ integer ¦ Day of the week, 1 Sunday to 7 Saturday. ¦ dayOfWk(2026,11,27) ¦
+# ---- Memory ----
+Archive ¦ V ¦ 2nd MEM > 5 ¦ Archive variable ¦ Moves a variable to archive (flash), safe from RAM resets. ¦ Archive L1 ¦ Archived variables can't be used until UnArchived (programs can run).
+UnArchive ¦ V ¦ 2nd MEM > 6 ¦ UnArchive variable ¦ Moves a variable from archive back to RAM. ¦ UnArchive L1 ¦
+Clear Entries ¦ V ¦ 2nd MEM > 3 ¦ Clear Entries ¦ Clears the home screen's entry history. ¦ Clear Entries ¦
+GarbageCollect ¦ V ¦ 2nd CATALOG ¦ GarbageCollect ¦ Tidies the archive to free space. ¦ GarbageCollect ¦ Can take a while; asks to confirm.

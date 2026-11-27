@@ -211,6 +211,31 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 - **MP4 without installing ffmpeg:** the first time you press Record without ffmpeg, the app offers to download it (about 39 MB, once, from PyPI's imageio-ffmpeg, checked against its SHA-256) into `%LOCALAPPDATA%\CalcSuite\ffmpeg`. Without it you still get the GIF. MP4s use H.264, or ffmpeg's own MPEG-4 when a build has no H.264.
 
+- **Make a PC copy of my calculator** (`tools/pc_copy.py`, [docs/PC_COPY.md](docs/PC_COPY.md);
+  the window's button comes later, its API is in [docs/dev/PC_COPY_API.md](docs/dev/PC_COPY_API.md)).
+  It backs the calculator up, dumps its own ROM to `Documents\CalcSuite\backups\roms\` and
+  removes everything it put on the calculator:
+  - **TI-84 Plus CE** (OS 5.4 or older): a Garbage Collect first, then CEmu's ROM dumper,
+    sent as `ZZDUMP` and started by typing its keys; its AppVars `ROMData*` are read back and
+    put together as CEmu does (boot code, OS and certificate; the archive comes out empty).
+    Tested on OS 5.4.0: 123 s in all (backup 4 s, garbage collect 10 s, dump 91 s of
+    waiting, reading 0.9 MB 7 s), a 4 MB `ti84ce-2026-11-27.rom` that CEmu v2.0 boots to the
+    home screen, with the backup's programs and variables sent in. No crash, nothing in RAM
+    lost. Without the Garbage Collect, the dump stopped half way twice (the OS wanted to ask
+    "Garbage Collect?").
+  - **TI-89 Titanium:** TILP's USB ROM dumper sent as `main\romdump`, run from the link, and
+    the 4 MB read with TILP's dump protocol (new `ti89-cli` commands `home`, `exec`,
+    `romdump`). Tested on AMS 3.10: 71 s in all (the dump 65 s), `ti89t-2026-11-27.rom`. No
+    crash, nothing in RAM lost.
+  - **Open in CEmu:** `python -I tools/pc_copy.py get-emulator 84` downloads CEmu v2.0 (GPL-3.0)
+    from its GitHub release into `%LOCALAPPDATA%\CalcSuite\emulators\`, checked against a
+    pinned SHA-256 (the release has no GitHub digest); `open 84` starts it with the ROM and
+    the latest backup's files. For the 89, the only Windows build of TiEmu is its 2010
+    installer: CalcSuite downloads and checks it, but you run it yourself.
+  - The two dumpers are GPL programs that run on the calculator, kept apart in
+    `tools/rom_dumpers/` with their sources and licences. CalcSuite never ships, uploads or
+    downloads a ROM.
+
 ### Faster
 - **Typing:** while you type, keys go out the moment they're pressed and the next screenshot
   waits until you pause (0.15 s on the Nspire, 0.6 s on the 84/89), instead of keys waiting

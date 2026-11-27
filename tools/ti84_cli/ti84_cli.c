@@ -13,7 +13,9 @@
  *                                       send FILE (a TI file: .8xp .8xv ... or .89p .89e ...) |
  *                                       put TYPE ARCH VERSION NAMEHEX LOCAL (84 only) |
  *                                       rm TYPE NAMEHEX [FOLDERHEX] (the 89 needs it) |
- *                                       clock | setclock now|YYYY MM DD hh mm ss | quit
+ *                                       clock | setclock now|YYYY MM DD hh mm ss |
+ *                                       home | exec prgm|asm FOLDERHEX NAMEHEX (89) |
+ *                                       romdump LOCAL (a ROM dumper already running) | quit
  *                                       each ends with "END <code>" (as nspire-cli serve does);
  *                                       names travel as hex, transfers print PROGRESS lines
  *   ti84-cli [--model M] send FILE      send every variable in a TI file (one that has the
@@ -1542,10 +1544,202 @@ static int do_setclock(Link *l, const char *arg) {
     return 4;
 }
 
+/* ---- Running a program, and the ROM dumper's own protocol (libticalcs: calc_89t.cc
+   dump_rom_1/dump_rom_2, dusb_cmd.cc dusb_cmd_s_execute, romdump.cc rd_read_dump,
+   docs/romdump.txt; GPL-2.0-or-later). Used by tools/pc_copy.py for the TI-89 Titanium; the
+   TI-84 Plus CE's OS no longer runs a program from the link, so pc_copy types its keys. ---- */
+
+#define PID_HOMESCREEN 0x0037
+
+/* "home": back to the home screen (the 89 Titanium: calc_89t.cc dump_rom_1) */
+static int do_home(Link *l) {
+    unsigned char b[5] = {(unsigned char)(PID_HOMESCREEN >> 8), (unsigned char)PID_HOMESCREEN, 0, 1, 1};
+    if (vpkt_send(l, VPKT_PARM_SET, b, sizeof(b))) {
+        printf("ERR home: no answer\n");
+        return 4;
+    }
+    if (expect_ack(l, "home")) return 4;
+    printf("OK home\n");
+    return 0;
+}
+
+/* "exec prgm|asm FOLDERHEX NAMEHEX": runs a program on the calculator (the 89 Titanium; the
+   84 Plus CE answers with an error). The folder is "-" on the 84 family. */
+static int do_exec(Link *l, char *arg) {
+    char *kind = strtok(arg, " "), *fh = strtok(NULL, " "), *nh = strtok(NULL, " ");
+    unsigned char folder[40], name[40];
+    int flen = fh ? from_hex(fh, folder, sizeof(folder)) : -1;
+    int nlen = nh ? from_hex(nh, name, sizeof(name)) : -1;
+    if (!kind || (strcmp(kind, "prgm") && strcmp(kind, "asm")) || flen < 0 || nlen <= 0) {
+        printf("ERR usage: exec prgm|asm FOLDERHEX NAMEHEX\n");
+        return 1;
+    }
+    unsigned char e[96];
+    uint32_t j = 0;
+    e[j++] = (unsigned char)flen;
+    if (l->m->is_89t && flen) {
+        memcpy(e + j, folder, (size_t)flen + 1);
+        j += (uint32_t)flen + 1;
+    }
+    e[j++] = (unsigned char)nlen;
+    memcpy(e + j, name, (size_t)nlen + 1);
+    j += (uint32_t)nlen + 1;
+    e[j++] = (unsigned char)(strcmp(kind, "asm") ? 0x00 : 0x01); /* DUSB_EID_PRGM / _ASM */
+    if (vpkt_send(l, VPKT_EXECUTE, e, j)) {
+        printf("ERR exec: no answer\n");
+        return 4;
+    }
+    if (expect_ack(l, "exec")) return 4;
+    printf("OK exec\n");
+    return 0;
+}
+
+enum {
+    RD_IS_READY = 0xAA55, RD_KO = 0x0000, RD_OK = 0x0001, RD_EXIT = 0x0002, RD_REQ_SIZE = 0x0003,
+    RD_ERROR = 0x0004, RD_REQ_BLOCK = 0x0005, RD_DATA = 0x0006, RD_DATA_RPT = 0x0007
+};
+
+/* One dumper packet: command (2, little endian), length (2), data, the byte sum (2) */
+static int rd_send(Link *l, uint16_t cmd, const unsigned char *data, uint16_t len) {
+    unsigned char b[16];
+    uint16_t sum = 0;
+    if (len > 8) return -1;
+    b[0] = (unsigned char)cmd;
+    b[1] = (unsigned char)(cmd >> 8);
+    b[2] = (unsigned char)len;
+    b[3] = (unsigned char)(len >> 8);
+    if (len) memcpy(b + 4, data, len);
+    for (int i = 0; i < 4 + len; i++) sum = (uint16_t)(sum + b[i]);
+    b[4 + len] = (unsigned char)sum;
+    b[5 + len] = (unsigned char)(sum >> 8);
+    int sent = 0;
+    return libusb_bulk_transfer(l->dev, l->ep_out, b, 6 + len, &sent, TIMEOUT_MS) == 0 &&
+                   sent == 6 + len
+               ? 0
+               : -1;
+}
+
+/* 0 ok, -1 no answer / broken, -2 bad checksum (the bytes were all read: resync and retry) */
+static int rd_recv(Link *l, uint16_t *cmd, unsigned char *data, uint16_t *len, uint16_t cap) {
+    unsigned char h[4], s[2];
+    if (usb_read(l, h, 4)) return -1;
+    *cmd = (uint16_t)(h[0] | (h[1] << 8));
+    *len = (uint16_t)(h[2] | (h[3] << 8));
+    if (*len > cap) return -1;
+    if ((*len && usb_read(l, data, *len)) || usb_read(l, s, 2)) return -1;
+    uint16_t sum = 0;
+    for (int i = 0; i < 4; i++) sum = (uint16_t)(sum + h[i]);
+    for (unsigned i = 0; i < *len; i++) sum = (uint16_t)(sum + data[i]);
+    return sum == (uint16_t)(s[0] | (s[1] << 8)) ? 0 : -2;
+}
+
+static int rd_ready(Link *l) {
+    unsigned char d[16];
+    uint16_t cmd = 0, len = 0;
+    if (rd_send(l, RD_IS_READY, NULL, 0)) return -1;
+    int r = rd_recv(l, &cmd, d, &len, sizeof(d));
+    return r == 0 && cmd == RD_OK ? 0 : -1;
+}
+
+/* "romdump LOCAL": with the dumper already running on the calculator (exec), reads the whole
+   ROM into LOCAL and tells the dumper to end. The 89 Titanium's certificate (0x10000-0x11FFF)
+   is read protected and comes out as 0xFF, as TILP does. Prints PROGRESS lines and
+   "OK romdump size=N blocks=B repeated=R". */
+static int do_romdump(Link *l, const char *out) {
+    int ok = 0;
+    for (int tries = 0; tries < 10 && !ok; tries++) {
+        if (rd_ready(l) == 0) ok = 1;
+        else sleep_ms(500);
+    }
+    if (!ok) {
+        printf("ERR romdump: the dumper didn't answer (is it running on the calculator?)\n");
+        return 4;
+    }
+    unsigned char d[4096 + 16];
+    uint16_t cmd = 0, len = 0;
+    if (rd_send(l, RD_REQ_SIZE, NULL, 0) || rd_recv(l, &cmd, d, &len, sizeof(d)) || cmd != RD_REQ_SIZE ||
+        len != 4) {
+        printf("ERR romdump: the dumper didn't say the ROM's size\n");
+        return 4;
+    }
+    uint32_t size = le32(d);
+    if (size == 0 || size > 0x800000 || (size & 0xFFF)) {
+        printf("ERR romdump: a ROM size of %lu bytes can't be right\n", (unsigned long)size);
+        return 4;
+    }
+    FILE *f = fopen(out, "wb");
+    if (!f) {
+        printf("ERR cannot write %s\n", out);
+        return 6;
+    }
+    unsigned blocks = 0, repeated = 0, errors = 0;
+    uint32_t addr = 0;
+    while (addr < size) {
+        uint16_t blen = 4096;
+        if (l->m->is_89t && addr >= 0x10000 && addr < 0x12000) {
+            memset(d, 0xFF, blen); /* The certificate: read protected */
+        } else {
+            unsigned char a[4] = {(unsigned char)addr, (unsigned char)(addr >> 8),
+                                  (unsigned char)(addr >> 16), (unsigned char)(addr >> 24)};
+            int r = rd_send(l, RD_REQ_BLOCK, a, 4);
+            if (!r) r = rd_recv(l, &cmd, d, &len, sizeof(d));
+            if (!r && cmd == RD_DATA) {
+                blen = len;
+            } else if (!r && cmd == RD_DATA_RPT && len == 4) {
+                blen = (uint16_t)(d[0] | (d[1] << 8));
+                memset(d, d[2], blen > sizeof(d) ? sizeof(d) : blen);
+                repeated++;
+            } else {
+                if (++errors > 20) {
+                    fclose(f);
+                    printf("ERR romdump: too many link errors at 0x%06lx\n", (unsigned long)addr);
+                    return 4;
+                }
+                sleep_ms(500); /* Resync as rd_read_dump does, then ask for the same block */
+                l->in_pos = l->in_len = 0;
+                {
+                    int got = 0;
+                    unsigned char junk[1024];
+                    while (libusb_bulk_transfer(l->dev, l->ep_in, junk, sizeof(junk), &got, 100) == 0 && got > 0) {
+                    }
+                }
+                for (int t = 0; t < 3 && rd_ready(l); t++) {
+                }
+                continue;
+            }
+            if (blen == 0 || blen > 4096) {
+                fclose(f);
+                printf("ERR romdump: a block of %u bytes at 0x%06lx\n", (unsigned)blen, (unsigned long)addr);
+                return 4;
+            }
+        }
+        if (fwrite(d, 1, blen, f) != blen) {
+            fclose(f);
+            printf("ERR cannot write %s\n", out);
+            return 6;
+        }
+        addr += blen;
+        blocks++;
+        if ((addr & 0xFFFF) == 0 || addr >= size)
+            printf("PROGRESS %lu %lu\n", (unsigned long)addr, (unsigned long)size);
+    }
+    fclose(f);
+    sleep_ms(200);
+    if (rd_send(l, RD_EXIT, NULL, 0) || rd_recv(l, &cmd, d, &len, sizeof(d)) || cmd != RD_EXIT)
+        printf("WARN romdump: the dumper didn't confirm it ended (press ESC on the calculator)\n");
+    sleep_ms(1000);
+    printf("OK romdump size=%lu blocks=%u repeated=%u retries=%u\n", (unsigned long)size, blocks, repeated,
+           errors);
+    return 0;
+}
+
 static int run_line(Link *l, char *line) {
     char *arg = strchr(line, ' ');
     if (arg) *arg++ = 0;
     if (!strcmp(line, "info")) return do_info(l);
+    if (!strcmp(line, "home")) return do_home(l);
+    if (!strcmp(line, "exec") && arg) return do_exec(l, arg);
+    if (!strcmp(line, "romdump") && arg) return do_romdump(l, arg);
     if (!strcmp(line, "shot") && arg) return do_shot(l, arg);
     if (!strcmp(line, "ls")) return do_ls(l);
     if (!strcmp(line, "get") && arg) return do_get(l, arg);
