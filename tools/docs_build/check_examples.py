@@ -10,7 +10,7 @@ import os
 import re
 import sys
 
-KIT = r"C:\CalcSuite"
+KIT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # The repo
 sys.path.insert(0, os.path.join(KIT, "tools"))
 import calc_files as cf  # noqa: E402
 

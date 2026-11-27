@@ -2,8 +2,8 @@
 so the guide's blocks and programs/ti84, programs/ti89 stay the same text."""
 import os
 
-KIT = r"C:\CalcSuite"
 HERE = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(HERE))  # The repo (tools/docs_build/ is two levels down)
 
 EX84 = [
     ("QUAD", "Roots of a quadratic, real or complex, without changing the complex mode. "
