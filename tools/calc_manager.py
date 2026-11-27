@@ -909,16 +909,21 @@ class Manager(object):
             text, link = "Couldn't check for a newer OS:", "TI's download page"
         elif have >= new:
             text, link = "Up to date (%s)." % installed, "TI's page"
+        elif self.slug == "ti84" and have < (5, 5, 0) <= new:
+            # An 84 CE that still runs assembly: TI's update takes that away for good (the CE can't
+            # go back to an older OS), so this is a warning, not an offer
+            text, link = ("Keep OS %s. TI's newer OS %s stops assembly and C programs, and the"
+                          " 84 CE can't go back." % (installed, cf.nice_version(self.slug, newest)),
+                          None)
         else:
             text, link = "TI has OS %s:" % cf.nice_version(self.slug, newest), "download page"
-        tk.Label(line, text=text, bg=BG, fg=FG).pack(side="left")
-        a = tk.Label(line, text=link, bg=BG, fg=th.MINT, cursor="hand2",
-                     font=("Segoe UI", 9, "underline"))
-        a.pack(side="left", padx=(6, 0))
-        a.bind("<Button-1>", lambda e: webbrowser.open(url))
-        if self.slug == "ti84" and have and new and have < (5, 5, 0) <= new:
-            tk.Label(self.os_line, text="Note: OS 5.5 and later don't run assembly (ASM) programs.",
-                     bg=BG, fg=DIM).pack(anchor="w", pady=(4, 0))
+        tk.Label(line, text=text, bg=BG, fg=FG if link else th.ACCENT, wraplength=420,
+                 justify="left").pack(side="left")
+        if link:
+            a = tk.Label(line, text=link, bg=BG, fg=th.MINT, cursor="hand2",
+                         font=("Segoe UI", 9, "underline"))
+            a.pack(side="left", padx=(6, 0))
+            a.bind("<Button-1>", lambda e: webbrowser.open(url))
 
 
 class RestoreDialog(object):
