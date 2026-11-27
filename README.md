@@ -39,6 +39,11 @@ files on them, and a guide for writing programs. For the **TI-Nspire CX II** (CA
 
    ![Zadig with the TI-84 Plus CE selected and WinUSB chosen](docs/img/zadig-ti84ce.png)
 
+   Already done: a TI-Nspire CX II whose Driver box says WinUSB (the button reads "Reinstall
+   Driver") needs nothing more. Close Zadig.
+
+   ![Zadig with the TI-Nspire CX II selected, its driver already WinUSB](docs/img/zadig-nspire.png)
+
 3. **Open CalcSuite** with the calculators plugged in and switched on. Each one gets a tab; one
    plugged in later gets its tab by itself.
 
