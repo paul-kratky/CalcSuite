@@ -16,9 +16,12 @@ files on them, and a guide for writing programs. For the **TI-Nspire CX II** (CA
 
 ## Get started
 
-1. **Download** `CalcSuite.exe` from the
-   [latest release](https://github.com/paul-kratky/CalcSuite/releases/latest). It is one file:
-   nothing to install, no Python needed.
+1. **Download** `CalcSuite-<version>-win64.zip` from the
+   [latest release](https://github.com/paul-kratky/CalcSuite/releases/latest) and **unzip it**
+   (right-click, Extract All) wherever you like: Desktop, Documents, a USB stick. Nothing to
+   install, no Python needed. Open `CalcSuite.exe` in the folder it makes (not from inside the
+   zip). Everything CalcSuite saves stays in that folder, in `CalcSuite files`; the guides as
+   PDFs are in `Guides`.
 2. **Open CalcSuite** with the calculators plugged in and switched on. Each one gets a tab; one
    plugged in later gets its tab by itself.
 3. **The first time only:** Windows needs the WinUSB driver for each calculator, and TI's
@@ -88,6 +91,16 @@ The panel on the right of a tab:
 
 <img src="docs/img/symbols-panel.png" width="49%" alt="The Symbols panel"> <img src="docs/img/guide-panel.png" width="49%" alt="The Guide panel">
 
+## Where your files are
+
+Everything stays in the folder you unzipped, in `CalcSuite files`: `captures` (screenshots,
+recordings, GIFs), `programs` (what you write, build and send), `backups` (and `backups\roms`
+for the PC copy), `from-calc`, `library` (programs you download) and `cache` (what CalcSuite
+downloads for itself: ffmpeg, the emulators). Move the folder and all of it moves; delete the
+folder and CalcSuite is gone (the USB driver stays with Windows: **Info > Restore TI's
+driver...** gives TI's software its driver back). Run from the source instead
+(`python tools/mirror.py`), CalcSuite uses `Documents\CalcSuite` and `%LOCALAPPDATA%\CalcSuite`.
+
 ## Keys and mouse
 
 What you type goes to the calculator: letters, digits and symbols as themselves (on the 84,
@@ -149,7 +162,7 @@ From the command line: `ti84-cli serve`, then `fast status`, `fast on tools/fast
 
 ## Screenshots and recordings
 
-**Screenshot** saves a PNG in `Documents\CalcSuite\captures`. **Record** records the screen
+**Screenshot** saves a PNG in `CalcSuite files\captures`. **Record** records the screen
 straight from the app, up to 3 minutes: always a GIF, and an MP4 too with
 [ffmpeg](https://ffmpeg.org/). No ffmpeg on your PC? The first time you press Record, CalcSuite
 offers to download it for you (free, about 39 MB, once). Say no to keep the GIF only.
@@ -172,7 +185,7 @@ Write TI-84 Plus CE TI-Basic, TI-89 Titanium TI-Basic or Nspire Python in CalcSu
 mistake and lists it with its fix (F8 goes to the next one), colours the code like VS Code,
 completes command names (Ctrl+Space) and shows the command's syntax with the current argument
 in bold. **Build** (Ctrl+B) makes the calculator's file (`.8xp`, `.89p`, `.tns`) in
-`Documents\CalcSuite\programs\<calculator>\` with the source beside it; **Copy file** puts it
+`CalcSuite files\programs\<calculator>\` with the source beside it; **Copy file** puts it
 on the clipboard for Discord or e-mail. **F5** checks, builds, sends and runs it (the Nspire:
 sends it; open it on the handheld), **F6** sends only. Nothing is built or sent while there are
 errors. **Copy AI instructions** gives a chat AI the rules for your calculator; paste its
@@ -188,10 +201,10 @@ answer into an empty editor and **Copy problems for the AI** hands back what the
 | Upload | `.py` (checked and converted) or `.tns` | TI files (`.8xp` etc.) or TI-Basic text | TI files (`.89p` etc.) or TI-Basic text |
 | Delete, new folder, rename | yes (folders must be empty to delete) | delete | delete |
 
-Downloads go to `Documents\CalcSuite\from-calc` unless you pick another folder.
+Downloads go to `CalcSuite files\from-calc` unless you pick another folder.
 
 **Back up...** copies everything the link can read to
-`Documents\CalcSuite\backups\<model>-<date>` (Nspire: every file, folders kept; 84: TI files
+`CalcSuite files\backups\<model>-<date>` (Nspire: every file, folders kept; 84: TI files
 and a `.b84` bundle; 89: TI files and a `.89g` group; a `manifest.json`). Apps and the OS can't
 be read: they're listed as skipped. **Restore...** shows what's in a backup, sends what you
 pick, and asks before replacing anything. It never wipes the calculator.
@@ -206,7 +219,7 @@ Press-to-Test.
 ## A PC copy of your calculator
 
 `python -I tools/pc_copy.py make 84` (or `89`) backs the calculator up, copies its ROM to
-`Documents\CalcSuite\backups\roms\`, removes what it put on the calculator, and opens the copy
+`CalcSuite files\backups\roms\`, removes what it put on the calculator, and opens the copy
 in CEmu with your programs and variables (the 84 Plus CE, OS 5.4 or older). For the TI-89
 Titanium it makes the ROM; its emulator, TiEmu, you install yourself. The ROM is TI's software
 from your own calculator: it stays on your PC and is never uploaded. In the window: Info >

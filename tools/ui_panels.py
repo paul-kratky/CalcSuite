@@ -240,9 +240,9 @@ class FunctionsSection(object):
             menu.add_command(label=c or self.ALL, command=lambda c=c: self.set_category(c))
         self.cat_btn.configure(menu=menu)
         mid = tk.Frame(self.frame, bg=th.PANEL)
-        mid.pack(fill="both", expand=True)
+        mid.pack(fill="x")
         tree = self.tree = ttk.Treeview(mid, columns=("what",), style="Calc.Treeview",
-                                        selectmode="browse", height=16)
+                                        selectmode="browse", height=FunctionsSection.rows or 16)
         tree.heading("#0", text="Command", anchor="w")
         tree.column("#0", width=140, anchor="w", stretch=False)
         tree.heading("what", text="What it does", anchor="w")
@@ -255,10 +255,18 @@ class FunctionsSection(object):
         tree.bind("<<TreeviewSelect>>", lambda e: self.picked())
         tree.bind("<Double-1>", self.double)  # Double click: Insert, like its button
         tree.bind("<Return>", lambda e: self.insert())
-        self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=8,
+        # A handle between the list and the description: drag it up or down
+        grip = tk.Frame(self.frame, bg=th.PANEL, height=10, cursor="sb_v_double_arrow")
+        grip.pack(fill="x")
+        gline = tk.Frame(grip, bg=th.PANEL2, height=2)
+        gline.place(relx=0.5, rely=0.5, relwidth=0.15, anchor="center")
+        grip.bind("<B1-Motion>", self.drag_split)
+        grip.bind("<Enter>", lambda e: gline.configure(bg=th.ACCENT))
+        grip.bind("<Leave>", lambda e: gline.configure(bg=th.PANEL2))
+        self.detail = tk.Text(self.frame, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=4,
                               padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9),
                               cursor="arrow", insertwidth=0)
-        self.detail.pack(fill="x", pady=(8, 0))
+        self.detail.pack(fill="both", expand=True)
         d = self.detail
         d.tag_configure("name", font=(th.MONO, 12, "bold"), foreground=th.ACCENT)
         d.tag_configure("cat", foreground=th.DIM)
@@ -290,6 +298,21 @@ class FunctionsSection(object):
         else:
             self.status.set("Type a name or a word (\"integral\", \"matrix\"), or paste code to "
                             "see the commands it uses.")
+
+    def drag_split(self, ev):
+        """The list's height follows the handle, a whole number of rows"""
+        try:
+            row = int(ttk.Style().lookup("Calc.Treeview", "rowheight") or 22)
+        except (ValueError, tk.TclError):
+            row = 22
+        rows = (ev.y_root - self.tree.winfo_rooty() - row) // row  # Minus the heading row
+        # Room kept below the list: the handle, a few lines of description, the buttons, the note
+        bottom = self.frame.winfo_rooty() + self.frame.winfo_height()
+        most = (bottom - self.tree.winfo_rooty() - 190) // row - 1
+        FunctionsSection.rows = max(4, min(most, rows))
+        self.tree.configure(height=FunctionsSection.rows)
+
+    rows = 0  # The height the user dragged the list to (this session)
 
     def shown(self):
         self.search.focus_set()
@@ -762,14 +785,15 @@ class ProgramsSection(object):
 
 def save_pdf(widget, name, say):
     """Save as PDF (Guide, Functions): copies the bundled PDF (docs/pdf/) to a folder the user
-    picks, Documents\\CalcSuite by default, and offers to open it"""
+    picks, CalcSuite files by default, and offers to open it"""
     import shutil
     import mirror as mirror_mod
     src = mirror_mod.resource("docs", "pdf", name)
     if not os.path.isfile(src):
         say("The PDF isn't there (%s). Build it: python tools/docs_build/make_pdfs.py" % name)
         return
-    start = os.path.join(os.path.expanduser("~"), "Documents", "CalcSuite")
+    import paths
+    start = paths.files_dir()
     try:
         os.makedirs(start, exist_ok=True)
     except OSError:
@@ -1646,7 +1670,7 @@ class PcCopyDialog(object):
         ]
         for k, t in enumerate(steps):
             self.text(b, "%d.  %s" % (k + 1, t), pady=(0, 4))
-        self.text(b, "The ROM stays on this PC (Documents\\CalcSuite\\backups\\roms) and is never "
+        self.text(b, "The ROM stays on this PC (CalcSuite files\\backups\\roms) and is never "
                   "uploaded anywhere. It's TI's software: keep it for yourself.", fg=th.DIM, pady=(8, 4))
         self.text(b, "The screen mirror pauses while it runs (the dump needs the link to itself) and "
                   "comes back afterwards.%s" % (
@@ -1771,7 +1795,7 @@ class PcCopyDialog(object):
                       "CalcSuite's, not yours: delete them in Files once the dump program has "
                       "finished." % (self.spec["dumper"], rest), fg=th.ACCENT)
         if stage and stage not in ("connect", "check") and not isinstance(err, pc.Cancelled):
-            self.text(b, "The backup from before is in Documents\\CalcSuite\\backups.", fg=th.DIM)
+            self.text(b, "The backup from before is in CalcSuite files\\backups.", fg=th.DIM)
         detail = getattr(err, "detail", None) or []
         if detail:
             self.text(b, "The tool said: " + " / ".join(str(d) for d in detail[-3:]), fg=th.DIM)
@@ -1829,7 +1853,7 @@ class PcCopyDialog(object):
         elif pc.tiemu_path():
             self.text(b, "TiEmu is installed: it opens the copy. Your programs aren't sent for you "
                       "(TiEmu takes one file at a time: use its own Send file; the backup is in "
-                      "Documents\\CalcSuite\\backups).", fg=th.DIM, pady=(10, 6))
+                      "CalcSuite files\\backups).", fg=th.DIM, pady=(10, 6))
             first = ("Open in TiEmu", self.open_tiemu)
         else:
             self.text(b, "TiEmu, the TI-89 emulator, was last released in 2010 (3.03), and its "

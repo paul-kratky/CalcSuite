@@ -1,6 +1,7 @@
 """Build the two helper programs the automation needs, into tools/bin/:
 
-    tools/bin/luna.exe         .py -> .tns converter (third_party/luna, MPL-1.1)
+    tools/bin/luna.exe         only with --luna: the self-test's reference for tools/tns_writer.py
+                               (third_party/luna, MPL-1.1); CalcSuite itself doesn't use it
     tools/bin/nspire-cli.exe   USB link to the handheld (third_party/libnspire, GPL-3.0+)
     tools/bin/ti84-cli.exe     USB link to the TI-84 Plus CE and (as ti89-cli.exe) TI-89 Titanium
     tools/bin/libusb-1.0.dll   copied from the official libusb release (LGPL-2.1)
@@ -92,6 +93,50 @@ def build_luna(tc, force):
         ["-static", "-lz", "-o", out], tc)
 
 
+APP_VERSION = (1, 0, 1)  # The helpers' version info (Windows shows it in Properties > Details)
+
+
+def version_res(tc, name, description, licence):
+    """A version-info resource for a helper exe, compiled with windres: an exe without one
+    looks more suspicious to antivirus heuristics. Returns the .o to link in."""
+    objdir = os.path.join(KIT, "build", "obj")
+    os.makedirs(objdir, exist_ok=True)
+    v = APP_VERSION
+    dotted = "%d.%d.%d" % v
+    rc = os.path.join(objdir, name + ".rc")
+    with open(rc, "w", encoding="ascii") as fh:
+        fh.write("""#include <winresrc.h>
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION %d,%d,%d,0
+ PRODUCTVERSION %d,%d,%d,0
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904b0"
+    BEGIN
+      VALUE "CompanyName", "CalcSuite"
+      VALUE "FileDescription", "%s"
+      VALUE "FileVersion", "%s"
+      VALUE "InternalName", "%s"
+      VALUE "LegalCopyright", "%s"
+      VALUE "OriginalFilename", "%s.exe"
+      VALUE "ProductName", "CalcSuite"
+      VALUE "ProductVersion", "%s"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END
+""" % (v + v + (description, dotted, name, licence, name, dotted)))
+    obj = os.path.join(objdir, name + "_res.o")
+    run([os.path.join(tc, "windres.exe"), rc, "-O", "coff", "-o", obj], tc)
+    return obj
+
+
 def build_cli(tc, force):
     out = os.path.join(BIN, "nspire-cli.exe")
     usb = find_libusb()
@@ -127,6 +172,8 @@ def build_cli(tc, force):
     run([os.path.join(tc, "gcc.exe"), "-std=gnu11", "-Wall", "-Wextra", "-c"] + common +
         [CLI_SRC, "-o", o], tc)
     objs.append(o)
+    objs.append(version_res(tc, "nspire-cli", "CalcSuite's TI-Nspire USB link (libnspire)",
+                            "GPL-3.0-or-later; includes libnspire (GPL-3.0-or-later)"))
     run([os.path.join(tc, "g++.exe")] + objs +
         [os.path.join(usb, "MinGW64", "static", "libusb-1.0.dll.a"),
          "-static-libgcc", "-static-libstdc++", "-Wl,-Bstatic", "-lwinpthread",
@@ -144,6 +191,8 @@ def build_ti84(tc, force):
     usb = find_libusb()
     run([os.path.join(tc, "gcc.exe"), "-std=gnu11", "-Wall", "-Wextra", "-O2",
          "-I", os.path.join(usb, "include"), os.path.join(HERE, "ti84_cli", "ti84_cli.c"),
+         version_res(tc, "ti84-cli", "CalcSuite's TI-84 Plus CE and TI-89 Titanium USB link",
+                     "GPL-3.0-or-later"),
          os.path.join(usb, "MinGW64", "static", "libusb-1.0.dll.a"), "-o", out], tc)
     shutil.copyfile(out, out89)
     print("Copied ti84-cli.exe to ti89-cli.exe")
@@ -172,7 +221,8 @@ def main(argv):
     os.makedirs(BIN, exist_ok=True)
     tc = find_toolchain()
     print("Toolchain: " + tc)
-    build_luna(tc, force)
+    if "--luna" in argv:  # Only the self-test's reference now: tools/tns_writer.py writes .tns
+        build_luna(tc, force)
     build_cli(tc, force)
     build_ti84(tc, force)
     build_driver_helper(tc, force)

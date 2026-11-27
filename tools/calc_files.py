@@ -1020,8 +1020,8 @@ def nice_version(slug, text):
 
 
 def _cache_path():
-    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    return os.path.join(base, "CalcSuite", "os_versions.json")
+    import paths
+    return os.path.join(paths.cache_dir(), "os_versions.json")
 
 
 def newest_os(page_key, timeout=8):

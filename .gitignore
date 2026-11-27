@@ -11,3 +11,4 @@ third_party/libusb-*/
 dist/
 captures/
 from-calc/
+out/

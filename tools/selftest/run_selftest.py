@@ -39,6 +39,73 @@ def run(args, stdin_text=""):
     return p.returncode, p.stdout + p.stderr
 
 
+def paths_checks():
+    """tools/paths.py as the packaged app sees it: files beside the exe, the inside-the-zip
+    case, and the source tree's old places"""
+    import importlib
+    import tempfile
+    sys.path.insert(0, os.path.join(KIT, "tools"))
+    import paths
+    failures = 0
+    saved = (getattr(sys, "frozen", None), sys.executable)
+    try:
+        for case in ("unzipped", "inside zip"):
+            base = tempfile.mkdtemp(dir=None if case == "inside zip" else os.path.join(KIT, "build"))
+            sys.frozen = True
+            sys.executable = os.path.join(base, "CalcSuite", "CalcSuite.exe")
+            os.makedirs(os.path.dirname(sys.executable), exist_ok=True)
+            importlib.reload(paths)
+            want = os.path.join(base, "CalcSuite", paths.FOLDER_NAME)
+            if case == "unzipped":
+                ok = (paths.files_dir() == want and paths.is_portable() and not paths.inside_zip()
+                      and paths.cache_dir("x").startswith(os.path.join(want, "cache")))
+            else:
+                ok = paths.inside_zip() and not paths.is_portable() and paths.files_dir() != want
+            print("%-4s paths: %s" % ("PASS" if ok else "FAIL", case))
+            failures += not ok
+    finally:
+        if saved[0] is None:
+            del sys.frozen
+        else:
+            sys.frozen = saved[0]
+        sys.executable = saved[1]
+        importlib.reload(paths)
+    ok = not paths.is_portable() and paths.files_dir().endswith(os.path.join("Documents", "CalcSuite"))
+    print("%-4s paths: from the source tree, Documents\CalcSuite" % ("PASS" if ok else "FAIL"))
+    return failures + (not ok)
+
+
+def tns_writer_checks():
+    """tools/tns_writer.py: DES against FIPS's test vector; when tools/bin/luna.exe is there
+    (a developer build), the same bytes as Luna for every sample program"""
+    sys.path.insert(0, os.path.join(KIT, "tools"))
+    import tns_writer
+    import py2tns
+    failures = 0
+    ok = tns_writer.des_encrypt(bytes.fromhex("133457799BBCDFF1"),
+                                bytes.fromhex("0123456789ABCDEF")).hex() == "85e813540f0ab405"
+    print("%-4s DES test vector (the .tns keystream)" % ("PASS" if ok else "FAIL"))
+    failures += not ok
+    if not os.path.isfile(LUNA):
+        print("SKIP byte comparison with luna.exe (not built here)")
+        return failures
+    import tempfile
+    for name in sorted(os.listdir(PROGRAMS)):
+        if not name.endswith(".py"):
+            continue
+        with open(os.path.join(PROGRAMS, name), "rb") as f:
+            src = py2tns.normalise(f.read())
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, name), "wb") as f:
+            f.write(src)
+        subprocess.run([LUNA, name, "o.tns"], cwd=d, capture_output=True)
+        with open(os.path.join(d, "o.tns"), "rb") as f:
+            same = f.read() == tns_writer.python_tns(name, src)
+        print("%-4s .tns bytes the same as luna.exe: %s" % ("PASS" if same else "FAIL", name))
+        failures += not same
+    return failures
+
+
 def main():
     failures = 0
 
@@ -79,7 +146,7 @@ def main():
             failures += 1
 
     # .py -> .tns conversion and the one-step flash.py (dry run: no calculator needed).
-    if os.path.isfile(LUNA):
+    if True:  # tools/tns_writer.py: no luna.exe needed any more
         out_dir = os.path.join(KIT, "build", "selftest")
         for name in sorted(os.listdir(PROGRAMS)):
             if name.endswith(".py"):
@@ -103,8 +170,8 @@ def main():
         if not ok:
             print(out)
             failures += 1
-    else:
-        print("SKIP .tns tests: tools/bin/luna.exe missing (python -I tools/build_tools.py)")
+        failures += tns_writer_checks()
+        failures += paths_checks()
 
     failures += ti_basic_checks()
     sys.path.insert(0, HERE)

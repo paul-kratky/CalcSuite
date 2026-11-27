@@ -30,7 +30,9 @@ import calc_files as cf  # noqa: E402
 import code_check as cc  # noqa: E402
 import ui_theme as th  # noqa: E402
 
-DOCS = os.path.join(os.path.expanduser("~"), "Documents", "CalcSuite")
+import paths  # noqa: E402
+
+DOCS = paths.files_dir()  # Beside CalcSuite.exe (the zip), else Documents\CalcSuite
 PROGRAMS = os.path.join(DOCS, "programs")
 LANG_OF_SLUG = {"ti84": "ti84", "ti89": "ti89", "nspire": "python"}
 SLUG_OF_LANG = {"ti84": "ti84", "ti89": "ti89", "python": "nspire"}
@@ -1330,7 +1332,7 @@ class Editor(object):
 
     def build(self, quiet=False):
         """Ctrl+B: check; refuse on errors, ask on warnings; then make the calculator's file
-        (.8xp, .89p/.89f, .tns) in Documents\\CalcSuite\\programs\\<calculator>\\ with the source
+        (.8xp, .89p/.89f, .tns) in CalcSuite files\\programs\\<calculator>\\ with the source
         beside it. Returns {"file", "source", "name", "lang", "wanted"} or None."""
         self.hide_popup()
         self.refresh_all()

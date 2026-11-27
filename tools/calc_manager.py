@@ -203,6 +203,14 @@ class Manager(object):
     def say(self, text):
         self.ui(self.status.set, text)
 
+    def waiting_text(self, doing):
+        """What a request shows while it waits: the link runs it once the calculator is connected,
+        so a calculator that isn't says so instead of looking stuck"""
+        if self.m.session is not None:
+            return doing
+        return ("%s waiting for the %s to connect (plugged in, switched on, no other program using "
+                "it; Reconnect tries again)" % (doing.rstrip("."), self.calc.title))
+
     def job(self, line, done=None, what=None):
         """One command on the link thread; done(code, lines) back on the window's thread.
         `what` names a transfer whose progress the status line shows."""
@@ -744,7 +752,8 @@ class Manager(object):
         self.about_rows.pack(fill="x", padx=16, pady=(16, 8))
         self.os_line = tk.Frame(w, bg=BG)
         self.os_line.pack(fill="x", padx=16, pady=(0, 16))
-        tk.Label(self.about_rows, text="Asking the calculator...", bg=BG, fg=DIM).pack(anchor="w")
+        tk.Label(self.about_rows, text=self.waiting_text("Asking the calculator..."), bg=BG,
+                 fg=DIM, justify="left", wraplength=380).pack(anchor="w")
         self.job("info", self.got_info)
         self.about_extras()
 
@@ -761,7 +770,7 @@ class Manager(object):
                      "(no known command for it); set it on the handheld (its Settings).", bg=BG,
                      fg=DIM, justify="left", wraplength=380).pack(anchor="w")
         else:
-            self.clock_text = tk.StringVar(master=w, value="Clock: reading...")
+            self.clock_text = tk.StringVar(master=w, value=self.waiting_text("Clock: reading..."))
             tk.Label(self.clock_line, textvariable=self.clock_text, bg=BG, fg=FG, justify="left",
                      wraplength=380).pack(anchor="w")
             self.clock_btn = tk.Button(bar, text="Set the clock to the PC's time", command=self.set_clock,
@@ -798,7 +807,7 @@ class Manager(object):
 
     def set_clock(self):
         self.clock_btn.configure(state="disabled")
-        self.clock_text.set("Setting the clock...")
+        self.clock_text.set(self.waiting_text("Setting the clock..."))
 
         def done(code, lines):
             try:

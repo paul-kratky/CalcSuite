@@ -1,13 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
-# The packaged app: one windowed exe with the link tools inside.
+# The packaged app: a folder (dist/CalcSuite/: CalcSuite.exe and _internal/ with the link tools),
+# zipped by the release workflow with the guides and licences. A folder, not one self-unpacking
+# exe: nothing is unpacked into %TEMP% at each start (antivirus heuristics flag that pattern),
+# and no UPX for the same reason.
 #   pyinstaller --noconfirm --distpath dist --workpath build/pyi app.spec
-# (Needs PyInstaller in a Python of your choice, and tools/bin/ built: tools/build_tools.py.)
+# (Needs PyInstaller in a Python of your choice, and tools/bin/ built: tools/build_tools.py.
+# build/version_info.txt comes from tools/release_files.py version-info.)
+import os
 
 a = Analysis(
     ['tools/mirror.py'],
     pathex=['tools', 'tools/nspire_cli', 'tools/ti84_cli', 'tools/third_party_py'],
     binaries=[('tools/bin/nspire-cli.exe', 'bin'), ('tools/bin/ti84-cli.exe', 'bin'),
-              ('tools/bin/ti89-cli.exe', 'bin'), ('tools/bin/luna.exe', 'bin'),
+              ('tools/bin/ti89-cli.exe', 'bin'),
               ('tools/bin/libusb-1.0.dll', 'bin'),
               # The connection doctor's driver helper (LGPL, its own process; docs/dev/DOCTOR.md)
               ('tools/bin/calcsuite-driver.exe', 'bin')],
@@ -37,7 +42,7 @@ a = Analysis(
            ('tools/third_party_py/tivars/LICENSE', 'tivars')],
     hiddenimports=['tivars', 'calc_backup', 'calc_doctor', 'ui_panels', 'md_render',
                    'program_library', 'key_strip', 'calc_models', 'ui_theme',
-                   'reference', 'pc_copy', 'editor', 'code_check'],
+                   'reference', 'pc_copy', 'editor', 'code_check', 'paths', 'tns_writer'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -50,21 +55,28 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='CalcSuite',
     icon='assets/app.ico',
+    version='build/version_info.txt' if os.path.isfile('build/version_info.txt') else None,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name='CalcSuite',
 )

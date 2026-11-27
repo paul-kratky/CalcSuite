@@ -1,11 +1,14 @@
-# Builds the release downloads on a clean Windows runner:
-#   CalcSuite.exe               the app (PyInstaller, app.spec)
-#   CalcSuite-tools-win64.zip   the link tools for running from source (unzip into tools/bin/)
-#   CalcSuite-*.pdf             the guides and Functions references as PDFs (docs/pdf/)
-#   SHA256SUMS.txt              SHA-256 of all of them
-# Same steps as a local build: MSYS2 UCRT64 gcc + the pinned libusb release, then
-# tools/build_tools.py --force, the self-test (with luna.exe, so the .tns tests run too) and
-# PyInstaller 6.22.3 on Python 3.11.
+# Builds the release download on a clean Windows runner: ONE zip people download and unzip.
+#   CalcSuite-<version>-win64.zip   the CalcSuite folder: CalcSuite.exe and _internal\ (the app and
+#                                   its link tools), Guides\ (the PDFs), Licences\, an empty
+#                                   "CalcSuite files" (everything the app saves goes there) and
+#                                   "Read me first.txt" (tools/release_files.py package)
+#   SHA256SUMS.txt                  its SHA-256
+# A folder, not one self-unpacking exe, and PyInstaller's launcher built from source here, both
+# so antivirus heuristics don't flag the app (the prebuilt launcher and unpacking into %TEMP%
+# are what they key on). Same steps as a local build: MSYS2 UCRT64 gcc + the pinned libusb
+# release, tools/build_tools.py --force --luna (luna.exe only as the self-test's reference for
+# tools/tns_writer.py: it isn't shipped), the self-test and PyInstaller 6.22.3 on Python 3.11.
 #
 # Every run uploads the files as a workflow artifact. A pushed tag v* also makes a DRAFT
 # GitHub release with them, its notes the CHANGELOG.md section of that version; the owner
@@ -45,7 +48,7 @@ jobs:
         with:
           msystem: UCRT64
           update: false
-          # gcc brings g++, binutils (windres) and winpthreads; zlib for luna.exe (-static -lz)
+          # gcc brings g++, binutils (windres) and winpthreads; zlib for luna.exe (the test reference)
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-zlib
@@ -72,10 +75,10 @@ jobs:
           $got = (Get-FileHash build/libusb_COPYING.txt -Algorithm SHA256).Hash.ToLower()
           if ($got -ne $env:LIBUSB_COPYING_SHA256) { throw "libusb COPYING has SHA-256 $got" }
 
-      - name: Build the link tools
-        run: python -I tools/build_tools.py --force
+      - name: Build the link tools (and luna.exe, the self-test's reference)
+        run: python -I tools/build_tools.py --force --luna
 
-      - name: Self-test (with luna.exe, so the .tns tests run)
+      - name: Self-test (the .tns writer compared with luna.exe byte for byte)
         run: python -I tools/selftest/run_selftest.py
 
       # Before PyInstaller: the exe bundles docs/pdf/ for Save as PDF. Edge is on the runner image;
@@ -88,71 +91,27 @@ jobs:
           python -I tools/docs_build/make_pdfs.py @ver
           if ($LASTEXITCODE) { throw "make_pdfs.py failed" }
 
-      - name: Build CalcSuite.exe (PyInstaller in a venv)
+      - name: Build the CalcSuite folder (PyInstaller, its launcher compiled here)
         shell: pwsh
+        env:
+          # Build the bootloader from source with this runner's MSVC: a launcher no one else
+          # ships, instead of the prebuilt one antivirus heuristics have learnt
+          PYINSTALLER_COMPILE_BOOTLOADER: '1'
         run: |
+          $ver = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { '0.0.0' }
+          python -I tools/release_files.py version-info $ver
           python -m venv build/venv
-          build/venv/Scripts/python -m pip install --disable-pip-version-check "pyinstaller==$env:PYINSTALLER_VERSION"
-          if ($LASTEXITCODE) { throw "pip failed" }
+          build/venv/Scripts/python -m pip install --disable-pip-version-check --no-binary pyinstaller "pyinstaller==$env:PYINSTALLER_VERSION"
+          if ($LASTEXITCODE) { throw "pip (PyInstaller from source) failed" }
           build/venv/Scripts/python -m PyInstaller --noconfirm --distpath dist --workpath build/pyi app.spec
           if ($LASTEXITCODE) { throw "PyInstaller failed" }
 
-      - name: Tools zip and SHA256SUMS.txt
-        shell: python
+      - name: The zip and SHA256SUMS.txt
+        shell: pwsh
         run: |
-          import hashlib, os, zipfile
-          os.makedirs("out", exist_ok=True)
-          v = os.environ["LIBUSB_VERSION"]
-          readme = (
-              "Unzip into CalcSuite's tools/bin/ folder (to run CalcSuite or its scripts from"
-              " the source; CalcSuite.exe already has these inside).\n\n"
-              "nspire-cli.exe: GPL-3.0-or-later (links libnspire). Source: tools/nspire_cli/ in"
-              " https://github.com/paul-kratky/CalcSuite and libnspire commit 7d7d962"
-              " (https://github.com/Vogtinator/libnspire). licences/nspire-cli_GPL-3.0.txt\n"
-              "ti84-cli.exe, ti89-cli.exe (the same program): GPL-3.0-or-later. Source:"
-              " tools/ti84_cli/ in https://github.com/paul-kratky/CalcSuite."
-              " licences/nspire-cli_GPL-3.0.txt\n"
-              "calcsuite-driver.exe: LGPL-3.0-or-later (links libwdi statically,"
-              " https://github.com/pbatard/libwdi commit 30df0c0). Source: tools/driver_helper/"
-              " in https://github.com/paul-kratky/CalcSuite. licences/calcsuite-driver_LGPL-3.0.txt"
-              " (with the GPL-3.0 text it builds on, licences/nspire-cli_GPL-3.0.txt). It"
-              " contains Microsoft's WinUSB co-installers (WdfCoInstaller01011.dll,"
-              " winusbcoinstaller2.dll) from the WDK 8 redistributable components, which"
-              " Microsoft lets driver packages ship.\n"
-              "luna.exe: MPL-1.1, source https://github.com/ndless-nspire/Luna commit a9924a9"
-              " (includes MiniZip and zlib, zlib licence, and Eric Young's DES code)."
-              " licences/luna_MPL-1.1.txt\n"
-              "libusb-1.0.dll: LGPL-2.1-or-later, the official libusb %s release"
-              " (https://github.com/libusb/libusb/releases/tag/v%s)."
-              " licences/libusb_LGPL-2.1.txt\n" % (v, v))
-          files = [(f, "tools/bin/" + f) for f in ["luna.exe", "nspire-cli.exe", "ti84-cli.exe",
-                   "ti89-cli.exe", "calcsuite-driver.exe", "libusb-1.0.dll"]]
-          files += [("licences/nspire-cli_GPL-3.0.txt", "tools/nspire_cli/COPYING"),
-                    ("licences/calcsuite-driver_LGPL-3.0.txt", "third_party/libwdi/COPYING-LGPL"),
-                    ("licences/luna_MPL-1.1.txt", "third_party/luna/LICENSE"),
-                    ("licences/libusb_LGPL-2.1.txt", "build/libusb_COPYING.txt"),
-                    ("licences/libusb_README.txt", "third_party/libusb-%s/README.txt" % v)]
-          with zipfile.ZipFile("out/CalcSuite-tools-win64.zip", "w", zipfile.ZIP_DEFLATED) as z:
-              for name, src in files:
-                  z.write(src, name)
-              z.writestr("README.txt", readme.replace("\n", "\r\n"))
-          os.replace("dist/CalcSuite.exe", "out/CalcSuite.exe")
-          # The PDFs without spaces in their names (GitHub turns spaces in asset names into dots)
-          import glob, shutil
-          pdfs = []
-          for src in sorted(glob.glob("docs/pdf/*.pdf")):
-              name = os.path.basename(src).replace(" - ", "-").replace(" ", "-")
-              shutil.copyfile(src, os.path.join("out", name))
-              pdfs.append(name)
-          if not pdfs:
-              raise SystemExit("No PDFs in docs/pdf")
-          lines = []
-          for name in ["CalcSuite.exe", "CalcSuite-tools-win64.zip"] + pdfs:
-              data = open(os.path.join("out", name), "rb").read()
-              lines.append("%s  %s\n" % (hashlib.sha256(data).hexdigest(), name))
-              print("%-56s %10d bytes" % (name, len(data)))
-          open("out/SHA256SUMS.txt", "w", newline="\n").write("".join(lines))
-          print("".join(lines))
+          $ver = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { '0.0.0' }
+          python -I tools/release_files.py package $ver --libusb $env:LIBUSB_VERSION
+          if ($LASTEXITCODE) { throw "release_files.py package failed" }
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
@@ -190,8 +149,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $pdfs = (Get-ChildItem out/*.pdf).FullName
-          if (-not $pdfs) { throw "No PDFs in the build artifact" }
+          $zip = (Get-ChildItem out/CalcSuite-*-win64.zip).FullName
+          if (-not $zip) { throw "No zip in the build artifact" }
           gh release create $env:GITHUB_REF_NAME --draft --verify-tag --title $env:GITHUB_REF_NAME `
-            --notes-file out/notes.md out/CalcSuite.exe out/CalcSuite-tools-win64.zip out/SHA256SUMS.txt @pdfs
+            --notes-file out/notes.md $zip out/SHA256SUMS.txt
           if ($LASTEXITCODE) { throw "gh release create failed" }

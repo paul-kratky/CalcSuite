@@ -5,7 +5,7 @@
     python -I tools/calc_backup.py restore --calc nspire|84|89 BACKUP_FOLDER [--only NAME ...]
                                           [--replace]
 
-A backup is one folder, by default Documents\\CalcSuite\\backups\\<model>-<date>\\:
+A backup is one folder, by default CalcSuite files\\backups\\<model>-<date>\\:
 
 - TI-Nspire CX II: every file in every folder the link shows (My Documents and its folders),
   in the same folder tree.
@@ -69,7 +69,8 @@ WHY_SKIPPED = {
 
 
 def backups_root():
-    return os.path.join(os.path.expanduser("~"), "Documents", "CalcSuite", "backups")
+    import paths
+    return os.path.join(paths.files_dir(), "backups")
 
 
 def slug_of(calc):

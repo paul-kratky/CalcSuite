@@ -26,7 +26,10 @@ MAX_SECONDS = 180
 # ffmpeg fetched on request: the single ffmpeg.exe inside the imageio-ffmpeg wheel on PyPI
 # (BSD-2 package; the ffmpeg build inside is GPL, run as its own program), checked against the
 # SHA-256 PyPI publishes. About 39 MB, once.
-FFMPEG_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "CalcSuite", "ffmpeg")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import paths  # noqa: E402
+
+FFMPEG_DIR = paths.cache_dir("ffmpeg")  # CalcSuite files/cache/ffmpeg (the zip), else LOCALAPPDATA
 PYPI_JSON = "https://pypi.org/pypi/imageio-ffmpeg/json"
 FFMPEG_DOWNLOAD_MB = 39
 

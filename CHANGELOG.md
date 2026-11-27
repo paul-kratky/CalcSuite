@@ -2,6 +2,27 @@
 
 What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40, Windows 11.
 
+## [1.0.1] - 2026-11-27
+
+### Changed
+- **One zip to download:** `CalcSuite-<version>-win64.zip` holds the CalcSuite folder (the app,
+  its link tools, the guides as PDFs, the licences). Unzip it anywhere; nothing is installed.
+- **Everything CalcSuite saves stays in that folder**, in `CalcSuite files`: captures
+  (screenshots, recordings, GIFs), programs you write and send, backups, ROMs, downloads, and
+  CalcSuite's own downloads (ffmpeg, the emulators) in its `cache` (`tools/paths.py`). Opened
+  from inside the zip without unzipping, it says so and saves to `Documents\CalcSuite`.
+- **No more antivirus false alarms (Defender's `Bearfoos.A!ml` on luna.exe):** the app is a
+  folder instead of one exe unpacking its tools into `%TEMP%` at every start, PyInstaller's
+  launcher is built from source in the release build, UPX is off, and every exe carries version
+  information. `luna.exe` is gone: `tools/tns_writer.py` (a Python port of Luna's writer, MPL-1.1)
+  writes the same .tns bytes; the self-test compares them with luna.exe.
+- **The USB driver from CalcSuite, Zadig only as the fallback:** a calculator with no driver
+  CalcSuite can use gets its tab opened on Info, with the driver setup started (it shows what
+  will change; Windows asks for admin rights once).
+- **Resizable panels:** drag the handle between the screen and the side panel, and between the
+  Functions list and its description. The Functions list is taller.
+- **Info no longer looks stuck** while its calculator isn't connected: it says it's waiting.
+
 ## [1.0.0] - 2026-11-27
 
 ### Added

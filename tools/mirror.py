@@ -69,10 +69,12 @@ SPONSOR_URL = None  # A sponsor / funding page; the Info panel shows "Support Ca
 DOCS = os.path.join(os.path.expanduser("~"), "Documents")
 OLD_KIT = os.path.join(DOCS, "Nspire Mirror")  # Where the app kept its files before 1.0
 
+import paths  # noqa: E402
+
 if getattr(sys, "frozen", False):
-    # The packaged app: its tools are unpacked beside this file; what it makes goes to the
-    # user's Documents
-    KIT = os.path.join(DOCS, "CalcSuite")
+    # The packaged app (a folder from the zip): what it makes goes to "CalcSuite files" beside
+    # CalcSuite.exe (tools/paths.py), or Documents\CalcSuite when that folder can't be written
+    KIT = paths.files_dir()
     py2tns.BUILD = os.path.join(KIT, "build")
 else:
     KIT = os.path.dirname(HERE)
@@ -986,8 +988,29 @@ class Tab(object):
                  wraplength=640).pack(fill="x", pady=(8, 0))
         self.left = left
         self.panel = ui_panels.SidePanel(self.frame, app, mirror)
-        self.panel.frame.pack(side="right", fill="y", padx=(8, 14), pady=(10, 10))
+        self.panel.frame.pack(side="right", fill="y", padx=(0, 14), pady=(10, 10))
+        if Tab.panel_width:
+            self.panel.frame.configure(width=Tab.panel_width)
+        # A handle between the screen and the panel: drag it to make the panel wider or narrower
+        grip = tk.Frame(self.frame, bg=th.BG, width=8, cursor="sb_h_double_arrow")
+        grip.pack(side="right", fill="y", pady=(10, 10))
+        line = tk.Frame(grip, bg=th.PANEL2, width=2)
+        line.place(relx=0.5, rely=0.5, relheight=0.12, anchor="center")
+        grip.bind("<B1-Motion>", self.drag_panel)
+        grip.bind("<Enter>", lambda e: line.configure(bg=th.ACCENT))
+        grip.bind("<Leave>", lambda e: line.configure(bg=th.PANEL2))
         mirror.listeners.append(self.key_pressed)
+
+    panel_width = 0  # The width the user dragged the side panel to (every tab, this session)
+
+    def drag_panel(self, ev):
+        import ui_panels
+        f = self.panel.frame
+        right = f.winfo_rootx() + f.winfo_width()
+        w = max(ui_panels.WIDTH - 70, min(right - ev.x_root, self.frame.winfo_width() - 360))
+        Tab.panel_width = w
+        for t in self.app.tabs.values():
+            t.panel.frame.configure(width=w)
 
     def open_editor(self):
         """The program editor, aimed at this calculator (TI-Basic or Nspire Python)"""
@@ -1591,8 +1614,17 @@ def main():
         messagebox.showinfo(APP_NAME, "CalcSuite is already open.")
         return
     if getattr(sys, "frozen", False):
-        migrate_documents()
+        if not paths.is_portable():
+            migrate_documents()
         os.makedirs(os.path.join(KIT, "programs"), exist_ok=True)
+        if paths.inside_zip():
+            r = tk.Tk()
+            r.withdraw()
+            messagebox.showwarning(APP_NAME, "CalcSuite is running from inside the zip.\n\nUnzip it "
+                                   "first (right-click the zip, Extract All), then open CalcSuite.exe "
+                                   "in the folder it makes. Until then, what you save goes to "
+                                   "Documents\\CalcSuite.")
+            r.destroy()
     App().run()
 
 

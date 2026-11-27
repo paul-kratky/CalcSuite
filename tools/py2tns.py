@@ -4,7 +4,7 @@
     python -I tools/py2tns.py programs/quadratic.py -o out.tns
     python -I tools/py2tns.py --verify build/quadratic.tns       check an existing .tns
 
-Uses Luna (third_party/luna, built to tools/bin/luna.exe by tools/build_tools.py).
+Written by tools/tns_writer.py (a Python port of Luna's writer: the same bytes as luna.exe).
 The .tns holds one Python Editor page whose program name is the file name
 (quadratic.py -> program "quadratic"), like a document saved by TI's own software.
 
@@ -24,9 +24,11 @@ import subprocess
 import sys
 import zlib
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # Run with -I: its own folder
+import tns_writer  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.dirname(HERE)
-LUNA = os.path.join(HERE, "bin", "luna.exe" if os.name == "nt" else "luna")
 BUILD = os.path.join(KIT, "build")
 
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
@@ -134,8 +136,6 @@ def convert(py_path, out_path=None, quiet=False):
     if not NAME_RE.match(stem):
         raise TnsError("program name '%s' must start with a letter and use only letters,"
                        " digits and _ (rename the file)" % stem)
-    if not os.path.isfile(LUNA):
-        raise TnsError("%s is missing: run python -I tools/build_tools.py" % LUNA)
     if out_path is None:
         out_path = os.path.join(BUILD, stem + ".tns")
     out_path = os.path.abspath(out_path)
@@ -143,25 +143,16 @@ def convert(py_path, out_path=None, quiet=False):
 
     with open(py_path, "rb") as f:
         src = normalise(f.read())
-    stage = os.path.join(BUILD, "stage")
-    if os.path.isdir(stage):
-        shutil.rmtree(stage)
-    os.makedirs(stage)
-    staged = os.path.join(stage, stem + ".py")
-    with open(staged, "wb") as f:
-        f.write(src)
-    tmp_out = os.path.join(stage, stem + ".tns")
-    # Run Luna inside the stage folder with bare file names: the name stored in the
-    # .tns (and shown as the program name on the handheld) is then exactly "<stem>.py".
-    p = subprocess.run([LUNA, stem + ".py", stem + ".tns"], cwd=stage, capture_output=True,
-                       text=True)
-    if p.returncode != 0 or not os.path.isfile(tmp_out):
-        raise TnsError("luna failed (exit %d): %s" % (p.returncode, (p.stdout + p.stderr).strip()))
-    verify(tmp_out, expect_name=stem + ".py", expect_source=src, quiet=True)
-    if os.path.exists(out_path):
-        os.remove(out_path)
-    shutil.move(tmp_out, out_path)
-    shutil.rmtree(stage, ignore_errors=True)
+    data = tns_writer.python_tns(stem + ".py", src)
+    tmp_out = out_path + ".part"
+    with open(tmp_out, "wb") as f:
+        f.write(data)
+    try:
+        verify(tmp_out, expect_name=stem + ".py", expect_source=src, quiet=True)
+    except TnsError:
+        os.remove(tmp_out)
+        raise
+    os.replace(tmp_out, out_path)
     if not quiet:
         verify(out_path, expect_name=stem + ".py", expect_source=src)
     return out_path

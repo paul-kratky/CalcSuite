@@ -119,18 +119,16 @@ class Cancelled(PcCopyError):
 # ---- Folders ----
 
 def roms_folder():
-    """Documents\\CalcSuite\\backups\\roms (made when missing)"""
+    """CalcSuite files\\backups\\roms (made when missing)"""
     path = os.path.join(cb.backups_root(), "roms")
     os.makedirs(path, exist_ok=True)
     return path
 
 
 def emulators_folder():
-    """%LOCALAPPDATA%\\CalcSuite\\emulators (made when missing)"""
-    base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
-    path = os.path.join(base, "CalcSuite", "emulators")
-    os.makedirs(path, exist_ok=True)
-    return path
+    """CalcSuite files\\cache\\emulators (or %LOCALAPPDATA%\\CalcSuite\\emulators from source)"""
+    import paths
+    return paths.cache_dir("emulators")
 
 
 def list_roms(model=None):

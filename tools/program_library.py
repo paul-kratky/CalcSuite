@@ -25,7 +25,10 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIBRARY_JSON = os.path.join(HERE, "program_library.json")
 USER_AGENT = "CalcSuite/1.0 (+https://github.com/paul-kratky/CalcSuite)"
-CACHE = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "CalcSuite", "library")
+sys.path.insert(0, HERE)
+import paths  # noqa: E402
+
+CACHE = paths.cache_dir("library")
 ALLOWED_HOSTS = ("ticalc.org", "github.com", "githubusercontent.com")
 MAX_DOWNLOAD = 16 * 1024 * 1024
 # What each calculator takes from an archive (anything else: read-mes, sources, pictures)
@@ -286,7 +289,7 @@ def save_dir_name(item):
 
 
 def default_save_folder():
-    return os.path.join(os.path.expanduser("~"), "Documents", "CalcSuite", "library")
+    return os.path.join(paths.files_dir(), "library")
 
 
 def fetch_files(item, progress=None, cache=CACHE):
