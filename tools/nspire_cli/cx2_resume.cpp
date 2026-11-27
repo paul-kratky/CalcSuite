@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -139,7 +140,7 @@ static uint16_t compute_checksum(const uint8_t *data, uint32_t size)
 }
 
 // nspire-python-kit: the timeout is a parameter (it was a fixed 60 s)
-static bool readPacket(libusb_device_handle *handle, NNSEMessage *message, int maxlen, int timeoutMs = 60000)
+static bool readPacket(libusb_device_handle *handle, NNSEMessage *message, int maxlen, int timeoutMs)
 {
 	if(maxlen < sizeof(NNSEMessage))
 		return false;
@@ -175,7 +176,11 @@ static bool readPacket(libusb_device_handle *handle, NNSEMessage *message, int m
 	dumpPacket(message);
 #endif
 
-	if(compute_checksum(reinterpret_cast<uint8_t*>(message), transferred) != 0xFFFF)
+	// nspire-python-kit: the packet's own length. It checked `transferred`: for a packet that
+	// came in two transfers that is the last chunk only (the packet was dropped and the caller
+	// waited out its timeout), and a CX II sends a 1472-byte packet as 1473 bytes (a pad byte,
+	// so the transfer doesn't end on a 64-byte boundary), which only passed while the pad was 0.
+	if(compute_checksum(reinterpret_cast<uint8_t*>(message), completeLength) != 0xFFFF)
 		return false;
 
 	return true;
@@ -402,6 +407,22 @@ static bool assureReady(struct nspire_handle *nsp_handle)
 	return nsp_handle->cx2_handshake_complete;
 }
 
+// nspire-python-kit: once the handshake is done, one read waits at most kReadMs, and a call
+// gives up after its budget (time, not a count of reads: each read was 60 s and the count 10,
+// so one lost packet stalled the link for minutes). The handheld answers a packet in
+// milliseconds; the receive budget leaves room for slow work on its side (a flash write).
+static const int kReadMs = 2000;
+static const int kAckBudgetMs = 4000;
+static const int kRecvBudgetMs = 10000;
+static const int kMaxPackets = 64; // Unrelated packets read while waiting
+
+static int msLeft(std::chrono::steady_clock::time_point start, int budgetMs)
+{
+	const auto used = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - start).count();
+	return used >= budgetMs ? 0 : int(budgetMs - used);
+}
+
 int packet_send_cx2(struct nspire_handle *nsp_handle, char *data, int size)
 {
 	if(!assureReady(nsp_handle))
@@ -430,9 +451,13 @@ int packet_send_cx2(struct nspire_handle *nsp_handle, char *data, int size)
 		NNSEMessage * const message = reinterpret_cast<NNSEMessage*>(malloc(maxlen));
 
 		bool acked = false;
-		for(int i = 10; i-- && !ret && !acked;)
+		const auto start = std::chrono::steady_clock::now();
+		for(int i = kMaxPackets; i-- && !ret && !acked;)
 		{
-			if(!readPacket(handle, message, maxlen))
+			const int left = msLeft(start, kAckBudgetMs);
+			if(left <= 0)
+				break;
+			if(!readPacket(handle, message, maxlen, std::min(left, kReadMs)))
 				continue;
 			
 			handlePacket(nsp_handle, message);
@@ -466,9 +491,13 @@ int packet_recv_cx2(struct nspire_handle *nsp_handle, char *data, int size)
 	
 	uint8_t *streamdata = nullptr;
 	int streamsize = 0;
-	for(int i = 10; i-- && !streamdata;)
+	const auto start = std::chrono::steady_clock::now();
+	for(int i = kMaxPackets; i-- && !streamdata;)
 	{
-		if(!readPacket(handle, message, maxlen))
+		const int left = msLeft(start, kRecvBudgetMs);
+		if(left <= 0)
+			break;
+		if(!readPacket(handle, message, maxlen, std::min(left, kReadMs)))
 			continue;
 		
 		handlePacket(nsp_handle, message, &streamdata, &streamsize);

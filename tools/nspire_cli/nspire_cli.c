@@ -114,6 +114,29 @@ static int open_handle(nspire_handle_t **h) {
     return 0;
 }
 
+/* The service `serve` keeps open between commands (0: none): the key service (0x4042), so
+   typing doesn't pay a disconnect round trip per command. Any other command closes it first
+   (libnspire has one service per handle).
+   The screenshot service is NOT kept: tried on a CX II CAS (OS 6.40), a second frame on one
+   connection saves only ~1.5 ms of a ~55 ms frame, and every 60-400 frames the handheld acks
+   the request and never answers it (a fresh connection then works). Detecting that costs
+   more than the reuse saves, so each frame has its own connection, as before. */
+static uint16_t kept_sid;
+
+static void close_kept(nspire_handle_t *h) {
+    if (h->connected) service_disconnect(h); /* A failed disconnect still leaves it closed here */
+    h->connected = 0;
+    kept_sid = 0;
+}
+
+static int keep_open(nspire_handle_t *h, uint16_t sid) {
+    if (kept_sid == sid && h->connected) return 0;
+    close_kept(h);
+    int r = service_connect(h, sid);
+    if (!r) kept_sid = sid;
+    return r;
+}
+
 static const char *hw_name(int t) {
     switch (t) {
         case NSPIRE_CAS: return "CAS";
@@ -366,10 +389,107 @@ static int do_mv(nspire_handle_t *h, const char *src, const char *dst) {
     return 0;
 }
 
+/* libnspire's screenshot RLE (services/screenshot.c, static there) */
+static void rle_decode(const uint8_t bpp, const uint8_t *in, uint8_t *out, size_t in_size,
+                       size_t out_size) {
+    const size_t rle_size = (bpp * 2) / 8; /* 2 pixels */
+    while (in_size > 1 && out_size) {
+        int len = (int8_t)*in++;
+        in_size--;
+        if (len < 0) {
+            size_t n = (size_t)(-len + 1) * rle_size;
+            n = n < out_size ? n : out_size;
+            n = n < in_size ? n : in_size;
+            memcpy(out, in, n);
+            in_size -= n;
+            in += n;
+            out_size -= n;
+            out += n;
+        } else {
+            if (in_size < rle_size) return;
+            for (int i = 0; i < len + 1 && out_size >= rle_size; ++i) {
+                memcpy(out, in, rle_size);
+                out_size -= rle_size;
+                out += rle_size;
+            }
+            in_size -= rle_size;
+            in += rle_size;
+        }
+    }
+}
+
+/* One frame on the screenshot service, which must be open: libnspire's nspire_screenshot
+   without its connect and disconnect, and bounded by what each packet really holds */
+static int shot_frame(nspire_handle_t *h, struct nspire_image **ptr) {
+    const size_t cap = packet_max_datasize(h);
+    uint8_t *buffer = malloc(cap), *tmp = NULL, bpp = 0;
+    uint16_t width = 0, height = 0;
+    uint32_t size = 0;
+    struct nspire_image *img = NULL;
+    int r;
+    if (!buffer) return -NSPIRE_ERR_NOMEM;
+    if ((r = data_write8(h, 0x00)) || (r = data_read(h, buffer, cap, NULL)) ||
+        (r = data_scan("bwhhhhbb", buffer, cap, NULL, &size, NULL, NULL, &width, &height, &bpp,
+                       NULL)))
+        goto end;
+    if (!size || size > 4u * 1024 * 1024 || !width || !height || !bpp || bpp > 32) {
+        r = -NSPIRE_ERR_INVALPKT;
+        goto end;
+    }
+    const size_t in_len = size, out_len = ((size_t)width * height * bpp) / 8;
+    tmp = malloc(in_len);
+    img = malloc(sizeof(*img) + out_len);
+    if (!tmp || !img) {
+        r = -NSPIRE_ERR_NOMEM;
+        goto end;
+    }
+    img->width = width;
+    img->height = height;
+    img->bpp = bpp;
+    memset(img->data, 0, out_len);
+    const size_t maxsize = cap - 1;
+    uint8_t *p = tmp;
+    while (size) {
+        size_t got = 0;
+        if ((r = data_read(h, buffer, cap, &got))) goto end;
+        if (got < 1) {
+            r = -NSPIRE_ERR_INVALPKT;
+            goto end;
+        }
+        size_t len = maxsize < size ? maxsize : size;
+        if (len > got - 1) len = got - 1;
+        memcpy(p, buffer + 1, len);
+        p += len;
+        size -= (uint32_t)len;
+    }
+    rle_decode(bpp, tmp, img->data, in_len, out_len);
+    *ptr = img;
+    img = NULL;
+    r = 0;
+end:
+    free(img);
+    free(tmp);
+    free(buffer);
+    return r;
+}
+
+/* A frame on its own screenshot connection (see kept_sid); one more try if it fails */
+static int grab_frame(nspire_handle_t *h, struct nspire_image **img) {
+    int r = keep_open(h, 0x4024);
+    if (!r) r = shot_frame(h, img);
+    close_kept(h);
+    if (r) {
+        r = keep_open(h, 0x4024);
+        if (!r) r = shot_frame(h, img);
+        close_kept(h);
+    }
+    return r;
+}
+
 /* The screen as a binary PPM (P6, 8-bit RGB): Tk and most viewers read it as it is */
 static int do_shot(nspire_handle_t *h, const char *out) {
     struct nspire_image *img = NULL;
-    int r = nspire_screenshot(h, &img);
+    int r = grab_frame(h, &img);
     if (r || !img) {
         printf("ERR screenshot: %s\n", nspire_strerror(r));
         return 4;
@@ -419,45 +539,16 @@ static int do_shot(nspire_handle_t *h, const char *out) {
     return 0;
 }
 
-/* One key press through the key service (0x4042). libnspire has no call for it; the two
-   packets are the ones TILP's libticalcs sends (nsp_cmd_s_key). code = 0xAABBCC. */
-static int do_key(nspire_handle_t *h, unsigned long code) {
-    int r = service_connect(h, 0x4042);
-    if (r) {
-        printf("ERR key: %s\n", nspire_strerror(r));
-        return 4;
-    }
-    unsigned char p1[4] = {0x01, 0x00, 0x00, 0x80};
-    unsigned char p2[26];
-    memset(p2, 0, sizeof(p2));
-    p2[1 + 3] = 0x08;
-    p2[1 + 4] = 0x02;
-    p2[1 + 5] = (unsigned char)(code >> 16);
-    p2[1 + 7] = (unsigned char)(code >> 8);
-    p2[1 + 23] = (unsigned char)code;
-    r = data_write(h, p1, sizeof(p1));
-    if (!r) r = data_write(h, p2, sizeof(p2));
-    int r2 = service_disconnect(h);
-    if (r || r2) {
-        printf("ERR key %06lx: %s\n", code, nspire_strerror(r ? r : r2));
-        return 4;
-    }
-    printf("OK key %06lx\n", code);
-    return 0;
-}
-
-/* Several key presses on one service connection ("keys 616600 624600 ..."): a round trip
-   less per key than `key`, so typing keeps up */
-static int do_keys(nspire_handle_t *h, char *list) {
-    int r = service_connect(h, 0x4042);
-    if (r) {
-        printf("ERR keys: %s\n", nspire_strerror(r));
-        return 4;
-    }
-    int n = 0;
+/* Key presses through the key service (0x4042), which stays open between `key` and `keys`
+   commands. libnspire has no call for it; the packets are the ones TILP's libticalcs sends
+   (nsp_cmd_s_key): 01 00 00 80, then the key. The CX II (OS 6.4) needs both for every key:
+   a key without its own 01 00 00 80 is dropped, and the two in one packet do nothing (tried).
+   code = 0xAABBCC. Returns 0 or a libnspire error. */
+static int send_keys(nspire_handle_t *h, char *list, int *sent) {
+    int r = keep_open(h, 0x4042);
     for (char *tok = strtok(list, " "); tok && !r; tok = strtok(NULL, " ")) {
-        unsigned long code = strtoul(tok, NULL, 16);
         unsigned char p1[4] = {0x01, 0x00, 0x00, 0x80};
+        unsigned long code = strtoul(tok, NULL, 16);
         unsigned char p2[26];
         memset(p2, 0, sizeof(p2));
         p2[1 + 3] = 0x08;
@@ -467,11 +558,31 @@ static int do_keys(nspire_handle_t *h, char *list) {
         p2[1 + 23] = (unsigned char)code;
         r = data_write(h, p1, sizeof(p1));
         if (!r) r = data_write(h, p2, sizeof(p2));
-        if (!r) n++;
+        if (!r) (*sent)++;
     }
-    int r2 = service_disconnect(h);
-    if (r || r2) {
-        printf("ERR keys after %d: %s\n", n, nspire_strerror(r ? r : r2));
+    if (r) close_kept(h); /* The next command starts on a fresh connection */
+    return r;
+}
+
+/* One key press ("key 616600") */
+static int do_key(nspire_handle_t *h, char *arg) {
+    int n = 0;
+    unsigned long code = strtoul(arg, NULL, 16);
+    int r = send_keys(h, arg, &n);
+    if (r || n != 1) {
+        printf("ERR key %06lx: %s\n", code, nspire_strerror(r));
+        return 4;
+    }
+    printf("OK key %06lx\n", code);
+    return 0;
+}
+
+/* Several key presses in one command ("keys 616600 624600 ...") */
+static int do_keys(nspire_handle_t *h, char *list) {
+    int n = 0;
+    int r = send_keys(h, list, &n);
+    if (r) {
+        printf("ERR keys after %d: %s\n", n, nspire_strerror(r));
         return 4;
     }
     printf("OK keys %d\n", n);
@@ -483,11 +594,13 @@ static int do_keys(nspire_handle_t *h, char *list) {
 static int run_line(nspire_handle_t *h, char *line) {
     char *arg = strchr(line, ' ');
     if (arg) *arg++ = 0;
+    const int keyish = !strcmp(line, "key") || !strcmp(line, "keys");
+    if (strcmp(line, "shot") && !keyish) close_kept(h); /* The others open their own service */
     if (!strcmp(line, "info")) return do_info(h);
     if (!strcmp(line, "ls")) return do_ls(h, arg && *arg ? arg : "/");
     if (!strcmp(line, "mkdir") && arg) return do_mkdir(h, arg);
     if (!strcmp(line, "shot") && arg) return do_shot(h, arg);
-    if (!strcmp(line, "key") && arg) return do_key(h, strtoul(arg, NULL, 16));
+    if (!strcmp(line, "key") && arg) return do_key(h, arg);
     if (!strcmp(line, "keys") && arg) return do_keys(h, arg);
     if (!strcmp(line, "rm") && arg) return do_rm(h, arg);
     if ((!strcmp(line, "put") || !strcmp(line, "get") || !strcmp(line, "mv")) && arg) {
@@ -516,6 +629,7 @@ static int cmd_serve(void) {
         if (!strcmp(line, "quit")) break;
         printf("END %d\n", run_line(h, line));
     }
+    close_kept(h);
     nspire_free(h);
     return 0;
 }
@@ -526,6 +640,7 @@ static int once(char *line) {
     int r = open_handle(&h);
     if (r) return r;
     r = run_line(h, line);
+    close_kept(h);
     nspire_free(h);
     return r;
 }

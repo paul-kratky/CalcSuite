@@ -21,6 +21,12 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   and leaves a note in the old folder (nothing is deleted). Only one CalcSuite runs at a time,
   and it also sees an old Nspire Mirror that's running. Saved TI files say "Saved by CalcSuite".
 - The TI-84 key name `i` pressed imag( (0xFC83, a wrong entry); it is now 𝑖 (0xEE).
+- **Nspire link:** a lost packet costs seconds, not minutes (each read waits 2 s, not 60 s, and
+  a call gives up after 4 s for an ack or 10 s for an answer), and a packet that arrives in two
+  USB transfers is no longer dropped by a checksum over the wrong length. In `serve`, the key
+  service stays open between `key`/`keys` commands (a key command: 4.9 ms → 3.5 ms). Each
+  screenshot still opens its own connection: reusing one saved ~1.5 ms a frame, but every
+  60-400 frames the CX II never answered the request.
 
 ### Added
 - **A calculator's tab:** the screen big, **Screenshot**, **Copy screen**, **Paste text**,
