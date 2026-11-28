@@ -2261,6 +2261,9 @@ def set_app_icon(root):
         if os.path.isfile(path):
             try:
                 root.iconbitmap(default=path)  # default=: every window made later too
+                # And on this window itself (WM_SETICON): without it Windows reported no icon
+                # for the main window, and captures of it showed the generic one (2026-11-28)
+                root.iconbitmap(path)
             except tk.TclError:
                 pass
             break

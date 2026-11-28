@@ -2,33 +2,10 @@
 
 What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40, Windows 11.
 
-## [Unreleased]
-
-### Changed
-- **The side panel's sections are a strip of icons** along the window's right edge (Files,
-  Keys, Symbols, Functions, Data, Programs, Macros, Guide, Info), each with a short label; the
-  picked one is orange with a bar on its edge, and the section's full name heads the panel
-  ("Get programs", "Calculator info"). The PC copy tabs' Keys / Guide use the same strip. The
-  panel still starts at about half the window, and its handle still drags and snaps.
-- **Tools open as tabs of the window**, with a ✕, not as windows: Make a picture, the Solver
-  builder, Compare backups and its text differences, the macro editor, Get all, Restore, a
-  program's text and Test in PC copy. **Open in its own window** pops a tool tab out too.
-  File pickers and yes/no questions stay dialogs.
-- **Four buttons under a calculator's screen**: Screenshot, Record, Send program..., Copy
-  answer, then your pinned macros and **More ▾** (Copy screen, Paste text, Reconnect, Program
-  editor..., Make a picture..., Macros...). **Reconnect** also shows beside it while the link is
-  down. The checkboxes are one row below.
-- **One accent colour**: orange marks only what's picked or where you are (the tab, the panel
-  section, the keyboard target, progress bars, the panel width's snap, a tab still connecting).
-  Mint is only a connection (a connected calculator's dot) and links. Warnings are amber, added
-  items in Compare blue.
-- **The tab strip's connection dot is round and smooth** (drawn antialiased, sized to the
-  screen's scale), no longer a jagged Canvas oval.
-- **Type sizes**: headings 16 px semibold, text 13 px, hints and status lines 12 px (nothing
-  smaller except the strip's labels); the status line under the screen and the panel texts got
-  bigger.
+## [1.0.3] - 2026-11-28
 
 ### Added
+
 - **Write programs with no calculator plugged in.** **Write a program** is always in the tab
   strip; All screens with nothing plugged in offers **Program editor**, **Solver builder** and
   **Make a picture**. The editor lists every model (a model not plugged in says so): pick one
@@ -97,7 +74,67 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   the command line CalcSuite uses, Test in PC copy, TiEmu (installing, its keys and menu, what's
   not checked yet), where everything is kept, common problems.
 
+- **Make a picture** (Files panel): a PC picture (open a PNG, JPEG, BMP, GIF or TIFF, paste one
+  with ctrl+V, or drag one in) made into the calculator's own picture, with a live preview at
+  the calculator's resolution and colours; Fit / Fill / Stretch, dithering (Smooth, Pattern,
+  None), brightness and contrast; **Send** to this tab's calculator or **Save** the file.
+  TI-84 Plus CE: **Image1-0** (`.8ca`, a graph background, 133 x 83 in full colour) or
+  **Pic1-0** (`.8ci`, 265 x 165 in the 15 colours). TI-89 Titanium: a picture (`.89i`, black
+  and white, 159 x 77, 160 x 100 or 240 x 128). TI-Nspire CX II: a Python program that paints
+  it with ti_draw (8-64 colours of its own, the finest pixel size that keeps it under 20 KB).
+  Windows' own GDI+ reads the pictures (phone photos the right way up): no new dependency.
+- **Get programs in sections** for each calculator: Electrical, Mechanical, Chemistry, Physics,
+  Math, Computer engineering, Utilities and **Games** (8 for the TI-84 Plus CE, 7 for the TI-89
+  Titanium, 8 for the TI-Nspire CX II), with a **Search** box that filters as you type. 51 new
+  entries from ticalc.org, each downloaded and opened to check what it sends. Get all leaves the
+  games out (send them one by one).
+- **The version in the app**: the title (`CalcSuite 1.0.3`) and Calculator info, with a link
+  to the releases (one place: `tools/app_version.py`; a release tag must match it).
+- **Fuzzing**: an atheris harness for everything CalcSuite reads from outside (TI files,
+  TI-Basic text, the link helpers' listings, TI's OS page), 2 minutes on every push and pull
+  request and 30 minutes weekly; a quick run in the self-test.
+- **Signed releases**: each release also carries its signed build provenance as
+  `<zip>.intoto.jsonl`; 0.1.0 to 1.0.1 got the owner's SSH signatures (`.sig`, the key in
+  `.github/allowed_signers`, SECURITY.md says how to check).
+
+### Changed
+
+- **The side panel's sections are a strip of icons** along the window's right edge (Files,
+  Keys, Symbols, Functions, Data, Programs, Macros, Guide, Info), each with a short label; the
+  picked one is orange with a bar on its edge, and the section's full name heads the panel
+  ("Get programs", "Calculator info"). The PC copy tabs' Keys / Guide use the same strip. The
+  panel still starts at about half the window, and its handle still drags and snaps.
+- **Tools open as tabs of the window**, with a ✕, not as windows: Make a picture, the Solver
+  builder, Compare backups and its text differences, the macro editor, Get all, Restore, a
+  program's text and Test in PC copy. **Open in its own window** pops a tool tab out too.
+  File pickers and yes/no questions stay dialogs.
+- **Four buttons under a calculator's screen**: Screenshot, Record, Send program..., Copy
+  answer, then your pinned macros and **More ▾** (Copy screen, Paste text, Reconnect, Program
+  editor..., Make a picture..., Macros...). **Reconnect** also shows beside it while the link is
+  down. The checkboxes are one row below.
+- **One accent colour**: orange marks only what's picked or where you are (the tab, the panel
+  section, the keyboard target, progress bars, the panel width's snap, a tab still connecting).
+  Mint is only a connection (a connected calculator's dot) and links. Warnings are amber, added
+  items in Compare blue.
+- **The tab strip's connection dot is round and smooth** (drawn antialiased, sized to the
+  screen's scale), no longer a jagged Canvas oval.
+- **Type sizes**: headings 16 px semibold, text 13 px, hints and status lines 12 px (nothing
+  smaller except the strip's labels); the status line under the screen and the panel texts got
+  bigger.
+
+- **The side panel starts at about half the window** (it was a fixed 450 pixels) and keeps that
+  share when the window changes size; a width you drag to stays for the session, double-click
+  the handle for the default again.
+- **Info is now "Calculator info".**
+- **The README is short**: a sentence and a full-size screenshot per feature, nothing folded.
+  The full guide is now `docs/USER_GUIDE.md` (the User guide PDF). New screenshots from the
+  real app on the three calculators.
+- The app icon's small sizes keep the calculator clear of the corner (it read as cut off in
+  the title bar), and windows use the icon's own small drawings.
+- `Nspire Mirror.bat` (the old name's launcher) is gone: `CalcSuite.bat`.
+
 ### Fixed
+
 - Sending several TI files in a row (Restore, Get all, Make a picture) can no longer lose its
   "Sent" message when the calculator answers the first file before the rest are queued.
 - **Make a PC copy never stays on "Letting go of the link..."** (TI-84 Plus CE and TI-89
@@ -141,32 +178,12 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   symbol palette, ° ± as themselves. Pasted `∫(`, `Σ(`, `∂(` with their arguments stay TI's
   function form (`integral(`...), shown as ∫ Σ d after Enter; a lone ∫ or Σ is the template. A
   long paste is cut into commands between symbols, never inside one.
-### Added
-- **Make a picture** (Files panel): a PC picture (open a PNG, JPEG, BMP, GIF or TIFF, paste one
-  with ctrl+V, or drag one in) made into the calculator's own picture, with a live preview at
-  the calculator's resolution and colours; Fit / Fill / Stretch, dithering (Smooth, Pattern,
-  None), brightness and contrast; **Send** to this tab's calculator or **Save** the file.
-  TI-84 Plus CE: **Image1-0** (`.8ca`, a graph background, 133 x 83 in full colour) or
-  **Pic1-0** (`.8ci`, 265 x 165 in the 15 colours). TI-89 Titanium: a picture (`.89i`, black
-  and white, 159 x 77, 160 x 100 or 240 x 128). TI-Nspire CX II: a Python program that paints
-  it with ti_draw (8-64 colours of its own, the finest pixel size that keeps it under 20 KB).
-  Windows' own GDI+ reads the pictures (phone photos the right way up): no new dependency.
-- **Get programs in sections** for each calculator: Electrical, Mechanical, Chemistry, Physics,
-  Math, Computer engineering, Utilities and **Games** (8 for the TI-84 Plus CE, 7 for the TI-89
-  Titanium, 8 for the TI-Nspire CX II), with a **Search** box that filters as you type. 51 new
-  entries from ticalc.org, each downloaded and opened to check what it sends. Get all leaves the
-  games out (send them one by one).
-
-### Changed
-- **The side panel starts at about half the window** (it was a fixed 450 pixels) and keeps that
-  share when the window changes size; a width you drag to stays for the session, double-click
-  the handle for the default again.
-- **Info is now "Calculator info".**
-
-### Fixed
 - **Resizing the side panel:** Symbols couldn't get narrower than its buttons (the grid now
   reflows, 6 to 12 columns), and the Keys and Calculator info text kept a fixed width (cut off in a
   narrow panel, a narrow column in a wide one): it wraps to the panel now.
+- **The TI-Nspire never connected when CalcSuite ran from the source**: `nspire-cli.exe`
+  needed `libwinpthread-1.dll`, found only on MSYS2's PATH or inside the packaged app. It is
+  linked fully static now.
 
 ## [1.0.2] - 2026-11-28
 
