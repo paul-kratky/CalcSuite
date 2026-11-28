@@ -1,11 +1,29 @@
 # CalcSuite
 
 [![Tests](https://github.com/paul-kratky/CalcSuite/actions/workflows/tests.yml/badge.svg)](https://github.com/paul-kratky/CalcSuite/actions/workflows/tests.yml)
+[![Fuzz](https://github.com/paul-kratky/CalcSuite/actions/workflows/fuzz.yml/badge.svg)](https://github.com/paul-kratky/CalcSuite/actions/workflows/fuzz.yml)
+[![CodeQL](https://github.com/paul-kratky/CalcSuite/actions/workflows/codeql.yml/badge.svg)](https://github.com/paul-kratky/CalcSuite/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/paul-kratky/CalcSuite/badge)](https://scorecard.dev/viewer/?uri=github.com/paul-kratky/CalcSuite)
+[![Signed releases](https://img.shields.io/badge/releases-signed%20%C2%B7%20SLSA%20provenance-2ea44f?logo=sigstore&logoColor=white)](SECURITY.md#checking-a-download)
+
 [![Latest release](https://img.shields.io/github/v/release/paul-kratky/CalcSuite?label=release)](https://github.com/paul-kratky/CalcSuite/releases/latest)
+[![Release date](https://img.shields.io/github/release-date/paul-kratky/CalcSuite?label=released)](https://github.com/paul-kratky/CalcSuite/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/paul-kratky/CalcSuite/total)](https://github.com/paul-kratky/CalcSuite/releases)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/paul-kratky/CalcSuite/badge)](https://scorecard.dev/viewer/?uri=github.com/paul-kratky/CalcSuite)
-![Windows 10/11](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4)
+[![No telemetry](https://img.shields.io/badge/telemetry-none-8b5cf6)](SECURITY.md#what-calcsuite-does-and-doesnt-do)
+
+[![Last commit](https://img.shields.io/github/last-commit/paul-kratky/CalcSuite)](https://github.com/paul-kratky/CalcSuite/commits/main)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/paul-kratky/CalcSuite)](https://github.com/paul-kratky/CalcSuite/commits/main)
+[![Stars](https://img.shields.io/github/stars/paul-kratky/CalcSuite?logo=github)](https://github.com/paul-kratky/CalcSuite/stargazers)
+[![Forks](https://img.shields.io/github/forks/paul-kratky/CalcSuite?logo=github)](https://github.com/paul-kratky/CalcSuite/forks)
+[![Issues](https://img.shields.io/github/issues/paul-kratky/CalcSuite)](https://github.com/paul-kratky/CalcSuite/issues)
+[![Closed issues](https://img.shields.io/github/issues-closed/paul-kratky/CalcSuite)](https://github.com/paul-kratky/CalcSuite/issues?q=is%3Aissue+is%3Aclosed)
+[![Pull requests](https://img.shields.io/github/issues-pr-closed/paul-kratky/CalcSuite?label=pull%20requests)](https://github.com/paul-kratky/CalcSuite/pulls?q=is%3Apr+is%3Aclosed)
+[![Repo size](https://img.shields.io/github/repo-size/paul-kratky/CalcSuite)](https://github.com/paul-kratky/CalcSuite)
+[![Top language](https://img.shields.io/github/languages/top/paul-kratky/CalcSuite)](https://github.com/paul-kratky/CalcSuite)
+
+![Windows 10/11](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows&logoColor=white)
+![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)
 ![Calculators](https://img.shields.io/badge/calculators-Nspire%20CX%20II%20%C2%B7%2084%20Plus%20CE%20%C2%B7%2089%20Titanium-ff7a3d)
 
 Your TI calculators on your Windows PC, in one window: their screens live, your keyboard as
