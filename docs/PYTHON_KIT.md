@@ -217,6 +217,14 @@ use Install as Python Module.)
 run `python -I tools/build_tools.py --force`. It needs MSYS2's UCRT64 gcc and zlib
 (`C:\msys64\ucrt64`, already on this PC) and writes only to `tools/bin/` and `build/`.
 
+**A solver from your equations.** The Program editor's **Solver builder...** writes a
+menu-driven solver in this Python from equations you type once (`V = I*R`, `F = m*a`; with units
+and descriptions), together with the TI-84 Plus CE and TI-89 Titanium versions. Ready-made
+sets: Ohm's law and power, voltage divider, RC time constant, ideal gas law, kinematics, beam
+bending stress, spring, projectile range. It checks each program with the editor's checkers;
+**Send** goes through the editor to the calculator you pick, **Save files...** writes the
+sources and `.tns`/`.8xp`/`.89p` into `CalcSuite files\programs\`.
+
 ## 4. Troubleshooting
 
 | Problem | Fix |

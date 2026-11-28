@@ -269,6 +269,16 @@ answer into an empty editor and **Copy problems for the AI** hands back what the
 **Ctrl+Backspace** and **Ctrl+Delete** delete a word at a time, **Ctrl+/** comments a line out,
 **Ctrl+F** finds.
 
+**Solver builder...** (in the editor's top bar) turns equations you type once (`V = I*R`,
+`P = V^2/R`, units and descriptions per variable) into a menu-driven solver for all three
+calculators: the program asks which equation and which unknown, asks for the others, and shows
+the answer with its unit. It rearranges each unknown on the PC where it can (and says which
+answer it gives: the positive root, the principal angle); the others are found numerically from
+a guess. Start from a ready-made set (Ohm's law and power, voltage divider, RC time constant,
+ideal gas, kinematics, beam stress, spring, projectile range) or your own. Each calculator's
+program is shown with what the checker says; **Send** hands it to the editor, which builds and
+sends it the usual way; **Save files...** writes the sources and the calculator files.
+
 </details>
 
 ## Files, backup and restore

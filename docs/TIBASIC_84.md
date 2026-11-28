@@ -330,6 +330,12 @@ Disp R
 - ERR:BAD GUESS: the guess is outside the bounds, or the function is undefined there.
 - The interactive **Solver** (MATH > 0 on the home screen) does the same by hand.
 - For several unknowns that are linear, use matrices (`LINSOLVE`).
+- **A solver made for you:** in CalcSuite's Program editor, **Solver builder...** takes your
+  equations (`V = I*R`, `P = V^2/R`, with units) and writes a menu program: pick the equation
+  and the unknown, type the others, read the answer with its unit. Each unknown is rearranged
+  on the PC where it can be; the rest use `solve(` from a guess you type. The program stores
+  into the letters A-Z (the 84 has no local variables) and, when it uses sin or cos, sets
+  Radian or Degree mode. A value that divides by zero stops it with ERR:DIVIDE BY 0.
 
 ## Cookbook: units
 
