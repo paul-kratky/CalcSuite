@@ -36,6 +36,8 @@ DOCS = paths.files_dir()  # Beside CalcSuite.exe (the zip), else Documents\CalcS
 PROGRAMS = os.path.join(DOCS, "programs")
 LANG_OF_SLUG = {"ti84": "ti84", "ti89": "ti89", "nspire": "python"}
 SLUG_OF_LANG = {"ti84": "ti84", "ti89": "ti89", "python": "nspire"}
+MODELS = (("nspire", "TI-Nspire CX II"), ("ti84", "TI-84 Plus CE"), ("ti89", "TI-89 Titanium"))
+MODEL_TITLE = dict(MODELS)
 SHORT = {"ti84": "TI-84 Plus CE Basic", "ti89": "TI-89 Titanium Basic", "python": "Nspire Python"}
 CALC_FOLDER = {"ti84": "ti84", "ti89": "ti89", "python": "nspire"}  # Builds: PROGRAMS\<this>
 DEBOUNCE_MS = 300
@@ -165,7 +167,7 @@ def ask_save(parent, name):
              padx=18).pack(anchor="w")
     row = tk.Frame(d, bg=PANEL_BG)
     row.pack(fill="x", padx=14, pady=14)
-    save = th.button(row, "Save", lambda: pick("save"), bg="#0E639C", activebackground="#1177BB")
+    save = th.button(row, "Save", lambda: pick("save"), bg=th.ACCENT, fg="#000000", activebackground="#ff915e", activeforeground="#000000")
     save.pack(side="right", padx=4)
     th.button(row, "Don't save", lambda: pick("discard")).pack(side="right", padx=4)
     th.button(row, "Cancel", lambda: pick("cancel")).pack(side="right", padx=4)
@@ -240,7 +242,7 @@ class Editor(object):
         st.configure("Editor.Treeview", background=PANEL_BG, fieldbackground=PANEL_BG, foreground=EDITOR_FG,
                      rowheight=22, borderwidth=0, bordercolor=PANEL_BG, lightcolor=PANEL_BG, darkcolor=PANEL_BG)
         st.layout("Editor.Treeview", [("Editor.Treeview.treearea", {"sticky": "nswe"})])
-        st.map("Editor.Treeview", background=[("selected", "#04395E")], foreground=[("selected", "#ffffff")])
+        st.map("Editor.Treeview", background=[("selected", "#2b2b33")], foreground=[("selected", "#ffffff")])
         st.configure("Editor.Treeview.Heading", background=PANEL_BG, foreground=th.DIM, relief="flat")
         st.configure("TCombobox", fieldbackground=th.PANEL2, background=th.PANEL2, foreground=th.FG,
                      arrowcolor=th.FG, bordercolor=th.LINE, lightcolor=th.PANEL2, darkcolor=th.PANEL2)
@@ -253,7 +255,8 @@ class Editor(object):
         self.targets = self._targets()
         self._fill_targets()
         self.target_index = len(self.targets) - 1
-        self.set_target(initial_target)
+        # No calculator given: the model of the language it starts in (plugged in or not)
+        self.set_target(initial_target if initial_target is not None else SLUG_OF_LANG[self.lang])
         if path:
             self.open_path(path)
         else:
@@ -327,6 +330,14 @@ class Editor(object):
             b.pack(side="right", padx=(6, 0))
             if text.startswith("Send and run"):
                 self.run_button = b
+            elif text.startswith("Send"):
+                self.send_button = b
+        # Why Send is greyed (no such calculator plugged in): everything else works without one
+        # (a line of its own under the bar, shown only while Send is greyed)
+        self.hint_row = tk.Frame(w, bg=PANEL_BG)
+        self.hint_row.top = top
+        self.send_hint = tk.Label(self.hint_row, text="", bg=PANEL_BG, fg=th.DIM, font=th.HINT)
+        self.send_hint.pack(side="right", padx=(6, 8))
 
         self.find_bar = tk.Frame(w, bg=PANEL_BG)
         th.label(self.find_bar, "Find", fg=th.DIM, bg=PANEL_BG).pack(side="left", padx=(8, 4))
@@ -498,6 +509,9 @@ class Editor(object):
 
     # ---- Targets ----
     def _targets(self):
+        """[(label, Mirror or None, language)]: the calculators plugged in, then every model
+        that isn't (choose it to write its language: Build, Save and Test in PC copy work,
+        Send waits for it), then "No calculator: save only" """
         out = []
         for m in self.mirrors:
             calc = m.calc
@@ -509,8 +523,31 @@ class Editor(object):
             label = "%s%s%s" % (calc.title, " (%s)" % name if name and name != calc.title else "",
                                 "" if on else " - not connected")
             out.append((label, m, lang))
+        have = {LANG_OF_SLUG.get(m.calc.slug) for m in self.mirrors}
+        for slug, title in MODELS:
+            lang = LANG_OF_SLUG[slug]
+            if lang not in have:
+                out.append(("%s (not plugged in)" % title, None, lang))
         out.append(("No calculator: save only", None, None))
         return out
+
+    def calculators_changed(self, mirrors=None):
+        """The main window's calculators changed (one plugged in, or connected): the list
+        follows, and a model chosen while it wasn't plugged in becomes that calculator"""
+        if mirrors is not None:
+            self.mirrors = list(mirrors)
+        old = self.targets[self.target_index] if self.targets else (None, None, None)
+        self.targets = self._targets()
+        self._fill_targets()
+        k = next((i for i, t in enumerate(self.targets) if t[1] is not None and t[1] is old[1]), None)
+        if k is None and old[2] is not None:
+            k = next((i for i, t in enumerate(self.targets) if t[2] == old[2]), None)
+        self.target_index = k if k is not None else len(self.targets) - 1
+        try:
+            self.target_box.current(self.target_index)
+        except tk.TclError:
+            pass
+        self.update_run_label()
 
     def _fill_targets(self):
         self.target_box.configure(values=[t[0] for t in self.targets])
@@ -527,7 +564,9 @@ class Editor(object):
                     break
             else:
                 if isinstance(which, str) and which in ("ti84", "ti89", "nspire", "python"):
-                    self.set_language(LANG_OF_SLUG.get(which, which))
+                    lang = LANG_OF_SLUG.get(which, which)
+                    k = next((i for i, t in enumerate(self.targets) if t[2] == lang), k)
+                    self.set_language(lang)
         self.target_index = k
         self.target_box.current(k)
         _l, m, lang = self.targets[k]
@@ -544,15 +583,46 @@ class Editor(object):
         self.lang_var.set(lang)
         self.lang_label.configure(text=SHORT[lang])
         m = self.target()
-        if m is not None and LANG_OF_SLUG.get(m.calc.slug) != lang:
-            self.target_index = len(self.targets) - 1  # Another language: no calculator
-            self.target_box.current(self.target_index)
+        cur = self.targets[self.target_index][2]
+        if (m is not None and LANG_OF_SLUG.get(m.calc.slug) != lang) or (m is None and cur not in (None, lang)):
+            # Another language: its calculator (plugged in or not), else "save only"
+            k = next((i for i, t in enumerate(self.targets) if t[2] == lang), len(self.targets) - 1)
+            self.target_index = k
+            self.target_box.current(k)
         self.update_run_label()
         self.refresh_all()
 
     def update_run_label(self):
         try:
             self.run_button.configure(text="Send (F5)" if self.lang == "python" else "Send and run (F5)")
+        except (AttributeError, tk.TclError):
+            pass
+        self.update_send_state()
+
+    def send_blocker(self):
+        """Why Send can't go now (a hint), or None when it can"""
+        m = self.target()
+        title = MODEL_TITLE[SLUG_OF_LANG[self.lang]]
+        if m is None or LANG_OF_SLUG.get(m.calc.slug) != self.lang:
+            return "Plug in a %s to send" % title
+        if hasattr(m, "connected") and not m.connected():
+            return "The %s isn't connected yet" % m.calc.title
+        return None
+
+    def update_send_state(self):
+        """Send and Send and run: greyed, with the hint beside them, until a calculator for this
+        language is connected (the App's tick calls this every second)"""
+        try:
+            why = self.send_blocker()
+            for b in (self.send_button, self.run_button):
+                b.configure(state="disabled" if why else "normal")
+            if str(self.send_hint.cget("text")) != (why or ""):
+                self.send_hint.configure(text=(why + ": Check, Build, Save and Test in PC copy work without it")
+                                         if why else "")
+                if why:
+                    self.hint_row.pack(side="top", fill="x", after=self.hint_row.top, pady=(0, 4))
+                else:
+                    self.hint_row.pack_forget()
         except (AttributeError, tk.TclError):
             pass
 
@@ -708,7 +778,7 @@ class Editor(object):
                 text.count("\n") + 1, c["error"], c["warning"]), SEV_COLOUR["error" if c["error"] else "warning"])
             self.copy_problems_button.pack(side="right", padx=6, pady=2)
         else:
-            self.set_status("Pasted %d lines: no problems found" % (text.count("\n") + 1), th.MINT)
+            self.set_status("Pasted %d lines: no problems found" % (text.count("\n") + 1), th.FG)
 
     def _focus_check(self):
         if self._popup is not None:
@@ -796,7 +866,7 @@ class Editor(object):
         elif c["warning"]:
             self.set_status("No errors; %d warning(s)" % c["warning"], SEV_COLOUR["warning"])
         else:
-            self.set_status("No problems found", th.MINT)
+            self.set_status("No problems found", th.FG)
 
     def highlight(self, text=None):
         text = self.get_text() if text is None else text
@@ -1183,7 +1253,7 @@ class Editor(object):
         self.win.clipboard_clear()
         self.win.clipboard_append(text)
         self.set_status("Copied instructions for a chat AI (%s): paste them before your request" % SHORT[self.lang],
-                        th.MINT)
+                        th.FG)
         return text
 
     def copy_problems(self):
@@ -1192,7 +1262,7 @@ class Editor(object):
         self.win.clipboard_clear()
         self.win.clipboard_append(text)
         self.set_status("Copied %d problem(s): paste them into the chat and ask it to fix them" % len(self.problems),
-                        th.MINT)
+                        th.FG)
         return text
 
     # ---- Files ----
@@ -1353,7 +1423,7 @@ class Editor(object):
             self.name_var.set(cf.name_84_from(os.path.splitext(os.path.basename(path))[0]) or "")
         self.text.edit_modified(False)
         self.update_title()
-        self.set_status("Saved %s" % path, th.MINT)
+        self.set_status("Saved %s" % path, th.FG)
         return True
 
     def close(self, force=False):
@@ -1474,7 +1544,7 @@ class Editor(object):
         self.show_build_buttons()
         if not quiet:
             self.set_status("Built %s (%s)%s" % (out, cf.human_size(os.path.getsize(out)),
-                                                  "; %d warning(s)" % c["warning"] if c["warning"] else ""), th.MINT)
+                                                  "; %d warning(s)" % c["warning"] if c["warning"] else ""), th.FG)
         return self.built
 
     def test_in_pc_copy(self):
@@ -1513,7 +1583,7 @@ class Editor(object):
             return None
         how = copy_file_to_clipboard(self.win, self.built["file"])
         self.set_status(("Copied %s: paste it into Discord, an e-mail or a folder" if how == "file" else
-                         "Copied the path of %s") % os.path.basename(self.built["file"]), th.MINT)
+                         "Copied the path of %s") % os.path.basename(self.built["file"]), th.FG)
         return how
 
     def send(self, run=True):
@@ -1523,8 +1593,8 @@ class Editor(object):
         if m is not None and LANG_OF_SLUG.get(m.calc.slug) != self.lang:
             m = None
         if m is None:
-            self.set_status("No calculator chosen: pick one at the top (Build, Ctrl+B, only makes the file)",
-                            SEV_COLOUR["warning"])
+            self.set_status("%s (Build, Ctrl+B, makes the file; Save and Test in PC copy work without one)"
+                            % self.send_blocker(), SEV_COLOUR["warning"])
             return False
         if hasattr(m, "connected") and not m.connected():
             self.set_status("The %s isn't connected yet" % m.calc.title, SEV_COLOUR["warning"])
@@ -1567,7 +1637,7 @@ class Editor(object):
             note = " (%d warning(s))" % warn if warn else ""
             if not run:
                 self.set_status("Sent %s to the %s%s. %s. File: %s" % (
-                    name, m.calc.title, note, send_ti.how_to_run(slug, wanted), out), th.MINT)
+                    name, m.calc.title, note, send_ti.how_to_run(slug, wanted), out), th.FG)
                 return
             self.run_on_calc(m, name, args, note)
         self._queue(m, "ls", listed)
@@ -1624,9 +1694,9 @@ class Editor(object):
                     name, note, state["err"]), SEV_COLOUR["warning"])
             elif m.calc.slug == "ti89" and args:
                 self.set_status("Sent %s%s. On the 89: type its arguments after %s( and press ENTER" % (
-                    name, note, name), th.MINT)
+                    name, note, name), th.FG)
             else:
-                self.set_status("Sent and started %s%s: watch the calculator's screen" % (name, note), th.MINT)
+                self.set_status("Sent and started %s%s: watch the calculator's screen" % (name, note), th.FG)
         for k, line in enumerate(lines):
             self._queue(m, line, lambda code, out, k=k: done(k, code, out))
 
@@ -1640,7 +1710,7 @@ class Editor(object):
         def done(ok, msg):
             if ok:
                 self.set_status("Sent %s to My Documents. On the handheld: home > My Documents > %s, then "
-                                "ctrl+R runs it (close it first if it was open). File: %s" % (base, base, tns), th.MINT)
+                                "ctrl+R runs it (close it first if it was open). File: %s" % (base, base, tns), th.FG)
             else:
                 self.set_status(msg, SEV_COLOUR["error"])
         m.send_nspire_files([(tns, "/")], lambda ok, msg: self._inbox.put((done, (ok, msg))))

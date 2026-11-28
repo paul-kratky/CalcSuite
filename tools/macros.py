@@ -23,8 +23,11 @@ Export writes the same format with only the picked macros; import adds them to a
   for the calculator to have taken the keys, then sleeps the wait. Stop ends it between commands.
 - Safety (risky_keys): a macro with delete, clear, backspace or memory/reset-menu keys (or raw
   codes nobody can read) asks before it first plays, and again when such a key is added.
-- Built-in examples (BUILTIN): harmless ones per model; they can't be changed or deleted, only
-  copied ("Duplicate").
+- Built-in macros (BUILTIN): "Go to" ones per model that only open a screen or a menu, and an
+  example with waits; they can't be changed or deleted, only copied ("Duplicate").
+- Pins and hotkeys: a macro's "pinned" (a button under the screen) and "hotkey" (Ctrl+1..9 on
+  its calculator's tab) are saved with it; the built-in ones' in the file's "builtin_prefs",
+  by name. One macro per hotkey (set_hotkey moves it).
 
 Pure: no Tk, no USB (tools/selftest checks it). MIT licence (like the rest of the app).
 """
@@ -60,30 +63,49 @@ RISKY = {
              "mem": "2nd MEM (reset menu)"},
 }
 
-# Harmless examples: they only move between screens
+def _go(name, *keys):
+    """A built-in "Go to" macro: keys that only open a screen or a menu, never change anything"""
+    return {"name": "Go to " + name, "go": True,
+            "steps": [{"key": k, "wait_ms": w} for k, w in
+                      (kw if isinstance(kw, tuple) else (kw, 0) for kw in keys)]}
+
+
+# Built-in macros: the "Go to" ones (they only open a screen or a menu: pin one, or give it
+# Ctrl+1..9) and an example with waits. Key names are calc_models' (the Keys panel's).
 BUILTIN = {
     "nspire": [
-        {"name": "Home screen", "steps": [{"key": "home", "wait_ms": 0}]},
-        {"name": "Open the Scratchpad (Calculate)",
-         "steps": [{"key": "home", "wait_ms": 800}, {"key": "a", "wait_ms": 0}]},
-        {"name": "Open the Scratchpad (Graph)",
-         "steps": [{"key": "home", "wait_ms": 800}, {"key": "b", "wait_ms": 0}]},
+        _go("Home", "home"),
+        _go("Scratchpad: Calculate", ("home", 800), "a"),
+        _go("Scratchpad: Graph", ("home", 800), "b"),
     ],
     "ti84": [
-        {"name": "Home screen", "steps": [{"key": "quit", "wait_ms": 0}]},
+        _go("Home", "quit"),                 # 2nd MODE = QUIT
+        _go("Y=", "y="),
+        _go("WINDOW", "window"),
+        _go("TABLE", "table"),               # 2nd GRAPH
+        _go("MODE", "mode"),
+        _go("STAT EDIT", "stat", "enter"),   # STAT, then 1:Edit...
+        _go("MATRIX", "matrix"),             # 2nd x⁻¹
+        _go("PRGM", "prgm"),
+        _go("MEM", "mem"),                   # 2nd + (it holds Reset: it asks before its first replay)
         {"name": "Look at the MODE screen, then home",
          "steps": [{"key": "quit", "wait_ms": 300}, {"key": "mode", "wait_ms": 2000},
                    {"key": "quit", "wait_ms": 0}]},
-        {"name": "Graph screen", "steps": [{"key": "graph", "wait_ms": 0}]},
     ],
     "ti89": [
-        {"name": "Home screen", "steps": [{"key": "home", "wait_ms": 0}]},
+        _go("Home", "home"),
+        _go("Y=", "y="),                     # ◆F1
+        _go("WINDOW", "window"),             # ◆F2
+        _go("GRAPH", "graph"),               # ◆F3
+        _go("TABLE", "table"),               # ◆F5
+        _go("Var-Link", "var-link"),         # 2nd -
+        _go("MODE", "mode"),
         {"name": "Look at the MODE dialog, then home",
          "steps": [{"key": "home", "wait_ms": 300}, {"key": "mode", "wait_ms": 2000},
                    {"key": "esc", "wait_ms": 300}, {"key": "home", "wait_ms": 0}]},
-        {"name": "Y= editor", "steps": [{"key": "y=", "wait_ms": 0}]},
     ],
 }
+HOTKEYS = tuple(range(1, 10))  # Ctrl+1 .. Ctrl+9
 
 
 class MacroError(ValueError):
@@ -176,11 +198,66 @@ def validate(slug, m):
         steps.append({"key": s["key"], "wait_ms": max(0, min(WAIT_MAX_MS, wait))})
     out = new_macro(slug, m.get("name"), steps)
     out["ok_risky"] = sorted(k for k in m.get("ok_risky", []) if isinstance(k, str))
+    set_prefs(out, m)
     return out
 
 
-def builtins(slug):
-    return [new_macro(slug, b["name"], b["steps"], builtin=True) for b in BUILTIN[slug]]
+def set_prefs(m, prefs):
+    """A macro's own settings from prefs (a dict): pinned (a button under the screen) and
+    hotkey (Ctrl+1..9 on the calculator's tab). Anything else is dropped."""
+    m.pop("pinned", None)
+    m.pop("hotkey", None)
+    if prefs.get("pinned") is True:
+        m["pinned"] = True
+    h = prefs.get("hotkey")
+    if isinstance(h, int) and not isinstance(h, bool) and h in HOTKEYS:
+        m["hotkey"] = h
+    return m
+
+
+def builtins(slug, prefs=None):
+    """The built-in macros, with the pins and hotkeys saved for them ({name: {pinned, hotkey}})"""
+    out = []
+    for b in BUILTIN[slug]:
+        m = new_macro(slug, b["name"], b["steps"], builtin=True)
+        if b.get("go"):
+            m["go"] = True
+        set_prefs(m, (prefs or {}).get(b["name"], {}))
+        out.append(m)
+    return out
+
+
+# ---- Pins and hotkeys ----
+
+def pinned(macros):
+    return [m for m in macros if m.get("pinned")]
+
+
+def by_hotkey(macros, n):
+    return next((m for m in macros if m.get("hotkey") == n), None)
+
+
+def set_hotkey(macros, m, n):
+    """Gives m Ctrl+n (None: no hotkey). A macro that had Ctrl+n loses it: that one (to say
+    so), else None. Raises MacroError for a key outside 1-9."""
+    if n is not None and n not in HOTKEYS:
+        raise MacroError("a hotkey is Ctrl+1 to Ctrl+9")
+    was = None
+    if n is not None:
+        was = by_hotkey(macros, n)
+        if was is m:
+            return None
+        if was is not None:
+            was.pop("hotkey", None)
+        m["hotkey"] = n
+    else:
+        m.pop("hotkey", None)
+    return was
+
+
+def free_hotkeys(macros):
+    taken = {m.get("hotkey") for m in macros}
+    return [n for n in HOTKEYS if n not in taken]
 
 
 def unique_name(name, taken):
@@ -249,10 +326,29 @@ def store_path(slug, folder=None):
 
 
 def to_json(slug, macros):
-    return json.dumps({"format": FORMAT, "format_version": FORMAT_VERSION, "model": slug,
-                       "macros": [{k: v for k, v in m.items() if k not in ("builtin", "model")}
-                                  for m in macros if not m.get("builtin")]},
-                      indent=1, ensure_ascii=False)
+    """The file's text: the user's macros (with their pins and hotkeys), and the pins and
+    hotkeys given to built-in ones ("builtin_prefs", by name; the built-ins themselves aren't
+    written)"""
+    prefs = {}
+    for m in macros:
+        if m.get("builtin") and (m.get("pinned") or m.get("hotkey")):
+            prefs[m["name"]] = {k: m[k] for k in ("pinned", "hotkey") if m.get(k)}
+    d = {"format": FORMAT, "format_version": FORMAT_VERSION, "model": slug,
+         "macros": [{k: v for k, v in m.items() if k not in ("builtin", "model", "go")}
+                    for m in macros if not m.get("builtin")]}
+    if prefs:
+        d["builtin_prefs"] = prefs
+    return json.dumps(d, indent=1, ensure_ascii=False)
+
+
+def prefs_from_json(text):
+    """The built-in macros' pins and hotkeys in a macros file's text ({} when none)"""
+    try:
+        d = json.loads(text)
+    except ValueError:
+        return {}
+    p = d.get("builtin_prefs") if isinstance(d, dict) else None
+    return {k: v for k, v in p.items() if isinstance(k, str) and isinstance(v, dict)} if isinstance(p, dict) else {}
 
 
 def from_json(slug, text):
@@ -284,6 +380,29 @@ def load(slug, folder=None):
         raise MacroError("can't read %s (%s)" % (path, e))
 
 
+def load_all(slug, folder=None):
+    """Every macro for a model: the built-in ones (with the pins and hotkeys saved for them),
+    then the user's. Raises MacroError like load()."""
+    user = load(slug, folder)
+    prefs = {}
+    path = store_path(slug, folder)
+    if os.path.isfile(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                prefs = prefs_from_json(f.read())
+        except OSError:
+            prefs = {}
+    out = builtins(slug, prefs) + user
+    seen = set()
+    for m in out:  # One macro per hotkey (a file edited by hand): the first keeps it
+        h = m.get("hotkey")
+        if h in seen:
+            m.pop("hotkey", None)
+        elif h:
+            seen.add(h)
+    return out
+
+
 def save(slug, macros, folder=None):
     """Writes the user's macros (not the built-in ones) safely: a temporary file, then replace"""
     path = store_path(slug, folder)
@@ -302,6 +421,8 @@ def merge(existing, incoming):
     for m in incoming:
         m = dict(m)
         m["name"] = unique_name(m["name"], [x["name"] for x in out])
+        if m.get("hotkey") and by_hotkey(out, m["hotkey"]) is not None:
+            m.pop("hotkey")  # Its hotkey is taken here: the one you have keeps it
         out.append(m)
         added.append(m)
     return out, added

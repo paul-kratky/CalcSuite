@@ -667,10 +667,10 @@ class Plot(object):
         lab = lambda v: ("%g" % v) if abs(v) < 1e5 else "%.2g" % v
         for x in xt:
             c.create_line(sx(x), top, sx(x), h - bottom, fill=th.LINE)
-            c.create_text(sx(x), h - bottom + 4, text=lab(x), anchor="n", fill=th.DIM, font=(th.FONT, 8))
+            c.create_text(sx(x), h - bottom + 4, text=lab(x), anchor="n", fill=th.DIM, font=(th.FONT, 9))
         for y in yt:
             c.create_line(left, sy(y), w - right, sy(y), fill=th.LINE)
-            c.create_text(left - 4, sy(y), text=lab(y), anchor="e", fill=th.DIM, font=(th.FONT, 8))
+            c.create_text(left - 4, sy(y), text=lab(y), anchor="e", fill=th.DIM, font=(th.FONT, 9))
         if x0 <= 0 <= x1:
             c.create_line(sx(0), top, sx(0), h - bottom, fill=th.GREY)
         if y0 <= 0 <= y1:
@@ -686,7 +686,7 @@ class Plot(object):
 # ---- The Data section of the side panel ----
 
 def _heading(parent, text):
-    tk.Label(parent, text=text.upper(), bg=th.PANEL, fg=th.DIM, font=(th.FONT, 8, "bold"),
+    tk.Label(parent, text=text.upper(), bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9, "bold"),
              anchor="w").pack(fill="x", pady=(10, 4))
 
 

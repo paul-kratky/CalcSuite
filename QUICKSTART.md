@@ -27,8 +27,9 @@ Its screen appears on **All screens** and in its own tab, live.
 | Type on the calculator | Click its screen and type; the **Keys** panel shows which PC key is which |
 | Type a symbol (∫ √ π θ ≤ ...) | **Symbols** panel, or paste text with them (Ctrl+V) |
 | Find a command and its arguments | **Functions** panel; double-click to type it |
-| Write a program | **Program editor...** under the screen: it checks as you type, **F5** builds, sends and runs it |
-| Get ready-made programs | **Get programs** panel; double-click one to download and send it |
+| Write a program (no calculator needed) | **Write a program** (top right) or **More ▾ > Program editor...**: it checks as you type, **Ctrl+B** builds, **F5** sends and runs it once the calculator is plugged in |
+| Get ready-made programs | **Programs** in the side panel; double-click one to download and send it |
+| Jump to Y=, TABLE, MODE... in one click | **Macros** panel: pin a **Go to** macro under the screen, or give it **Ctrl+1..9** |
 | Save a screenshot or a video | **Screenshot**, **Record** |
 | Back up the calculator | **Files** > **Back up...** |
 | Run your own calculator on the PC (84 Plus CE, 89 Titanium) | **Calculator info** > **Make a PC copy...**: it opens in its own tab (guide: `CalcSuite - PC copies (CEmu and TiEmu) guide.pdf`) |

@@ -586,7 +586,15 @@ def log_error(where):
 
 
 def open_for(mirror, kit):
-    """The Files panel's "Make a picture..." (one window per tab, brought forward again)"""
+    """The Files panel's "Make a picture..." (one per calculator, shown again): a tab of the
+    main window (tool_tabs), else a window of its own"""
+    import tool_tabs
+    app = tool_tabs.app()
+    if app is not None and hasattr(app, "open_tool_tab"):
+        key = "picture:%s" % mirror.calc.slug
+        return app.open_tool_tab(key, "Make a picture (%s)" % mirror.calc.title,
+                                 lambda parent: PicturePanel(parent, mirror, kit,
+                                                             on_close=lambda: app.drop_tool_tab(key)))
     win = getattr(mirror, "picture_window", None)
     try:
         if win is not None and win.win.winfo_exists():

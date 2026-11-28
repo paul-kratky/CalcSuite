@@ -30,6 +30,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 import backup_compare_ui
 import calc_backup as cb
 import calc_files as cf
+import tool_tabs
 import ui_theme as th
 
 BG, FG, DIM, BTN, BTN_ACTIVE, ACCENT = th.BG, th.FG, th.DIM, th.PANEL2, th.ACTIVE, th.ACCENT
@@ -533,7 +534,8 @@ class Manager(object):
         self.get_var(i, ok, lambda err: self.status.set("Couldn't read %s: %s" % (i["text"], err)))
 
     def show_text(self, item, text):
-        w = tk.Toplevel(self.win)
+        # A tab of the main window (a window of its own without it)
+        w = tool_tabs.window(self.win, "text:%s:%s" % (self.slug, item["text"]), item["text"])
         w.title(item["text"])
         w.configure(bg=BG)
         w.geometry("560x480")
@@ -1168,7 +1170,7 @@ class Manager(object):
                           % (installed, cf.nice_version(self.slug, newest)), None)
         else:
             text, link = "TI has OS %s:" % cf.nice_version(self.slug, newest), "download page"
-        tk.Label(line, text=text, bg=BG, fg=FG if link else th.ACCENT, wraplength=420,
+        tk.Label(line, text=text, bg=BG, fg=FG if link else th.WARN, wraplength=420,
                  justify="left").pack(side="left")
         if link:
             a = tk.Label(line, text=link, bg=BG, fg=th.MINT, cursor="hand2",
@@ -1182,7 +1184,8 @@ class RestoreDialog(object):
 
     def __init__(self, mgr, folder, man):
         self.mgr, self.man, self.slug = mgr, man, mgr.slug
-        w = self.win = tk.Toplevel(mgr.win)
+        w = self.win = tool_tabs.window(mgr.win, "restore:%s" % mgr.slug,
+                                        "Restore to the %s" % mgr.calc.title)
         w.title("Restore to the %s" % mgr.calc.title)
         w.configure(bg=BG)
         w.geometry("640x480")

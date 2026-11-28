@@ -9,9 +9,12 @@ window" pops a calculator's tab out into a window of its own; closing that windo
 back.
 
 A calculator's tab: the live picture (the Nspire about 19 frames a second, the 84 Plus CE about
-1), Screenshot, Copy screen, Paste text, Record, Send program, Keyboard on/off, and a panel
-with Files (the calculator manager, calc_manager.py, with Back up / Restore), Keys, Symbols,
-Guide, Get programs and Calculator info (model, OS, clock, Exit Press-to-Test, the connection doctor).
+1), Screenshot, Record, Send program, Copy answer, the pinned macros, More (Copy screen, Paste
+text, Reconnect, ...), Keyboard on/off, and a side panel picked on an icon strip (ui_panels.py):
+Files (the calculator manager, calc_manager.py, with Back up / Restore), Keys, Symbols,
+Functions, Data, Get programs, Macros, Guide and Calculator info (model, OS, clock, Exit
+Press-to-Test, the connection doctor). Tools (Make a picture, the Solver builder, Compare
+backups, ...) open as closable tabs (tool_tabs.py, App.open_tool_tab).
 
 The PC copy's tabs ("TI-84 Plus CE (PC copy)", "TI-89 Titanium (PC copy)": emu_tabs.py) make
 the copy and then host the emulator's own window (CEmu, TiEmu: separate programs).
@@ -72,6 +75,7 @@ import calc_models  # noqa: E402
 import key_strip  # noqa: E402
 import ui_theme as th  # noqa: E402
 from emu_tabs import is_emu_key  # noqa: E402
+import tool_tabs  # noqa: E402
 
 import check_nspire  # noqa: E402
 import py2tns  # noqa: E402
@@ -106,6 +110,7 @@ HISTORY = 8       # Keys the key-history strip shows
 FAST84_PRGM = os.path.join(HERE, "fast84", "CSFAST.8xp")
 FAST_HOLDOFF = 0.15
 FAST_MISSES_WARN = 3
+APP = None  # The running App (tool_tabs.app() finds it: tools open as tabs of its window)
 
 
 def log_error(where, detail=None):
@@ -1064,40 +1069,60 @@ class Tab(object):
 
         self.strip = tk.Frame(left, bg=th.BG, height=26)  # The key history
         self.strip_on = False
-        # The checkboxes share one row (packed before the last key, so a long key name gets
-        # cut, never a checkbox); the button bar below stays narrow on every calculator
+        # The button row: the four main buttons, the pinned macros after them, "More" (the
+        # rest) on the right, and Reconnect beside it only while the link is down
+        bar = tk.Frame(left, bg=th.BG)
+        bar.pack(fill="x", pady=(8, 0))
+        self.button_row = bar
+        self.main_buttons = {}
+        for name, cmd in (("Screenshot", mirror.screenshot), ("Record", mirror.toggle_record),
+                          ("Send program...", mirror.send_program), ("Copy answer", self.copy_answer)):
+            b = th.button(bar, name, cmd)
+            b.pack(side="left", padx=(0 if not self.main_buttons else 6, 0))
+            self.main_buttons[name] = b
+        self.rec_btn = self.main_buttons["Record"]
+        # More (and Reconnect) are packed before the pins, so a narrow tab cuts a pin, never them
+        self.more_btn = th.button(bar, "More ▾", self.show_more)
+        self.more_btn.pack(side="right")
+        self.pins = tk.Frame(bar, bg=th.BG)  # The pinned macros' buttons (macros_ui.MacroBox)
+        self.pins.pack(side="left")
+        self.reconnect_btn = th.button(bar, "Reconnect", mirror.reconnect)
+        self.reconnect_shown = False
+        self.more = th.menu(self.frame)
+        for label, cmd in (("Copy screen", mirror.copy_screen), ("Paste text", lambda: mirror.paste_text()),
+                           ("Reconnect", mirror.reconnect), (None, None),
+                           ("Program editor...", self.open_editor),
+                           ("Make a picture...", self.open_picture),
+                           ("Macros...", lambda: self.panel.show("Macros"))):
+            if label is None:
+                self.more.add_separator()
+            else:
+                self.more.add_command(label=label, command=cmd)
+        self.more_fixed = int(self.more.index("end")) + 1  # Entries after these: pins that didn't fit
+        self.pin_buttons, self.pins_hidden = [], []
+        bar.bind("<Configure>", lambda e: self.fit_pins(), add="+")
+        # The checkboxes in one row (packed before the last key, so a long key name gets cut,
+        # never a checkbox)
         line = tk.Frame(left, bg=th.BG)
-        line.pack(fill="x", pady=(6, 0))
+        line.pack(fill="x", pady=(8, 0))
         self.check_row = line
         self.hist_var = tk.BooleanVar(master=self.frame, value=False)
         th.check(line, "Keyboard", mirror.keys_on).pack(side="right")
-        th.check(line, "Key history", self.hist_var, self.toggle_history).pack(side="right", padx=(0, 10))
-        th.check(line, "Show keys in recordings", app.burn_keys).pack(side="right", padx=(0, 10))
+        th.check(line, "Key history", self.hist_var, self.toggle_history).pack(side="right", padx=(0, 14))
+        th.check(line, "Show keys in recordings", app.burn_keys).pack(side="right", padx=(0, 14))
         if mirror.calc.slug == "ti84":  # Fast mode (experimental): ~7 frames/s on the home screen
             self.fast_var = tk.BooleanVar(master=self.frame, value=False)
             th.check(line, "Fast mode (experimental)", self.fast_var, self.toggle_fast).pack(
-                side="right", padx=(0, 10))
+                side="right", padx=(0, 14))
             mirror.fast_listeners.append(
                 lambda state, note: self.app.root.after(0, self.fast_changed, state, note))
-        tk.Label(line, textvariable=mirror.last_press, bg=th.BG, fg=th.FG, anchor="w",
-                 font=(th.FONT, 10)).pack(side="left", fill="x", expand=True)
-        bar = tk.Frame(left, bg=th.BG)
-        bar.pack(fill="x", pady=(8, 0))
-        th.button(bar, "Screenshot", mirror.screenshot).pack(side="left")
-        th.button(bar, "Copy screen", mirror.copy_screen).pack(side="left", padx=(6, 0))
-        th.button(bar, "Copy answer", lambda: __import__("data_bridge").copy_answer(
-            mirror, bar, mirror.set_status)).pack(side="left", padx=(6, 0))
-        th.button(bar, "Paste text", lambda: mirror.paste_text()).pack(side="left", padx=(6, 0))
-        self.rec_btn = th.button(bar, "Record", mirror.toggle_record)
-        self.rec_btn.pack(side="left", padx=(6, 0))
-        th.button(bar, "Send program...", mirror.send_program).pack(side="left", padx=(6, 0))
-        th.button(bar, "Reconnect", mirror.reconnect).pack(side="left", padx=(6, 0))
-        th.button(bar, "Program editor...", self.open_editor).pack(side="left", padx=(6, 0))
+        tk.Label(line, textvariable=mirror.last_press, bg=th.BG, fg=th.DIM, anchor="w",
+                 font=th.HINT).pack(side="left", fill="x", expand=True)
         tk.Label(left, textvariable=mirror.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
-                 wraplength=640).pack(fill="x", pady=(8, 0))
+                 font=th.HINT, wraplength=640).pack(fill="x", pady=(6, 0))
         self.left = left
         self.panel = ui_panels.SidePanel(self.frame, app, mirror)
-        self.panel.frame.pack(side="right", fill="y", padx=(0, 14), pady=(10, 10))
+        self.panel.frame.pack(side="right", fill="y")
         self.panel.frame.configure(width=self.panel_width_now())
         # A handle between the screen and the panel: drag it to make the panel wider or narrower
         grip = tk.Frame(self.frame, bg=th.BG, width=8, cursor="sb_h_double_arrow")
@@ -1116,6 +1141,10 @@ class Tab(object):
         grip.bind("<Leave>", lambda e: self.drag_w is None and line.configure(bg=th.PANEL2))
         left.pack(side="left", fill="both", expand=True, padx=(14, 8), pady=(10, 10))
         mirror.listeners.append(self.key_pressed)
+        import macros_ui  # The macros (pinned buttons, Ctrl+1..9) before the Macros panel is opened
+        self.macro_box = macros_ui.box_for(mirror)
+        self.macro_box.listeners.append(self.refresh_pins)
+        self.refresh_pins()
         # The default width follows the window (a share of it); a dragged width stays put
         self.fit_job = None
         self.frame.bind("<Configure>", self.window_resized)
@@ -1182,7 +1211,7 @@ class Tab(object):
             w = default
         self.drag_w = w
         x = right - w - 5  # The middle of the handle, left of the panel's new edge
-        color = th.MINT if snapped else th.ACCENT
+        color = th.ACCENT if snapped else th.DIM
         self.grip_line.configure(bg=color)
         line, tag = self.guide or self.make_guide()
         # Their own little windows, moved over the tab: Windows composes them, so nothing
@@ -1209,7 +1238,7 @@ class Tab(object):
             return w
         line = floating()
         tag = floating()
-        tk.Label(tag, text="Default width", bg=th.MINT, fg="#000000", font=(th.FONT, 8, "bold"),
+        tk.Label(tag, text="Default width", bg=th.ACCENT, fg="#000000", font=(th.FONT, 9, "bold"),
                  padx=6, pady=1).pack()
         tag.update_idletasks()
         self.guide = (line, tag)
@@ -1236,6 +1265,80 @@ class Tab(object):
         """The program editor, aimed at this calculator (TI-Basic or Nspire Python)"""
         import editor
         editor.open_editor(self.app, list(self.app.mirrors.values()), initial_target=self.m)
+
+    def copy_answer(self):
+        import data_bridge
+        data_bridge.copy_answer(self.m, self.button_row, self.m.set_status)
+
+    def open_picture(self):
+        import picture_window
+        picture_window.open_for(self.m, KIT)
+
+    def show_more(self):
+        """More ▾: the rest of the tab's commands, under the button"""
+        b = self.more_btn
+        box = getattr(self, "macro_box", None)
+        self.more.delete(self.more_fixed, "end")  # The pins that didn't fit the row, again
+        if box is not None and getattr(self, "pins_hidden", None):
+            self.more.add_separator()
+            for m in self.pins_hidden:
+                self.more.add_command(label="Macro: " + m["name"], command=lambda m=m: box.play(m, self.frame))
+        try:
+            self.more.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
+        finally:
+            self.more.grab_release()
+
+    def link_state(self, up):
+        """The App's tick: Reconnect shows beside More only while the link is down"""
+        down = not up
+        if down != self.reconnect_shown:
+            self.reconnect_shown = down
+            if down:
+                self.reconnect_btn.pack(side="right", padx=(0, 6), before=self.pins)  # Left of More
+            else:
+                self.reconnect_btn.pack_forget()
+            self.fit_pins()
+
+    def refresh_pins(self):
+        """The pinned macros as buttons after the main four (macros_ui.MacroBox calls this)"""
+        for c in self.pins.winfo_children():
+            c.destroy()
+        self.pin_buttons = []
+        box = getattr(self, "macro_box", None)
+        if box is None:
+            return
+        for m in box.pinned():
+            label = m["name"] if len(m["name"]) <= 18 else m["name"][:17] + "…"
+            b = th.button(self.pins, label, lambda m=m: box.play(m, self.frame))
+            tip = m["name"] + (" (Ctrl+%d)" % m["hotkey"] if m.get("hotkey") else "")
+            th.Tooltip(b, tip)
+            self.pin_buttons.append((b, m))
+        self.fit_pins()
+
+    def fit_pins(self):
+        """As many pinned buttons as the row has room for, in order; the rest are in More ▾
+        (a pin is never cut in half)"""
+        try:
+            bar = self.button_row
+            room = bar.winfo_width()
+            if room <= 1:
+                room = bar.winfo_reqwidth()
+            room -= sum(b.winfo_reqwidth() + 6 for b in self.main_buttons.values())
+            room -= self.more_btn.winfo_reqwidth() + 6
+            if self.reconnect_shown:
+                room -= self.reconnect_btn.winfo_reqwidth() + 6
+            used, self.pins_hidden = 0, []
+            for b, m in self.pin_buttons:
+                need = b.winfo_reqwidth() + 6
+                if used + need <= room and not self.pins_hidden:
+                    used += need
+                    if not b.winfo_ismapped():
+                        b.pack(side="left", padx=(6, 0))
+                else:
+                    b.pack_forget()
+                    self.pins_hidden.append(m)
+        except (tk.TclError, AttributeError):
+            pass
 
     _fast_explained = False
 
@@ -1315,10 +1418,27 @@ class AllScreens(object):
         self.frame = tk.Frame(app.content, bg=th.BG)
         self.grid = tk.Frame(self.frame, bg=th.BG)
         self.grid.pack(fill="both", expand=True, padx=14, pady=(14, 6))
-        self.empty = tk.Label(self.grid, bg=th.BG, fg=th.DIM, justify="center", font=(th.FONT, 11),
-                              text="No calculator is plugged in yet.\n\nPlug one in and switch it on: "
-                                   "its screen appears here by itself.\nTI's own software must be "
-                                   "closed. The first time, CalcSuite offers to set up each calculator's driver.")
+        # Nothing plugged in: what to do, and what works without a calculator
+        self.empty = tk.Frame(self.grid, bg=th.BG)
+        tk.Label(self.empty, bg=th.BG, fg=th.DIM, justify="center", font=(th.FONT, 11),
+                 text="No calculator is plugged in yet.\n\nPlug one in and switch it on: "
+                      "its screen appears here by itself.\nTI's own software must be "
+                      "closed. The first time, CalcSuite offers to set up each calculator's driver.").pack()
+        tk.Label(self.empty, bg=th.BG, fg=th.FG, font=th.HEAD,
+                 text="You can still write programs").pack(pady=(28, 4))
+        tk.Label(self.empty, bg=th.BG, fg=th.DIM, font=th.HINT, justify="center",
+                 text="For the TI-Nspire CX II (Python), the TI-84 Plus CE and the TI-89 Titanium "
+                      "(TI-Basic): checked as you type, built and saved;\nsent once the calculator "
+                      "is plugged in. Test in PC copy runs a TI-84 Plus CE program in CEmu.").pack()
+        row = tk.Frame(self.empty, bg=th.BG)
+        row.pack(pady=(12, 0))
+        self.empty_buttons = {}
+        for k, (text, cmd) in enumerate((("Program editor", lambda: app.open_editor_tab()),
+                                         ("Solver builder", lambda: app.open_solver_builder()),
+                                         ("Make a picture", lambda: app.open_picture()))):
+            b = th.button(row, text, cmd)
+            b.pack(side="left", padx=(0 if k == 0 else 8, 0))
+            self.empty_buttons[text] = b
         tk.Label(self.frame, text="Click a screen to type on it. Double click opens its tab.",
                  bg=th.BG, fg=th.DIM, anchor="w").pack(fill="x", padx=14, pady=(0, 10))
         self.tiles = {}  # pid -> (frame, view, name label, fps label, outline)
@@ -1331,7 +1451,7 @@ class AllScreens(object):
         head.pack(fill="x")
         name = tk.Label(head, text=mirror.calc.title, bg=th.PANEL, fg=th.FG, font=(th.FONT, 10, "bold"))
         name.pack(side="left", padx=8, pady=4)
-        kb = tk.Label(head, text="KEYBOARD", bg=th.ACCENT, fg="#000000", font=(th.FONT, 8, "bold"), padx=5)
+        kb = tk.Label(head, text="KEYBOARD", bg=th.ACCENT, fg="#000000", font=(th.FONT, 9, "bold"), padx=5)
         fps = tk.Label(head, text="", bg=th.PANEL, fg=th.DIM)
         fps.pack(side="left")
         th.button(head, "Record", mirror.toggle_record, pady=2).pack(side="right", padx=(4, 6), pady=3)
@@ -1409,15 +1529,23 @@ class App(object):
         self.editor = None        # The Program editor tab's Editor, while it's open
         self.editor_frame = None
         self.emus = {}        # "emu:ti84" / "emu:ti89" -> emu_tabs.EmuTab (the PC copy in its emulator)
-        self.current = "all"  # "all", a pid, "editor" or an emulator tab's key
+        self.current = "all"  # "all", a pid, "editor", an emulator tab's key or a tool tab's key
+        self.previous = "all"  # The tab shown before the current one (a closed tool goes back to it)
         self.target = None    # The keyboard target on All screens (a pid)
+        self.tools = {}       # "tool:..." -> tool_tabs.ToolFrame (Solver builder, Make a picture, ...)
+        global APP
+        APP = self            # tool_tabs.app(): tools open as tabs of this window
+        th.set_fonts(self.root)
 
         strip = tk.Frame(self.root, bg=th.PANEL)
         strip.pack(fill="x")
         self.strip = tk.Frame(strip, bg=th.PANEL)
         self.strip.pack(side="left", fill="y")
         self.pop_btn = th.button(strip, "Open in its own window", self.pop_out, bg=th.PANEL)
-        self.pop_btn.pack(side="right", padx=10, pady=6)
+        self.pop_btn.pack(side="right", padx=10, pady=6, before=self.strip)  # Many tabs cut a tab, not it
+        # Writing programs needs no calculator: the editor is always one click away
+        self.write_btn = th.button(strip, "Write a program", lambda: self.open_editor_tab(), bg=th.PANEL)
+        self.write_btn.pack(side="right", pady=6, before=self.strip)
         tk.Frame(self.root, bg=th.LINE, height=1).pack(fill="x")
         self.content = tk.Frame(self.root, bg=th.BG)
         self.content.pack(fill="both", expand=True)
@@ -1434,6 +1562,7 @@ class App(object):
         self.root.after(1000, self.tick)
         self.root.after(15, self.pump)
         middle_click_autoscroll(self.root)
+        self.root.bind("<Configure>", lambda e: e.widget is self.root and self.fit_tabs_soon(), add="+")
 
     def pump(self):
         """Tk's thread, ~60 times a second: the work other threads asked for, then each
@@ -1469,19 +1598,21 @@ class App(object):
         f.pack(side="left")
         inner = tk.Frame(f, bg=th.PANEL)
         inner.pack(padx=14, pady=(8, 6))
-        dot = tk.Canvas(inner, width=10, height=10, bg=th.PANEL, highlightthickness=0)
-        if key not in ("all", "editor"):
-            dot.create_oval(1, 1, 9, 9, fill=th.GREY, outline="")
-            dot.pack(side="left", padx=(0, 6))
+        dot = th.status_dot(inner)  # An antialiased dot (a Canvas oval is jagged this small)
+        tool = tool_tabs.is_tool_key(key)
+        if key not in ("all", "editor") and not tool:
+            dot.pack(side="left", padx=(0, 7), pady=(1, 0))  # On the text's centre line
         name = tk.Label(inner, text=text, bg=th.PANEL, fg=th.FG, font=(th.FONT, 10, "bold"))
         name.pack(side="left")
-        if key == "editor" or is_emu_key(key):
+        if key == "editor" or is_emu_key(key) or tool:
             # The editor's tab closes (asking about unsaved changes first); an emulator's tab
-            # closes the emulator (CEmu saves its state)
+            # closes the emulator (CEmu saves its state); a tool's tab closes the tool
             shut = tk.Label(inner, text="✕", bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9), cursor="hand2")
             shut.pack(side="right", padx=(10, 0))
             if key == "editor":
                 shut.bind("<Button-1>", lambda e: (self.editor and self.editor.close(), "break")[-1])
+            elif tool:
+                shut.bind("<Button-1>", lambda e, k=key: (self.close_tool_tab(k), "break")[-1])
             else:
                 shut.bind("<Button-1>", lambda e, k=key: (self.close_emulator_tab(k), "break")[-1])
             shut.bind("<Enter>", lambda e: shut.configure(fg=th.ACCENT))
@@ -1493,6 +1624,33 @@ class App(object):
         for w in (f, inner, dot, name, fps):
             w.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
         self.tab_widgets[key] = dict(frame=f, dot=dot, name=name, fps=fps, line=line, inner=inner)
+        self.fit_tabs_soon()
+
+    def fit_tabs_soon(self):
+        if getattr(self, "fit_tabs_job", None) is None:
+            self.fit_tabs_job = self.root.after(30, self.fit_tabs)
+
+    def fit_tabs(self):
+        """Many tabs in a narrow window: the tabs not shown lose their status text ("connecting",
+        the frame rate) and some padding, so the shown one always stays in sight"""
+        self.fit_tabs_job = None
+        try:
+            avail = self.root.winfo_width() - self.pop_btn.winfo_reqwidth() - 24
+            if avail <= 100:
+                return
+            for compact in (False, True):
+                for k, w in self.tab_widgets.items():
+                    hide = compact and k != self.current
+                    w["inner"].pack_configure(padx=8 if compact else 14)
+                    if hide and w["fps"].winfo_manager():
+                        w["fps"].pack_forget()
+                    elif not hide and not w["fps"].winfo_manager():
+                        w["fps"].pack(side="left", padx=(8, 0), after=w["name"])
+                self.strip.update_idletasks()
+                if sum(w["frame"].winfo_reqwidth() for w in self.tab_widgets.values()) <= avail:
+                    break
+        except tk.TclError:
+            pass
 
     def show_tab(self, key):
         if key != "all" and key in self.tabs and self.tabs[key].popped:
@@ -1503,30 +1661,48 @@ class App(object):
             except tk.TclError:
                 pass
             return
+        if key in self.tools and self.tools[key].popped:
+            try:
+                self.root.tk.call("wm", "deiconify", self.tools[key]._w)
+                self.root.tk.call("raise", self.tools[key]._w)
+            except tk.TclError:
+                pass
+            return
         old = self.current
+        if old != key:
+            self.previous = old
         self.current = key
+        self.fit_tabs_soon()
         for k, w in self.tab_widgets.items():
             sel = k == key
-            for part in ("frame", "inner", "dot", "name", "fps"):
+            for part in ("frame", "inner", "name", "fps"):
                 w[part].configure(bg=th.PANEL2 if sel else th.PANEL)
+            th.set_dot(w["dot"], bg=th.PANEL2 if sel else th.PANEL)
             w["line"].configure(bg=th.ACCENT if sel else th.PANEL)
         frames = [self.all.frame] + [t.frame for t in self.tabs.values() if not t.popped]
         frames += [e.frame for e in self.emus.values()]
+        frames += [t for t in self.tools.values() if not t.popped]
         if self.editor is not None:
             frames.append(self.editor_frame)
         if key == "editor":
             want = self.editor_frame
         elif key in self.emus:
             want = self.emus[key].frame
+        elif key in self.tools:
+            want = self.tools[key]
         else:
             want = self.all.frame if key == "all" else self.tabs[key].frame
         for f in frames:
             if f is not want:
                 f.pack_forget()
         want.pack(fill="both", expand=True)
-        self.pop_btn.configure(state="normal" if key in self.tabs or key in self.emus else "disabled")
+        self.pop_btn.configure(state="normal" if key in self.tabs or key in self.emus or key in self.tools
+                               else "disabled")
         if old in self.emus and old != key:
             self.emus[old].hidden()  # The keyboard back to CalcSuite from the emulator's window
+        if key in self.tools:
+            self.all.update()
+            return
         if key in self.emus:
             self.emus[key].shown()
             self.all.update()
@@ -1560,6 +1736,22 @@ class App(object):
                 self.editor.open_path(path)
         self.show_tab("editor")
         return self.editor
+
+    def open_solver_builder(self):
+        """The Solver builder (in a tab), through the Program editor (its Send and Open in the
+        editor); no calculator needed"""
+        ed = self.open_editor_tab()
+        return ed.open_solver_builder()
+
+    def open_picture(self, m=None):
+        """Make a picture: for a calculator's tab (m), or with none plugged in (choose the model
+        in it; Save makes the file)"""
+        import picture_window
+        if m is not None:
+            return picture_window.open_for(m, KIT)
+        key = "picture:pc"
+        return self.open_tool_tab(key, "Make a picture", lambda parent: picture_window.PicturePanel(
+            parent, None, KIT, "ti84", on_close=lambda: self.drop_tool_tab(key)))
 
     def editor_title(self, text):
         """The editor's file name (with a dot while unsaved) beside the tab's name"""
@@ -1650,10 +1842,92 @@ class App(object):
         if self.current == tab.key:
             self.show_tab("all")
 
+    # ---- Tools in tabs (tool_tabs.py): Solver builder, Make a picture, Compare backups, ... ----
+    def new_tool_frame(self, key, title):
+        """A new tool tab (shown at once): the ToolFrame the tool builds itself into"""
+        key = tool_tabs.tab_key(key)
+        f = tool_tabs.ToolFrame(self.content, self, key, title)
+        self.tools[key] = f
+        self.make_tab_button(key, title)
+        self.show_tab(key)
+        return f
+
+    def open_tool_tab(self, key, title, make_frame):
+        """A tool as a closable tab of this window: make_frame(parent) -> its frame (packed to
+        fill the tab unless it's placed already). The same key again shows the tab it has and
+        returns its frame. The tab closes when the frame is destroyed (its own Close) or by the
+        tab's ✕ (the frame's close() when it has one)."""
+        k = tool_tabs.tab_key(key)
+        holder = self.tools.get(k)
+        if holder is not None:
+            self.show_tab(k)
+            return holder.panel if holder.panel is not None else holder
+        holder = self.new_tool_frame(k, title)
+        try:
+            panel = make_frame(holder)
+        except Exception:
+            holder.destroy()
+            raise
+        if panel is None:
+            panel = holder
+        if panel is not holder:
+            holder.panel = panel
+            if not panel.winfo_manager():
+                panel.pack(fill="both", expand=True)
+            panel.bind("<Destroy>", lambda e, p=panel, h=holder: (
+                e.widget is p and h.after_idle(h.destroy)), add="+")
+        return panel
+
+    def tool_title(self, key, text):
+        w = self.tab_widgets.get(key)
+        if w:
+            w["name"].configure(text=text)
+        t = self.tools.get(key)
+        if t is not None and t.popped:
+            self.root.tk.call("wm", "title", t._w, "%s - %s" % (text, APP_NAME))
+
+    def close_tool_tab(self, key):
+        """The tool tab's ✕"""
+        t = self.tools.get(tool_tabs.tab_key(key))
+        if t is not None:
+            try:
+                t.request_close()
+            except Exception:
+                log_error("closing a tool's tab")
+                t.destroy()
+
+    def drop_tool_tab(self, key):
+        """The tool closed itself (its own Close): its tab goes, nothing asked"""
+        t = self.tools.get(tool_tabs.tab_key(key))
+        if t is not None:
+            t.destroy()
+
+    def tool_closed(self, key):
+        """A ToolFrame was destroyed: its tab button goes; the tab shown before it comes back"""
+        self.tools.pop(key, None)
+        w = self.tab_widgets.pop(key, None)
+        if w:
+            try:
+                w["frame"].destroy()
+                self.fit_tabs_soon()
+            except tk.TclError:
+                pass
+        if self.current == key:
+            back = self.previous
+            ok = back == "all" or back in self.tabs or back in self.emus or back in self.tools or (
+                back == "editor" and self.editor is not None)
+            try:
+                self.show_tab(back if ok and back != key else "all")
+            except tk.TclError:
+                pass
+
     def pop_out(self):
         key = self.current
         if key in self.emus:  # The emulator's own window back as a normal window
             self.emus[key].pop_out()
+            return
+        if key in self.tools:
+            self.pop_out_tool(key)
             return
         if key == "all" or key not in self.tabs:
             return
@@ -1679,7 +1953,42 @@ class App(object):
         self.show_tab("all")
         tab.view.show()
 
+    def pop_out_tool(self, key):
+        """A tool's tab as a window of its own (closing that window puts it back in its tab)"""
+        t = self.tools[key]
+        t.pack_forget()
+        try:
+            self.root.tk.call("wm", "manage", t._w)
+        except tk.TclError as e:
+            messagebox.showinfo(APP_NAME, "Couldn't open a window: %s" % e, parent=self.root)
+            t.pack(fill="both", expand=True)
+            return
+        t.popped = True
+        name = self.root.register(lambda k=key: self.dock(k))
+        self.root.tk.call("wm", "protocol", t._w, "WM_DELETE_WINDOW", name)
+        self.root.tk.call("wm", "title", t._w, "%s - %s" % (t.title(), APP_NAME))
+        try:
+            self.root.tk.call("wm", "geometry", t._w, "1100x720")
+            self.root.tk.call("wm", "iconphoto", t._w, self.root._app_icon)
+        except (tk.TclError, AttributeError):
+            pass
+        t.after(50, lambda: dark_title_bar_path(self.root, t))
+        self.tab_widgets[key]["fps"].configure(text="own window")
+        self.show_tab(self.previous if self.previous != key and (
+            self.previous == "all" or self.previous in self.tabs) else "all")
+
     def dock(self, key):
+        t = self.tools.get(key)
+        if t is not None:
+            if t.popped:
+                try:
+                    self.root.tk.call("wm", "forget", t._w)
+                except tk.TclError:
+                    pass
+                t.popped = False
+                self.tab_widgets[key]["fps"].configure(text="")
+                self.show_tab(key)
+            return
         tab = self.tabs.get(key)
         if tab is None or not tab.popped:
             return
@@ -1722,6 +2031,12 @@ class App(object):
         m = self.mirrors.get(pid)
         if m is None:
             return None
+        # Ctrl+1..9: a macro's hotkey, only on that calculator's own tab (not All screens)
+        if (ev.state & 0x4) and not (ev.state & 0x1) and ev.keysym in tuple("123456789") and (
+                self.current == pid or self.tabs[pid].popped):
+            box = getattr(self.tabs[pid], "macro_box", None)
+            if box is not None and box.hotkey(int(ev.keysym), self.tabs[pid].frame):
+                return "break"
         m.on_key(ev)
         return "break"
 
@@ -1755,6 +2070,8 @@ class App(object):
             self.tab_widgets[pid]["frame"].pack(side="left")
         self.tabs[calc.pid] = Tab(self, m)
         self.all.add(m)
+        if self.editor is not None:  # The editor's Send targets follow
+            self.editor.calculators_changed(self.mirrors.values())
         if self.target is None:
             self.target = calc.pid
         self.all.update()
@@ -1781,12 +2098,20 @@ class App(object):
             tab.recording(m.rec_seconds() is not None)
 
     def tick(self):
+        if self.editor is not None:  # A calculator connected or lost: the editor's Send follows
+            sig = tuple((pid, m.connected()) for pid, m in sorted(self.mirrors.items()))
+            if sig != getattr(self, "editor_sig", None):
+                self.editor_sig = sig
+                try:
+                    self.editor.calculators_changed(self.mirrors.values())
+                except Exception:
+                    log_error("updating the editor's calculators")
         for pid, m in self.mirrors.items():
             m.tick()
             w = self.tab_widgets[pid]
             here = m.present and m.session is not None
-            colour = th.MINT if here else (th.GREY if not m.present else th.ACCENT)
-            w["dot"].itemconfigure(1, fill=colour)
+            set_dot(w["dot"], "connected" if here else "connecting" if m.present else "absent")
+            self.tabs[pid].link_state(here)
             w["name"].configure(fg=th.FG if m.present else th.GREY)
             sec = m.rec_seconds()
             if self.tabs[pid].popped:
@@ -1868,6 +2193,12 @@ class App(object):
 
     def run(self):
         self.root.mainloop()
+
+
+def set_dot(dot, state):
+    """A tab's dot: "connected" (mint), "connecting" (orange), "absent" (grey), "failed" (red)"""
+    if getattr(dot, "dot_state", None) != state:
+        th.set_dot(dot, state)
 
 
 def middle_click_autoscroll(root):

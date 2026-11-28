@@ -106,7 +106,7 @@ class SolverPanel(tk.Frame):
         st.configure("Solver.TNotebook.Tab", background=th.PANEL2, foreground=th.DIM, padding=(12, 5),
                      borderwidth=0)
         st.map("Solver.TNotebook.Tab", background=[("selected", th.ACTIVE)],
-               foreground=[("selected", "#ffffff")])
+               foreground=[("selected", th.ACCENT)])
         st.configure("TCombobox", fieldbackground=th.PANEL2, background=th.PANEL2, foreground=th.FG,
                      arrowcolor=th.FG, bordercolor=th.LINE, lightcolor=th.PANEL2, darkcolor=th.PANEL2)
         st.map("TCombobox", fieldbackground=[("readonly", th.PANEL2)], foreground=[("readonly", th.FG)],
@@ -181,7 +181,7 @@ class SolverPanel(tk.Frame):
         self.save_button.pack(side="right", padx=(6, 0))
         self.editor_button = th.button(bottom, "Open in the editor", self.open_in_editor)
         self.editor_button.pack(side="right", padx=(6, 0))
-        self.send_button = th.button(bottom, "Send", self.send, bg="#0E639C", activebackground="#1177BB")
+        self.send_button = th.button(bottom, "Send", self.send, bg=th.ACCENT, fg="#000000", activebackground="#ff915e", activeforeground="#000000")
         self.send_button.pack(side="right", padx=(6, 0))
         self.target_var = tk.StringVar(master=w)
         self.target_box = ttk.Combobox(bottom, textvariable=self.target_var, state="readonly", width=36)
@@ -299,7 +299,7 @@ class SolverPanel(tk.Frame):
         if t is None:
             return
         self.load_spec(sb.template_spec(t["key"]), lab)
-        self.set_status("Loaded %s. Change anything; the programs follow." % t["label"], th.MINT)
+        self.set_status("Loaded %s. Change anything; the programs follow." % t["label"], th.FG)
 
     def add_missing_vars(self):
         """Adds a line for each variable in the equations that has none yet"""
@@ -375,8 +375,8 @@ class SolverPanel(tk.Frame):
                     head = "%s, checked: no errors%s. %d lines, program %s" % (
                         TAB_TITLES[lang], ", %d warning(s)" % o["warnings"] if o["warnings"] else
                         ", no warnings", o["text"].count("\n"), o["name"])
-                tab["head"].configure(text=head, fg=th.MINT if ok and not o["warnings"] else
-                                      (th.ACCENT if ok else th.RED))
+                tab["head"].configure(text=head, fg=th.FG if ok and not o["warnings"] else
+                                      (th.WARN if ok else th.RED))
             else:
                 t.insert("1.0", "Type an equation on the left (like V = I*R) and a name;\n"
                                 "the program for this calculator shows here.")
@@ -469,7 +469,7 @@ class SolverPanel(tk.Frame):
             self.rebuild()
         t = self.target()
         if t is None:
-            self.set_status("No calculator connected: Save the files instead", th.ACCENT)
+            self.set_status("No calculator connected: Save the files instead", th.WARN)
             return False
         label, m, lang = t
         if not self.ready(lang):
@@ -477,14 +477,14 @@ class SolverPanel(tk.Frame):
                             th.RED)
             return False
         if hasattr(m, "connected") and not m.connected():
-            self.set_status("The %s isn't connected yet" % m.calc.title, th.ACCENT)
+            self.set_status("The %s isn't connected yet" % m.calc.title, th.WARN)
             return False
         if not self._hand_to_editor(lang, m):
             return False
         ok = self.editor.send(run=False)
         self.set_status("Sending %s to the %s through the Program editor (its status line says when "
                         "it's there)" % (self.outs[lang]["name"], m.calc.title) if ok else
-                        "Not sent: the Program editor says why at its bottom", th.MINT if ok else th.RED)
+                        "Not sent: the Program editor says why at its bottom", th.FG if ok else th.RED)
         return ok
 
     def open_in_editor(self):
@@ -500,7 +500,7 @@ class SolverPanel(tk.Frame):
                 host.show_tab("editor")
             except Exception:
                 log_error("showing the Program editor")
-        self.set_status("%s is in the Program editor" % self.outs[lang]["name"], th.MINT)
+        self.set_status("%s is in the Program editor" % self.outs[lang]["name"], th.FG)
         return True
 
     def default_folder(self):
@@ -551,7 +551,7 @@ class SolverPanel(tk.Frame):
             self.saved = written
             return written
         self.saved = written
-        self.set_status("Saved %d files in %s (nspire, ti84, ti89)" % (len(written), folder), th.MINT)
+        self.set_status("Saved %d files in %s (nspire, ti84, ti89)" % (len(written), folder), th.FG)
         return written
 
     def files_for(self, folder):

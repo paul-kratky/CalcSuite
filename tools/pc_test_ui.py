@@ -63,7 +63,9 @@ class PcTestDialog(object):
         self.gone = False
         self.photo = None
         self.result = None
-        w = self.win = tk.Toplevel(parent)
+        # A tab of the main window (a window of its own without it)
+        import tool_tabs
+        w = self.win = tool_tabs.window(parent, "pctest:%s" % name, "Test %s" % name)
         w.title("Test %s in the PC copy" % name)
         w.configure(bg=th.BG)
         w.geometry("760x860")
@@ -197,7 +199,7 @@ class PcTestDialog(object):
         self.result = res
         self.folder_btn.configure(state="normal")
         if res["ok"] is True:
-            self.verdict.configure(text="Passed: the screen is the expected one", fg=th.MINT)
+            self.verdict.configure(text="Passed: the screen is the expected one", fg=th.FG)
         elif res["ok"] is False:
             self.verdict.configure(text="Failed: the screen isn't the expected one", fg=th.RED)
         else:

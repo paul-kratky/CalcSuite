@@ -13,11 +13,12 @@ from tkinter import messagebox, ttk
 import backup_compare as bc
 import calc_backup as cb
 import calc_files as cf
+import tool_tabs
 import ui_theme as th
 
 NOW_READ = "The calculator now (reads everything: exact, slower)"
 NOW_LIST = "The calculator now (names and sizes only: quick)"
-TAG_COLOURS = {bc.ADDED: th.MINT, bc.REMOVED: th.RED, bc.CHANGED: th.ACCENT, bc.SAME: th.DIM,
+TAG_COLOURS = {bc.ADDED: th.ADDED, bc.REMOVED: th.RED, bc.CHANGED: th.WARN, bc.SAME: th.DIM,
                bc.SAME_SIZE: th.FG}
 
 
@@ -49,7 +50,9 @@ class CompareDialog(object):
         self.mans = {"before": None, "after": None}  # The manifests compared now
         self.rows, self.shown = [], []
         self.busy = False
-        w = self.win = tk.Toplevel(mgr.win)
+        # A tab of the main window (a window of its own without it)
+        w = self.win = tool_tabs.window(mgr.win, "compare:%s" % self.slug,
+                                        "Compare backups (%s)" % self.title)
         w.title("Compare backups of the %s" % self.title)
         w.configure(bg=th.BG)
         w.geometry("900x580")
@@ -333,7 +336,7 @@ class DiffWindow(object):
 
     def __init__(self, parent, title, a, b, name_a="before", name_b="after"):
         self.a, self.b, self.names = a, b, (name_a, name_b)
-        w = self.win = tk.Toplevel(parent)
+        w = self.win = tool_tabs.window(parent, "diff", "%s: what changed" % title)
         w.title("%s: what changed" % title)
         w.configure(bg=th.BG)
         w.geometry("980x600")
@@ -359,9 +362,9 @@ class DiffWindow(object):
     def text_box(self, parent):
         t = tk.Text(parent, bg="#0b0b0c", fg=th.FG, insertbackground=th.FG, relief="flat", wrap="none",
                     font=(th.MONO, 10), padx=6, pady=6, bd=0, highlightthickness=0)
-        t.tag_configure("added", background="#0f2a20", foreground=th.MINT)
+        t.tag_configure("added", background="#0f1a2e", foreground=th.ADDED)
         t.tag_configure("removed", background="#2e1210", foreground=th.RED)
-        t.tag_configure("changed", background="#2a1a0c", foreground=th.ACCENT)
+        t.tag_configure("changed", background="#2a230c", foreground=th.WARN)
         t.tag_configure("blank", background="#141416")
         t.tag_configure("head", foreground=th.DIM)
         return t

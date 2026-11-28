@@ -1,5 +1,5 @@
-"""The side panel of a calculator's tab: Files, Keys, Symbols, Functions, Guide, Get programs,
-Calculator info.
+"""The side panel of a calculator's tab: Files, Keys, Symbols, Functions, Data, Get programs,
+Macros, Guide, Calculator info, picked on a strip of icons along the window's right edge.
 
 Each section is built the first time it's shown. Everything that talks to the calculator goes
 through the tab's Mirror (its link thread); downloads and the connection doctor run in worker
@@ -20,12 +20,17 @@ import macros_ui
 import md_render
 import program_library as plib
 import reference
+import tool_tabs
 import ui_theme as th
 
-SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Data",
-            "Calculator info", "Macros")
-INFO = "Calculator info"  # The Info section's name (its tab)
-WIDTH = 450  # The narrowest default; the default is a share of the window (mirror.Tab.PANEL_SHARE)
+SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Data", "Get programs", "Macros", "Guide",
+            "Calculator info")
+INFO = "Calculator info"  # The Info section's name (its heading; "Info" on the strip)
+# The strip's short labels (the heading and the tooltip give the full name)
+LABELS = {"Get programs": "Programs", INFO: "Info"}
+ALIASES = {v: k for k, v in LABELS.items()}  # show("Info") is show("Calculator info")
+STRIP_W = 76  # The icon strip's width (it counts in the panel's width)
+WIDTH = 450 + STRIP_W  # The narrowest default; the default is a share of the window (mirror.Tab.PANEL_SHARE)
 GUIDES = {"nspire": ("docs", "PYTHON_NSPIRE_GUIDE.md"), "ti84": ("docs", "TIBASIC_84.md"),
           "ti89": ("docs", "TIBASIC_89.md")}
 # Save as PDF: the PDFs in docs/pdf/ (tools/docs_build/make_pdfs.py writes them, same names)
@@ -40,32 +45,131 @@ PDF_FUNCTIONS = {"nspire": "CalcSuite - TI-Nspire CX II functions reference.pdf"
                  "ti89": "CalcSuite - TI-89 Titanium functions reference.pdf"}
 
 
+# ---- The icon strip: one button per section, against the window's right edge ----
+# Each icon is drawn on a 24 x 24 grid with plain Canvas lines (our own drawings, MIT like the
+# rest): ("line", points), ("ring", box), ("dot", box), ("text", x, y, text, font)
+ICONS = {
+    "Files": [("line", (3, 7, 9, 7, 11, 9, 21, 9, 21, 19, 3, 19, 3, 7))],
+    "Keys": [("line", (2, 7, 22, 7, 22, 18, 2, 18, 2, 7)),
+             ("line", (5, 10.5, 7, 10.5)), ("line", (9, 10.5, 11, 10.5)), ("line", (13, 10.5, 15, 10.5)),
+             ("line", (17, 10.5, 19, 10.5)), ("line", (8, 14.5, 16, 14.5))],
+    "Symbols": [("line", (18, 6, 18, 4, 6, 4, 12, 12, 6, 20, 18, 20, 18, 18))],
+    "Functions": [("text", 12, 12, "f(x)", ("Cambria", 12, "italic"))],
+    "Data": [("line", (3, 5, 21, 5, 21, 19, 3, 19, 3, 5)), ("line", (3, 10, 21, 10)),
+             ("line", (3, 14.5, 21, 14.5)), ("line", (9, 5, 9, 19)), ("line", (15, 5, 15, 19))],
+    "Get programs": [("line", (12, 3, 12, 14)), ("line", (7.5, 9.5, 12, 14, 16.5, 9.5)),
+                     ("line", (4, 15, 4, 20, 20, 20, 20, 15))],
+    "Macros": [("line", (13, 2, 6, 13, 11.5, 13, 10, 22, 18, 10, 12.5, 10, 13, 2))],
+    "Guide": [("line", (12, 7, 12, 20)), ("line", (12, 7, 3, 5, 3, 18, 12, 20)),
+              ("line", (12, 7, 21, 5, 21, 18, 12, 20))],
+    "Calculator info": [("ring", (3, 3, 21, 21)), ("line", (12, 10.5, 12, 17)), ("dot", (10.8, 6.6, 13.2, 9))],
+}
+
+
+def draw_icon(c, name, x0, y0, colour):
+    for part in ICONS.get(name, []):
+        kind = part[0]
+        if kind == "line":
+            pts = [v + (x0 if k % 2 == 0 else y0) for k, v in enumerate(part[1])]
+            c.create_line(*pts, fill=colour, width=1.7, capstyle="round", joinstyle="round", tags=("ink",))
+        elif kind == "ring":
+            a, b, cc, d = part[1]
+            c.create_oval(a + x0, b + y0, cc + x0, d + y0, outline=colour, width=1.7, tags=("ink", "ring"))
+        elif kind == "dot":
+            a, b, cc, d = part[1]
+            c.create_oval(a + x0, b + y0, cc + x0, d + y0, outline=colour, fill=colour, tags=("ink", "dot"))
+        elif kind == "text":
+            c.create_text(part[1] + x0, part[2] + y0, text=part[3], font=part[4], fill=colour, tags=("ink",))
+
+
+class IconStrip(object):
+    """A vertical strip of section buttons: an icon and a short label under it. The picked one
+    is in the accent colour on PANEL2 with a 2 px accent bar on its right edge; the others DIM.
+    on_pick(name) when one is clicked; the tooltip gives the full name."""
+
+    ITEM_H = 56
+
+    def __init__(self, parent, names, on_pick, labels=None, full=None):
+        self.frame = tk.Frame(parent, bg=th.PANEL, width=STRIP_W)
+        self.items = {}
+        self.current = None
+        self.hover = None
+        tk.Frame(self.frame, bg=th.PANEL, height=6).pack(side="top")
+        for name in names:
+            c = tk.Canvas(self.frame, width=STRIP_W, height=self.ITEM_H, bg=th.PANEL,
+                          highlightthickness=0, bd=0, cursor="hand2")
+            c.pack(side="top")
+            draw_icon(c, name, (STRIP_W - 24) // 2, 7, th.DIM)
+            c.create_text(STRIP_W // 2, 43, text=(labels or {}).get(name, name), font=th.SMALL,
+                          fill=th.DIM, tags=("ink",))
+            c.create_rectangle(STRIP_W - 2, 0, STRIP_W, self.ITEM_H, fill=th.PANEL, outline="",
+                               tags=("bar",))
+            c.bind("<Button-1>", lambda e, n=name: on_pick(n))
+            c.bind("<Enter>", lambda e, n=name: self.hovered(n))
+            c.bind("<Leave>", lambda e, n=name: self.hovered(None))
+            th.Tooltip(c, (full or {}).get(name, name))
+            self.items[name] = c
+
+    def hovered(self, name):
+        old, self.hover = self.hover, name
+        for n in (old, name):
+            if n in self.items:
+                self.paint(n)
+
+    def select(self, name):
+        old, self.current = self.current, name
+        for n in (old, name):
+            if n in self.items:
+                self.paint(n)
+
+    def paint(self, name):
+        c = self.items[name]
+        sel = name == self.current
+        colour = th.ACCENT if sel else (th.FG if name == self.hover else th.DIM)
+        bg = th.PANEL2 if sel else th.PANEL
+        c.configure(bg=bg)
+        c.itemconfigure("bar", fill=th.ACCENT if sel else bg)
+        for i in c.find_withtag("ink"):
+            kind = c.type(i)
+            if kind in ("line", "text"):
+                c.itemconfigure(i, fill=colour)
+            else:
+                c.itemconfigure(i, outline=colour)
+                if "dot" in c.gettags(i):
+                    c.itemconfigure(i, fill=colour)
+
+
+def panel_frame(parent, names, on_pick, labels=None, full=None):
+    """A side panel's frame: the icon strip on its right edge, a hairline, then the content
+    (a heading and the body) to its left. (frame, strip, heading label, body)"""
+    frame = tk.Frame(parent, bg=th.PANEL, width=WIDTH)
+    frame.pack_propagate(False)
+    strip = IconStrip(frame, names, on_pick, labels, full)
+    strip.frame.pack(side="right", fill="y")
+    tk.Frame(frame, bg=th.LINE, width=1).pack(side="right", fill="y")
+    content = tk.Frame(frame, bg=th.PANEL)
+    content.pack(side="left", fill="both", expand=True)
+    head = th.heading(content, "")
+    head.pack(fill="x", padx=(16, 12), pady=(14, 8))
+    body = tk.Frame(content, bg=th.PANEL)
+    body.pack(fill="both", expand=True, padx=(16, 12), pady=(0, 12))
+    auto_wrap(frame, body)
+    return frame, strip, head, body
+
+
 class SidePanel(object):
     def __init__(self, parent, app, mirror):
         self.app, self.m = app, mirror
         self.calc = mirror.calc
-        self.frame = tk.Frame(parent, bg=th.PANEL, width=WIDTH)
-        self.frame.pack_propagate(False)
-        bar = tk.Frame(self.frame, bg=th.PANEL)
-        bar.pack(fill="x", padx=10, pady=(10, 6))
-        self.buttons = {}
-        for k, name in enumerate(SECTIONS):
-            b = tk.Label(bar, text=name, bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9, "bold"),
-                         padx=7, pady=4, cursor="hand2")
-            b.grid(row=k // 3, column=k % 3, sticky="ew", padx=2, pady=2)
-            b.bind("<Button-1>", lambda e, n=name: self.show(n))
-            self.buttons[name] = b
-        for c in range(3):
-            bar.columnconfigure(c, weight=1)
-        tk.Frame(self.frame, bg=th.LINE, height=1).pack(fill="x", padx=10)
-        self.body = tk.Frame(self.frame, bg=th.PANEL)
-        self.body.pack(fill="both", expand=True, padx=12, pady=10)
-        auto_wrap(self.frame, self.body)
+        self.frame, self.strip, self.head, self.body = panel_frame(
+            parent, SECTIONS, self.show, LABELS, {n: n for n in SECTIONS})
+        self.buttons = self.strip.items  # name -> its strip button
         self.sections = {}
         self.current = None
         self.show("Keys")
 
     def show(self, name):
+        name = ALIASES.get(name, name)
         if self.current == name:
             return
         if self.current in self.sections:
@@ -78,8 +182,8 @@ class SidePanel(object):
             self.sections[name] = cls(self, self.body)
         self.sections[name].frame.pack(fill="both", expand=True)
         self.current = name
-        for n, b in self.buttons.items():
-            b.configure(bg=th.PANEL2 if n == name else th.PANEL, fg=th.ACCENT if n == name else th.DIM)
+        self.head.configure(text=name)
+        self.strip.select(name)
         if hasattr(self.sections[name], "shown"):
             self.sections[name].shown()
 
@@ -143,8 +247,9 @@ def _fit_label(w):
 
 
 def heading(parent, text):
-    tk.Label(parent, text=text.upper(), bg=th.PANEL, fg=th.DIM, font=(th.FONT, 8, "bold"),
-             anchor="w").pack(fill="x", pady=(10, 4))
+    """A sub-heading inside a section (12 px, bold, DIM, capitals)"""
+    tk.Label(parent, text=text.upper(), bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9, "bold"),
+             anchor="w").pack(fill="x", pady=(12, 4))
 
 
 def scrolled(parent):
@@ -227,8 +332,35 @@ class KeysSection(object):
                  "clipboard: the Symbols panel's symbols too." % (
                      " (lower case is the 84's capital)" if self.m.calc.slug == "ti84" else ""),
                  bg=th.PANEL, fg=th.DIM, wraplength=400, justify="left", anchor="w").pack(fill="x")
+        # The macros' hotkeys on this tab (macros_ui.MacroBox), kept up to date
+        heading(inner, "Macro hotkeys (this tab)")
+        self.hot = tk.Frame(inner, bg=th.PANEL)
+        self.hot.pack(fill="x")
+        self.inner = inner
+        self.box = macros_ui.box_for(self.m)
+        self.box.listeners.append(self.show_hotkeys)
+        self.show_hotkeys()
         bind_wheel(inner, inner)
         self.m.listeners.append(self.pressed)
+
+    def show_hotkeys(self):
+        for c in self.hot.winfo_children():
+            c.destroy()
+        rows = [(n, self.box.by_hotkey(n)) for n in macros_ui.mc.HOTKEYS]
+        rows = [(n, m) for n, m in rows if m is not None]
+        for n, m in rows:
+            r = tk.Frame(self.hot, bg=th.PANEL)
+            r.pack(fill="x", pady=1)
+            th.keycap(r, "Ctrl+%d" % n).pack(side="left")
+            tk.Label(r, text="→", bg=th.PANEL, fg=th.DIM).pack(side="left", padx=6)
+            tk.Label(r, text="macro: " + m["name"], bg=th.PANEL, fg=th.FG, anchor="w").pack(side="left")
+        th.hint(self.hot, "None yet: the Macros panel gives a macro Ctrl+1 to Ctrl+9 (Hotkey)." if not rows else
+                "Set in the Macros panel (Hotkey). They work while this tab has the keyboard.").pack(
+                    fill="x", pady=(4, 0))
+        try:
+            bind_wheel(self.hot, self.inner)
+        except AttributeError:
+            pass
 
     def pressed(self, keysym):
         if self.lit is not None:
@@ -295,7 +427,7 @@ class SymbolsSection(object):
         box = tk.Frame(self.frame, bg=th.BG)
         box.pack(fill="both", expand=True, pady=(4, 0))
         self.card = tk.Text(box, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=6, padx=8,
-                            pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9), cursor="arrow",
+                            pady=6, highlightthickness=0, bd=0, font=th.BODY, cursor="arrow",
                             insertwidth=0)
         csb = ttk.Scrollbar(box, orient="vertical", command=self.card.yview,
                             style="Calc.Vertical.TScrollbar")
@@ -381,15 +513,15 @@ class SymbolsSection(object):
 # ---- A command's card (the Functions description, the Symbols helper) ----
 def style_card(d):
     """The text styles a command card uses, on a Text widget"""
-    d.tag_configure("name", font=(th.MONO, 12, "bold"), foreground=th.ACCENT)
+    d.tag_configure("name", font=(th.MONO, 12, "bold"), foreground=th.FG)
     d.tag_configure("cat", foreground=th.DIM)
     d.tag_configure("syntax", font=(th.MONO, 10), background="#121317")
-    d.tag_configure("h", font=(th.FONT, 8, "bold"), foreground=th.DIM, spacing1=6)
-    d.tag_configure("arg", font=(th.MONO, 9, "bold"), foreground=th.MINT)
+    d.tag_configure("h", font=(th.FONT, 9, "bold"), foreground=th.DIM, spacing1=6)
+    d.tag_configure("arg", font=(th.MONO, 10, "bold"), foreground=th.FG)
     d.tag_configure("opt", foreground=th.DIM)
     d.tag_configure("code", font=(th.MONO, 10))
     d.tag_configure("dim", foreground=th.DIM)
-    d.tag_configure("warn", foreground=th.ACCENT)
+    d.tag_configure("warn", foreground=th.WARN)
     d.tag_configure("hint", foreground=th.DIM, font=(th.FONT, 10), spacing1=4)
 
 
@@ -492,7 +624,7 @@ class FunctionsSection(object):
         box = tk.Frame(self.frame, bg=th.BG)  # The description and its scrollbar
         box.pack(fill="both", expand=True)
         self.detail = tk.Text(box, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=4,
-                              padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9),
+                              padx=8, pady=6, highlightthickness=0, bd=0, font=th.BODY,
                               cursor="arrow", insertwidth=0)
         dsb = ttk.Scrollbar(box, orient="vertical", command=self.detail.yview,
                             style="Calc.Vertical.TScrollbar")
@@ -829,7 +961,7 @@ class ProgramsSection(object):
         tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
         tree.tag_configure("unverified", foreground=th.DIM)
-        tree.tag_configure("section", foreground=th.ACCENT, font=(th.FONT, 9, "bold"))
+        tree.tag_configure("section", foreground=th.FG, font=(th.FONT, 10, "bold"))
         self.closed = set()  # Sections the user folded (kept while the search changes)
         tree.bind("<<TreeviewOpen>>", lambda e: self.folded(False))
         tree.bind("<<TreeviewClose>>", lambda e: self.folded(True))
@@ -839,7 +971,7 @@ class ProgramsSection(object):
         box = tk.Frame(self.frame, bg=th.BG)  # The description and its scrollbar
         box.pack(fill="x", pady=(8, 0))
         self.detail = tk.Text(box, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=11,
-                              padx=8, pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9))
+                              padx=8, pady=6, highlightthickness=0, bd=0, font=th.BODY)
         dsb = ttk.Scrollbar(box, orient="vertical", command=self.detail.yview,
                             style="Calc.Vertical.TScrollbar")
         self.detail.configure(yscrollcommand=dsb.set)
@@ -847,7 +979,7 @@ class ProgramsSection(object):
         self.detail.pack(side="left", fill="both", expand=True)
         self.detail.tag_configure("b", font=(th.FONT, 10, "bold"))
         self.detail.tag_configure("dim", foreground=th.DIM)
-        self.detail.tag_configure("warn", foreground=th.ACCENT)
+        self.detail.tag_configure("warn", foreground=th.WARN)
         self.detail.tag_configure("link", foreground=th.MINT, underline=True)
         self.detail.tag_configure("hint", foreground=th.DIM, font=(th.FONT, 10), spacing1=4)
         self.show_hint()
@@ -1185,9 +1317,9 @@ def short_error(e):
 
 
 def progress_style(widget, done=False):
-    """The progress bars' style: orange while it runs, green (MINT) for done"""
+    """The progress bars' style: the accent colour, running and done"""
     style = ttk.Style(widget)
-    name, colour = ("CalcDone.Horizontal.TProgressbar", th.MINT) if done else \
+    name, colour = ("CalcDone.Horizontal.TProgressbar", th.ACCENT) if done else \
         ("Calc.Horizontal.TProgressbar", th.ACCENT)
     style.configure(name, background=colour, troughcolor=th.PANEL2, bordercolor=th.PANEL,
                     lightcolor=colour, darkcolor=colour)
@@ -1221,7 +1353,8 @@ class GetAllDialog(object):
         self.missing_folders = set()  # Nspire folders the handheld doesn't have yet
         self.stop = threading.Event()
         self.busy = "measure"
-        w = self.win = tk.Toplevel(section.frame)
+        # A tab of the main window (a window of its own without it)
+        w = self.win = tool_tabs.window(section.frame, "getall:%s" % self.slug, "Get all (%s)" % self.title)
         w.title("Get all for the %s" % self.title)
         w.configure(bg=th.BG)
         w.geometry("860x620")
@@ -1246,8 +1379,8 @@ class GetAllDialog(object):
         tree.configure(yscrollcommand=sb.set)
         tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
-        tree.tag_configure("warn", foreground=th.ACCENT)
-        tree.tag_configure("ok", foreground=th.MINT)
+        tree.tag_configure("warn", foreground=th.WARN)
+        tree.tag_configure("ok", foreground=th.FG)
         tree.tag_configure("bad", foreground=th.RED)
         for i in items:
             tree.insert("", "end", iid=i["id"], text=i["name"])
@@ -1378,7 +1511,7 @@ class GetAllDialog(object):
         if unknown:
             text += " (%d not measured: %s)" % (len(unknown), ", ".join(unknown[:4]))
         lead = {True: "Fits. ", False: "Doesn't fit. ", None: ""}[ok]
-        self.fit.configure(text=lead + text, fg=th.MINT if ok else th.ACCENT)
+        self.fit.configure(text=lead + text, fg=th.FG if ok else th.WARN)
 
     def set_files(self, i, files):
         r = self.rows[i["id"]]
@@ -1842,7 +1975,7 @@ class InfoSection(object):
     def doctor_failed(self, text):
         for c in self.doctor.winfo_children():
             c.destroy()
-        tk.Label(self.doctor, text=text, bg=th.PANEL, fg=th.ACCENT, anchor="w", justify="left",
+        tk.Label(self.doctor, text=text, bg=th.PANEL, fg=th.WARN, anchor="w", justify="left",
                  wraplength=400).pack(fill="x")
 
     def show_doctor(self, report):
@@ -1858,9 +1991,9 @@ class InfoSection(object):
             line = tk.Frame(self.doctor, bg=th.PANEL)
             line.pack(fill="x")
             dot = tk.Canvas(line, width=10, height=10, bg=th.PANEL, highlightthickness=0)
-            dot.create_oval(1, 1, 9, 9, fill=th.MINT if ok else th.ACCENT, outline="")
+            dot.create_oval(1, 1, 9, 9, fill=th.MINT if ok else th.WARN, outline="")
             dot.pack(side="left", padx=(0, 6))
-            tk.Label(line, text=d.get("headline", ""), bg=th.PANEL, fg=th.MINT if ok else th.ACCENT,
+            tk.Label(line, text=d.get("headline", ""), bg=th.PANEL, fg=th.FG if ok else th.WARN,
                      font=(th.FONT, 10, "bold")).pack(side="left")
             text = d.get("text", "")
             if all(p.startswith("CalcSuite") for p in report.get("programs", [])):
@@ -1882,7 +2015,7 @@ class InfoSection(object):
                 th.button(row, "Restore TI's driver...",
                           lambda d=d: self.fix("restore", d)).pack(side="left")
         for e in report.get("errors", [])[:3]:  # A query that failed or never answered
-            tk.Label(self.doctor, text="Not checked: %s" % e, bg=th.PANEL, fg=th.ACCENT, anchor="w",
+            tk.Label(self.doctor, text="Not checked: %s" % e, bg=th.PANEL, fg=th.WARN, anchor="w",
                      justify="left", wraplength=400).pack(fill="x", pady=(4, 0))
         for n in report.get("notes", [])[:2]:
             tk.Label(self.doctor, text=n, bg=th.PANEL, fg=th.DIM, anchor="w", justify="left",
@@ -2336,7 +2469,7 @@ class PcCopyDialog(object):
         self.done_bar = ttk.Progressbar(b, style=progress_style(b, done=True), mode="determinate",
                                         maximum=BAR_MAX, value=BAR_MAX)
         self.done_bar.pack(fill="x", pady=(0, 2))
-        self.text(b, "Done: 100%", fg=th.MINT, bold=True, pady=(0, 8))
+        self.text(b, "Done: 100%", fg=th.FG, bold=True, pady=(0, 8))
         self.text(b, "Your PC copy is made", bold=True)
         self.text(b, "In %d s. ROM: %s (%s, OS %s)." % (res.get("seconds") or 0, res["rom"],
                                                          human(res.get("size") or 0), res.get("os") or "?"))
