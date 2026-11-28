@@ -22,12 +22,17 @@ pc_copy.roms_folder(), pc_copy.emulators_folder()
 ```
 
 - `model`: `"84"` or `"89"` (anything `calc_backup.slug_of` takes: `"ti84"`, `"84ce"`, ...).
-- `report(stage, text, done, total)`: called on the worker thread (use `after()` to reach Tk).
-  `text` is a sentence for a status line, or `None` for a progress-only call; `done`/`total`
-  are bytes (or pieces, or seconds while the CE dumps), or `None` when there is no bar.
-- `cancel`: a `threading.Event`. Looked at between steps. Once the dumper runs on the
-  calculator it can't be stopped from the PC: cancelling then stops waiting, and the
-  `ROMData*` AppVars and `ZZDUMP` stay on the calculator (the error says so).
+- `report(stage, text, done, total)`: called on the worker thread. Never touch Tk from it:
+  hand the values to Tk's thread (the PC copy dialog puts them in its own inbox, which a Tk
+  `after()` loop drains). `text` is a sentence for a status line, or `None` for a progress-only
+  call; `done`/`total` are bytes (or pieces, or seconds while the CE dumps), or `None` when
+  there is no bar.
+- `cancel`: a `threading.Event`. Looked at between steps and by every link command's watchdog:
+  a command running when it's set is ended (its helper process is killed) and `Cancelled` is
+  raised within about `CMD_POLL_S`. A command that prints nothing for `CMD_IDLE_S` (120 s) is
+  ended the same way (`PcCopyError`). Once the dumper runs on the calculator it can't be
+  stopped from the PC: cancelling then stops waiting, and the `ROMData*` AppVars and `ZZDUMP`
+  stay on the calculator (the error says so).
 - `connect()`: returns a session with `cmd(line, on_progress) -> (code, lines)` and `close()`.
   Default: `nspire_link.Session(cli=CLI_84 / CLI_89)`. The dump opens and closes several
   sessions (the CE's dumper needs the link silent; the 89's dumper leaves the link in its own

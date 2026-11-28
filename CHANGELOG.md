@@ -2,6 +2,20 @@
 
 What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40, Windows 11.
 
+## [Unreleased]
+
+### Fixed
+- **Make a PC copy never stays on "Letting go of the link..."** (TI-84 Plus CE and TI-89
+  Titanium): the ROM was dumped and saved, but the window never heard. The app's own module was
+  loaded twice (as the program and by the panels' `import mirror`), and the second copy sent
+  every background thread's window work to a queue nothing ran. That also froze the PC copy
+  window's **Download TiEmu's installer** and **Open in CEmu** on their first status. Now one
+  module, and the PC copy window takes its workers' news through its own inbox.
+- The PC copy can't hang: every link command is ended when it says nothing for 2 minutes,
+  Cancel ends the step it's on at once (and the window stops waiting 30 s later if a step
+  still doesn't end), the mirror has 40 s to let go, every stage updates the status line, the
+  TiEmu download shows its percentage, and errors go to `CalcSuite files\logs\errors.log`.
+
 ## [1.0.2] - 2026-11-28
 
 ### Added

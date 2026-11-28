@@ -28,24 +28,34 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+# Run as the program (python tools/mirror.py, and CalcSuite.exe) this module is "__main__". The
+# panels' `import mirror` then loaded a second copy of it, which patched after() again with a
+# queue of its own that App.pump never runs: from then on every worker's window work was lost
+# (Make a PC copy stayed on "Letting go of the link..." while the ROM was saved, 2026-11-28).
+# One module under both names.
+if __name__ != "mirror":
+    sys.modules.setdefault("mirror", sys.modules[__name__])
+
 # Tk may only be touched from its own thread. The link threads (and the panels' workers) ask for
 # window work with after(0, ...); called from another thread that call itself is unsafe, and with
 # three calculators at 20 frames a second requests were lost: the picture stopped updating while
 # keys still worked (bench, 2026-11-27). From any other thread after() now queues the call, and
-# App.pump() runs the queue on Tk's thread about 60 times a second.
+# App.pump() runs the queue on Tk's thread about 60 times a second. Patched once: a second copy
+# of this module (loaded under another name) shares the first one's queue.
 _TK_THREAD = threading.main_thread()
-_TK_QUEUE = queue.SimpleQueue()
-_tk_after = tk.Misc.after
+_TK_QUEUE = getattr(tk.Misc.after, "calcsuite_queue", None)
+if _TK_QUEUE is None:
+    _TK_QUEUE = queue.SimpleQueue()
+    _tk_after = tk.Misc.after
 
+    def _after(self, ms, func=None, *args):
+        if func is not None and threading.current_thread() is not _TK_THREAD:
+            _TK_QUEUE.put((func, args))
+            return None
+        return _tk_after(self, ms, func, *args)
 
-def _after(self, ms, func=None, *args):
-    if func is not None and threading.current_thread() is not _TK_THREAD:
-        _TK_QUEUE.put((func, args))
-        return None
-    return _tk_after(self, ms, func, *args)
-
-
-tk.Misc.after = _after
+    _after.calcsuite_queue = _TK_QUEUE
+    tk.Misc.after = _after
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -225,6 +235,7 @@ class Mirror(object):
         self.present = True     # On USB now (the App's scan says)
         self.want_reconnect = False
         self.released = False   # Let go of the calculator for another program (until Reconnect)
+        self.let_go = threading.Event()  # Set by the link thread once it has let go (released, no session)
         self.keys_on = tk.BooleanVar(master=app.root, value=True)
         self.status = tk.StringVar(master=app.root, value="Connecting...")
         self.frame_path = os.path.join(tempfile.gettempdir(),
@@ -261,6 +272,7 @@ class Mirror(object):
                 if self.session is not None:
                     self.session.close()
                     self.session = None
+                self.let_go.set()  # The PC copy waits for this before it opens its own link
                 time.sleep(0.2)
                 continue
             if self.session is None:
@@ -481,6 +493,7 @@ class Mirror(object):
 
     def reconnect(self):
         self.released = False
+        self.let_go.clear()
         if self.session is not None:
             self.session.close()
             self.session = None
@@ -488,7 +501,9 @@ class Mirror(object):
         self.set_status("Connecting...")
 
     def release(self):
-        """Lets go of the calculator so another program (TI's) can open it, until Reconnect"""
+        """Lets go of the calculator so another program (TI's) can open it, until Reconnect.
+        let_go is set once the link thread has closed its session."""
+        self.let_go.clear()
         self.released = True
         self.set_status("CalcSuite has let go of the %s so TI's software can use it. Close that, "
                         "then press Reconnect (Info)." % self.calc.title)

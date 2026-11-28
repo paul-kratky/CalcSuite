@@ -6,6 +6,7 @@ threads, so the window never freezes.
 """
 
 import os
+import queue
 import tempfile
 import threading
 import time
@@ -1675,6 +1676,17 @@ STAGES = {"connect": "Connecting", "check": "Checking the calculator", "backup":
           "save": "Saving the ROM", "clean": "Cleaning up", "download": "Downloading",
           "done": "Done", "open": "Opening"}
 RUNNING_STAGES = ("run", "wait", "fetch", "dump")  # The dump program is on the calculator
+RELEASE_WAIT_S = 40    # The mirror's link thread lets go within this (a connect takes up to 25 s)
+CANCEL_GIVE_UP_S = 30  # After Cancel the dialog stops waiting for the worker after this
+
+
+def log_error(where):
+    """mirror.log_error (CalcSuite files\\logs\\errors.log): never raises"""
+    try:
+        import mirror
+        mirror.log_error(where)
+    except Exception:
+        pass
 
 
 def existing_roms(slug):
@@ -1716,6 +1728,14 @@ class PcCopyDialog(object):
         self.spec = PC_COPY[self.slug]
         self.cancel = threading.Event()
         self.running = False
+        # Workers never call Tk: they put work in this inbox, which drain() runs on Tk's thread
+        # (its own after() loop, started here on Tk's thread). Before, their after(0, ...) calls
+        # could be lost and the dialog then waited forever (2026-11-28).
+        self.inbox = queue.SimpleQueue()
+        self.worker = None       # The dump's thread while it runs
+        self.cancelled_at = None  # When Cancel was pressed (time.time())
+        self.shown_end = False    # finished() has run (a late answer is then ignored)
+        self.last_stage = "connect"
         w = self.win = tk.Toplevel(section.frame)
         w.title("PC copy of the %s" % self.title)
         w.configure(bg=th.BG)
@@ -1730,6 +1750,7 @@ class PcCopyDialog(object):
             self.intro()
         else:
             self.open_mode()
+        self.drain()
 
     # ---- Plumbing ----
     def alive(self):
@@ -1741,8 +1762,53 @@ class PcCopyDialog(object):
             self.gone = True
 
     def ui(self, fn, *args):
+        """fn(*args) on Tk's thread, from a worker: through the inbox drain() runs"""
         if self.alive():
-            on_tk(self.win, fn, *args)
+            self.inbox.put((fn, args))
+
+    def drain(self):
+        """Tk's thread, every 50 ms while the window is open: what the workers asked for, then
+        the watchdog (a Cancel the worker doesn't answer, a worker gone without a word)"""
+        if self.gone:
+            return
+        try:
+            for _ in range(100):
+                try:
+                    fn, args = self.inbox.get_nowait()
+                except queue.Empty:
+                    break
+                try:
+                    fn(*args)
+                except Exception:
+                    log_error("the PC copy window")
+            self.watchdog()
+        finally:
+            if not self.gone:
+                try:
+                    self.win.after(50, self.drain)
+                except tk.TclError:
+                    pass
+
+    def watchdog(self):
+        if not self.running or self.shown_end or self.worker is None:
+            return
+        if not self.worker.is_alive() and self.inbox.empty():
+            # The worker always hands in its result before it ends: this is a bug, not a hang
+            self.finished(None, self.pc.PcCopyError(self.last_stage, "the PC copy stopped without "
+                                                    "saying why (see CalcSuite files\\logs\\errors.log)"))
+        elif self.cancelled_at is not None and time.time() - self.cancelled_at > CANCEL_GIVE_UP_S:
+            try:
+                raise self.pc.PcCopyError(self.last_stage, "CalcSuite stopped waiting: the %s step "
+                                          "didn't stop within %d s of Cancel" %
+                                          (STAGES.get(self.last_stage, self.last_stage).lower(),
+                                           CANCEL_GIVE_UP_S))
+            except self.pc.PcCopyError as e:
+                log_error("cancelling the PC copy of the %s" % self.title)
+                try:
+                    self.m.reconnect()  # The mirror tries again by itself until the link is free
+                except Exception:
+                    log_error("giving the %s back to the mirror" % self.title)
+                self.finished(None, e)
 
     def fresh(self):
         if self.body is not None:
@@ -1825,21 +1891,27 @@ class PcCopyDialog(object):
         self.cancel_btn = th.button(row, "Cancel", self.do_cancel)
         self.cancel_btn.pack(side="left")
         self.t0 = time.time()
-        threading.Thread(target=self.run, daemon=True).start()
+        self.shown_end, self.cancelled_at = False, None
+        self.worker = threading.Thread(target=self.run, daemon=True)
+        self.worker.start()
 
     def do_cancel(self):
         if not self.running or self.cancel.is_set():
             return
         self.cancel.set()
+        self.cancelled_at = time.time()
         self.cancel_btn.configure(state="disabled")
-        self.status.set("Cancelling: CalcSuite stops after this step. Once the dump program runs on "
-                        "the calculator it can't be stopped from the PC: CalcSuite then stops waiting.")
+        self.status.set("Cancelling: CalcSuite stops the step it's on (within a few seconds). A dump "
+                        "program already running on the calculator finishes there by itself: "
+                        "CalcSuite just stops waiting for it.")
 
     def report(self, stage, text, done=None, total=None):
+        if stage:
+            self.last_stage = stage
         self.ui(self.show_progress, stage, text, done, total)
 
     def show_progress(self, stage, text, done, total):
-        if not self.running:
+        if not self.running or self.shown_end:
             return
         self.stage.configure(text=STAGES.get(stage, stage) + "...")
         if text:
@@ -1857,26 +1929,48 @@ class PcCopyDialog(object):
         if not self.cancel.is_set():
             self.status.set("%d s so far (%s in all)" % (time.time() - self.t0, self.spec["time"]))
 
+    def let_go(self):
+        """The worker: asks the tab's link thread to let go of the calculator and waits until it
+        says it has (Mirror.let_go), at most RELEASE_WAIT_S; Cancel stops the wait"""
+        m, pc = self.m, self.pc
+        flag = getattr(m, "let_go", None)
+        m.release()  # The dump opens its own sessions: the tab's link thread lets go first
+        m.set_status("Making a PC copy of the %s: the mirror is paused" % self.title)
+        t = time.time()
+        while not (flag.is_set() if flag is not None else m.session is None):
+            waited = time.time() - t
+            if self.cancel.is_set():
+                raise pc.Cancelled("connect")
+            if waited > RELEASE_WAIT_S:
+                raise pc.PcCopyError("connect", "the mirror didn't let go of the %s within %d s (it may "
+                                     "be in the middle of a transfer: try again in a moment)" %
+                                     (self.title, RELEASE_WAIT_S))
+            self.report("connect", "Waiting for the mirror to let go of the %s (%d s)..." % (self.title, waited))
+            time.sleep(0.2)
+        self.report("connect", "The mirror has let go of the %s" % self.title)
+        time.sleep(0.5)
+
     def run(self):
         m = self.m
         res, err = None, None
         try:
-            m.release()  # The dump opens its own sessions: the tab's link thread lets go first
-            m.set_status("Making a PC copy of the %s: the mirror is paused" % self.title)
-            t = time.time()
-            while m.session is not None and time.time() - t < 20:
-                time.sleep(0.1)
-            if m.session is not None:
-                raise self.pc.PcCopyError("connect", "the mirror didn't let go of the calculator")
-            time.sleep(0.5)
+            self.let_go()
             res = self.pc.dump_rom(self.spec["model"], self.report, self.cancel)
         except Exception as e:  # PcCopyError, Cancelled, or anything unexpected
             err = e
+            if not isinstance(e, self.pc.Cancelled):
+                log_error("making the PC copy of the %s" % self.title)
         finally:
-            m.reconnect()  # The tab takes the calculator back
-        self.ui(self.finished, res, err)
+            try:
+                m.reconnect()  # The tab takes the calculator back
+            except Exception:
+                log_error("giving the %s back to the mirror" % self.title)
+            self.ui(self.finished, res, err)
 
     def finished(self, res, err):
+        if self.shown_end:
+            return  # The watchdog already said how it ended
+        self.shown_end = True
         self.running = False
         try:
             self.bar.stop()
@@ -1996,7 +2090,8 @@ class PcCopyDialog(object):
             try:
                 msg = fn()
             except Exception as e:
-                msg = short_error(e)
+                log_error("getting the emulator for the %s ready" % self.title)
+                msg = "Didn't work: %s" % short_error(e)
             self.ui(self.emu_done, msg)
         threading.Thread(target=run, daemon=True).start()
 
@@ -2009,6 +2104,8 @@ class PcCopyDialog(object):
 
     def dl_report(self, stage, text, done=None, total=None):
         if text:
+            if total and done is not None and "%" not in text:
+                text = "%s (%d%%)" % (text, 100 * min(done, total) // total)
             self.ui(self.status.set, text)
 
     def open_cemu(self):
