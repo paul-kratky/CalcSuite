@@ -32,8 +32,12 @@ def draw(size):
     d.rounded_rectangle(box(6, 6, 116, 116), radius=(22 if size <= 20 else 26) * k, fill=TILE)
     stroke = 6 if size >= 48 else 8 if size >= 24 else 12
     d.rounded_rectangle(box(18, 24, 66, 48), radius=6 * k, outline=MONITOR, width=max(1, round(stroke * k)))
-    d.rounded_rectangle(box(60, 42, 48, 70), radius=9 * k, fill=CALC)
-    if size >= 24:
+    if size <= 24:  # Small: the calculator kept clear of the tile's rounded corner (it read as cut off)
+        d.rounded_rectangle(box(56, 38, 46, 66), radius=8 * k, fill=CALC)
+        if size == 24:
+            d.rounded_rectangle(box(63, 46, 32, 20), radius=3 * k, fill=TILE)  # Its screen
+    else:
+        d.rounded_rectangle(box(60, 42, 48, 70), radius=9 * k, fill=CALC)
         d.rounded_rectangle(box(67, 50, 34, 22), radius=3 * k, fill=TILE)  # Its screen
     if size >= 48:
         for cy in (84, 97):

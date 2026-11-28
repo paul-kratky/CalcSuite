@@ -17,7 +17,7 @@ a = Analysis(
               # The connection doctor's driver helper (LGPL, its own process; docs/dev/DOCTOR.md)
               ('tools/bin/calcsuite-driver.exe', 'bin')],
     # tivars (TI-Toolkit, MIT): TI-Basic tokens for the 84 come from its token sheet
-    datas=[('assets/app.png', 'assets'),
+    datas=[('assets/app.png', 'assets'), ('assets/app.ico', 'assets'),
            # The Guide panel's guides and the Get programs list
            ('docs/TIBASIC_84.md', 'docs'), ('docs/TIBASIC_89.md', 'docs'),
            ('docs/PYTHON_NSPIRE_GUIDE.md', 'docs'),
