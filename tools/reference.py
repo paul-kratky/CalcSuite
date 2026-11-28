@@ -115,6 +115,26 @@ def find(ref, name):
     return [e for e in ref.get("entries", []) if e["name"] == name or e.get("pc_spelling") == name]
 
 
+# A Symbols button -> the reference names it stands for, the first one a calculator has wins
+# (the TI-84 integrates with fnInt( and differentiates with nDeriv(; the others use ∫( and d()
+SYMBOL_NAMES = {
+    "∫": ("∫(", "fnInt("), "d/dx": ("d(", "nDeriv("), "√": ("√(",), "π": ("π",),
+    "Σ": ("Σ(", "sum("), "∞": ("∞",), "≤": ("≤",), "≥": ("≥",), "≠": ("≠",), "→": ("→",),
+    "i": ("𝑖", "i"), "e": ("𝑒", "𝒆", "ℯ", "ℯ^(", "𝑒^(", "e"), "∠": ("∠",), "°": ("°",), "²": ("²",),
+    "⁻¹": ("⁻¹", "^⁻¹"), "‾": ("⁻",), "×": ("*",), "÷": ("/",), "^": ("^",), "E": ("ᴇ", "E"),
+    "!": ("!",), "►": ("►",), "|x|": ("abs(",),
+}
+
+
+def for_symbol(ref, sym):
+    """The reference entry a Symbols button stands for on this calculator, or None"""
+    for name in SYMBOL_NAMES.get(sym, ()) + (sym, sym + "("):
+        hits = find(ref, name)
+        if hits:
+            return hits[0]
+    return None
+
+
 def arg_line(a):
     """One argument for the card: 'tol  how close (optional, default 1E-5)'"""
     extra = []

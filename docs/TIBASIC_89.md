@@ -5,31 +5,31 @@ with an AI assistant, and send them with CalcSuite. The examples are in `program
 
 ## Contents
 
-- What the language is
-- Writing it on the PC
-- The first line
-- PC spellings
-- Traps in the text
-- Send and run
-- Variables, folders and data
-- Programs and functions
-- Input and output
-- Dialogs and menus
-- Control flow
-- Catching errors
-- Cookbook: input checks
-- Cookbook: lists and matrices
-- Cookbook: solving equations
-- Cookbook: calculus
-- Cookbook: units
-- Cookbook: complex numbers
-- Cookbook: number bases and bits
-- Cookbook: exact and decimal
-- Errors and fixes
-- Command reference
-- Example programs
-- Limits
-- Sources
+- [What the language is](#what-the-language-is)
+- [Writing it on the PC](#writing-it-on-the-pc)
+- [The first line](#the-first-line)
+- [PC spellings](#pc-spellings)
+- [Traps in the text](#traps-in-the-text)
+- [Send and run](#send-and-run)
+- [Variables, folders and data](#variables-folders-and-data)
+- [Programs and functions](#programs-and-functions)
+- [Input and output](#input-and-output)
+- [Dialogs and menus](#dialogs-and-menus)
+- [Control flow](#control-flow)
+- [Catching errors](#catching-errors)
+- [Cookbook: input checks](#cookbook-input-checks)
+- [Cookbook: lists and matrices](#cookbook-lists-and-matrices)
+- [Cookbook: solving equations](#cookbook-solving-equations)
+- [Cookbook: calculus](#cookbook-calculus)
+- [Cookbook: units](#cookbook-units)
+- [Cookbook: complex numbers](#cookbook-complex-numbers)
+- [Cookbook: number bases and bits](#cookbook-number-bases-and-bits)
+- [Cookbook: exact and decimal](#cookbook-exact-and-decimal)
+- [Errors and fixes](#errors-and-fixes)
+- [Command reference](#command-reference)
+- [Example programs](#example-programs)
+- [Limits](#limits)
+- [Sources](#sources)
 
 ## What the language is
 

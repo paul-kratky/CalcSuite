@@ -126,6 +126,18 @@ def main():
     failures += check("solve(" in got[:3] and "cSolve(" in got, "search: a prefix finds solve( and cSolve(")
     got = reference.search(r89, "", "Matrices")
     failures += check(got and all(e["category"] == "Matrices" for e in got), "search: the category filter")
+    # The Symbols panel's card: each calculator's own command for a symbol
+    syn = {slug: (reference.for_symbol(refs[slug], "∫") or {}).get("syntax", "") for slug in refs}
+    failures += check(syn["ti89"].startswith("∫(expression1,var") and syn["nspire"].startswith("∫(Expr1,Var")
+                      and syn["ti84"].startswith("fnInt("), "Symbols card: ∫ is each calculator's own")
+    failures += check((reference.for_symbol(refs["ti84"], "d/dx") or {}).get("name") == "nDeriv(" and
+                      (reference.for_symbol(refs["ti84"], "³√") or {}).get("name") == "³√(",
+                      "Symbols card: the 84's d/dx is nDeriv(, a bare symbol finds its ( form")
+    import calc_models as cm
+    missing = ["%s %s" % (C.slug, s) for C in (cm.Nspire, cm.Ti84, cm.Ti89) for s, _w, k, _n in C.SYMBOLS
+               if k is not None and s in ("∫", "d/dx", "d(", "√", "Σ", "≤", "→", "^", "!", "|x|")
+               and reference.for_symbol(refs[C.slug], s) is None]
+    failures += check(not missing, "Symbols card: the symbols that take arguments have a card (%s)" % missing)
     e = reference.find(r89, "nInt(")[0]
     c = reference.card(e)
     failures += check("nInt(expression1,var,lower,upper)" in c and "lower:" in c and "Example:" in c,

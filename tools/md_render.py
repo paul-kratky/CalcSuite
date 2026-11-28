@@ -237,9 +237,8 @@ def render(box, blocks, actions, colors, fonts):
 
     def _open(url):
         if url.startswith("#"):
-            idx = anchors.get(url[1:])
-            if idx:
-                box.yview(idx)
+            if url[1:] in anchors:  # A section of this page: its heading to the top
+                box.yview("h_" + url[1:])
             return
         if url.startswith(("http://", "https://")):
             webbrowser.open(url)

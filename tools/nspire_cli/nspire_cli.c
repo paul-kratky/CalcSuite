@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <libusb.h>
 
@@ -131,7 +132,53 @@ static int open_handle(nspire_handle_t **h) {
    more than the reuse saves, so each frame has its own connection, as before. */
 static uint16_t kept_sid;
 
+/* A clock in milliseconds that only goes forward */
+static unsigned long long now_ms(void) {
+#ifdef _WIN32
+    return (unsigned long long)GetTickCount64();
+#else
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (unsigned long long)t.tv_sec * 1000ull + (unsigned long long)t.tv_nsec / 1000000ull;
+#endif
+}
+
+/* When the handheld should have acted on the keys sent so far (see send_keys): closing the
+   key service before then drops the ones it hasn't taken in yet */
+static unsigned long long keys_due_ms;
+#define KEYS_AHEAD_MS 2000u /* The most of its work send_keys lets queue up (~66 keys) */
+
+/* The handheld's time for one key: 30 ms (letters are the slowest of the plain keys). A key
+   that opens a screen takes far longer, and the keys sent behind it wait for it: bench, CX II
+   CAS, OS 6.40.74, 2026-11-27, a screenshot 0.2 s after "catalog 4, 3 arrows, enter" found
+   the symbol palette still open and the enter lost. So a key that follows one of these counts
+   OPENS_MS more (a menu key on its own doesn't: its screen shows when it's ready anyway). */
+#define KEY_MS 30u
+#define OPENS_MS 600u
+static int opens_screen(unsigned long code) {
+    switch (code) {
+        case 0x009100: /* catalog */
+        case 0x003600: /* menu */
+        case 0x00FD00: /* home */
+        case 0x00A700: /* doc */
+        case 0x00AF00: /* var */
+        case 0x00CE00: /* ctrl+menu */
+            return 1;
+        default:
+            return 0;
+    }
+}
+/* When the last screen-opening key's screen should be open: the next key is charged from
+   then on. Not cleared by close_kept: a screenshot 150 ms after a menu key doesn't make the
+   menu open any sooner. */
+static unsigned long long opener_ready_ms;
+
 static void close_kept(nspire_handle_t *h) {
+    if (kept_sid == 0x4042 && h->connected) {
+        unsigned long long now = now_ms();
+        if (keys_due_ms > now) sleep_ms((unsigned)(keys_due_ms - now));
+    }
+    keys_due_ms = 0;
     if (h->connected) service_disconnect(h); /* A failed disconnect still leaves it closed here */
     h->connected = 0;
     kept_sid = 0;
@@ -554,7 +601,19 @@ static int do_shot(nspire_handle_t *h, const char *out) {
    code = 0xAABBCC. Returns 0 or a libnspire error. */
 static int send_keys(nspire_handle_t *h, char *list, int *sent) {
     int r = keep_open(h, 0x4042);
+    /* Right after a screenshot the handheld can answer Busy to the key service (a symbol
+       palette, bench 2026-11-27): no key has gone out yet, so trying again types nothing twice */
+    for (int tries = 0; r == -NSPIRE_ERR_BUSY && tries < 6; tries++) {  /* Busy only: not a pulled cable */
+        sleep_ms(80);
+        r = keep_open(h, 0x4042);
+    }
     for (char *tok = strtok(list, " "); tok && !r; tok = strtok(NULL, " ")) {
+        /* The handheld acks a key before it has acted on it and holds the rest in a queue;
+           send far ahead of it and it answers Busy and drops keys (14 palette symbols back to
+           back, ~1100 keys, bench 2026-11-27; one symbol, ~80 keys, was fine). So keep at most
+           KEYS_AHEAD_MS of its work queued (KEY_MS a key, more behind a screen opening). */
+        unsigned long long now = now_ms();
+        if (keys_due_ms > now + KEYS_AHEAD_MS) sleep_ms((unsigned)(keys_due_ms - now - KEYS_AHEAD_MS));
         unsigned char p1[4] = {0x01, 0x00, 0x00, 0x80};
         unsigned long code = strtoul(tok, NULL, 16);
         unsigned char p2[26];
@@ -566,18 +625,20 @@ static int send_keys(nspire_handle_t *h, char *list, int *sent) {
         p2[1 + 23] = (unsigned char)code;
         r = data_write(h, p1, sizeof(p1));
         if (!r) r = data_write(h, p2, sizeof(p2));
-        if (!r) (*sent)++;
+        if (!r) {
+            (*sent)++;
+            now = now_ms();
+            unsigned long long from = keys_due_ms > now ? keys_due_ms : now;
+            if (opener_ready_ms > from) from = opener_ready_ms;
+            keys_due_ms = from + KEY_MS;
+            if (opens_screen(code)) opener_ready_ms = now + OPENS_MS;
+        }
     }
-    if (r) {
-        close_kept(h); /* The next command starts on a fresh connection */
-        return r;
-    }
-    /* The handheld acks a key before it has acted on it, and closing the key service (the next
-       screenshot does) drops what it hasn't processed yet: "integral(" typed as 9 keys arrived as
-       "inte" (bench, 2026-11-27). Letters take longest (it checks whether the word is a command).
-       So give it time to take them in: 30 ms a key, at most 1.5 s. */
-    unsigned wait = (unsigned)*sent * 30u;
-    sleep_ms(wait > 1500u ? 1500u : wait);
+    /* Closing the key service (the next screenshot does) drops what the handheld hasn't
+       processed yet: "integral(" typed as 9 keys arrived as "inte" (bench, 2026-11-27).
+       close_kept waits until keys_due_ms, so key commands back to back (a walk through a
+       symbol palette) don't wait between them. */
+    if (r) close_kept(h); /* The next command starts on a fresh connection */
     return r;
 }
 
