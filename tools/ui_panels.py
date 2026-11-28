@@ -1676,7 +1676,35 @@ STAGES = {"connect": "Connecting", "check": "Checking the calculator", "backup":
           "save": "Saving the ROM", "clean": "Cleaning up", "download": "Downloading",
           "done": "Done", "open": "Opening"}
 RUNNING_STAGES = ("run", "wait", "fetch", "dump")  # The dump program is on the calculator
-RELEASE_WAIT_S = 40    # The mirror's link thread lets go within this (a connect takes up to 25 s)
+# The one progress bar of Make a PC copy: each stage's share of the whole job (about its time on
+# the bench), in order. Within a stage its done/total moves the bar through that share; a wait
+# with no total (the garbage collect) keeps it where the stage began. "done" is the end (100%).
+PROGRESS_WEIGHTS = {
+    "ti84": [("connect", 2), ("check", 2), ("backup", 15), ("tidy", 8), ("send", 3), ("run", 2),
+             ("wait", 40), ("fetch", 20), ("assemble", 1), ("save", 1), ("clean", 6), ("done", 0)],
+    "ti89": [("connect", 3), ("check", 3), ("backup", 25), ("send", 5), ("run", 4), ("dump", 50),
+             ("save", 2), ("clean", 8), ("done", 0)],
+}
+BAR_MAX = 1000
+
+
+def overall_progress(slug, stage, done=None, total=None):
+    """The whole job's fraction (0..1) at this stage and its done/total, or None (a stage the
+    table doesn't know: the bar stays)"""
+    table = PROGRESS_WEIGHTS.get(slug)
+    names = [s for s, _w in table or []]
+    if stage not in names:
+        return None
+    if stage == "done":
+        return 1.0
+    whole = float(sum(w for _s, w in table))
+    k = names.index(stage)
+    before = sum(w for _s, w in table[:k])
+    inside = min(max(done or 0, 0), total) / float(total) if total else 0.0
+    return (before + table[k][1] * inside) / whole
+
+
+RELEASE_WAIT_S = 40   # The mirror's link thread lets go within this (a connect takes up to 25 s)
 CANCEL_GIVE_UP_S = 30  # After Cancel the dialog stops waiting for the worker after this
 
 
@@ -1880,9 +1908,12 @@ class PcCopyDialog(object):
         self.text(b, "Making the PC copy of the %s" % self.title, bold=True)
         self.stage = self.text(b, "Letting go of the link...", fg=th.ACCENT, pady=(6, 2))
         self.line = self.text(b, "", fg=th.FG)
-        self.bar = ttk.Progressbar(b, style=progress_style(b), mode="determinate", maximum=1)
-        self.bar.pack(fill="x", pady=(4, 6))
-        self.bar_mode = "determinate"
+        # One bar for the whole job (BAR_MAX = done), weighted by stage: it only moves forward
+        self.bar = ttk.Progressbar(b, style=progress_style(b), mode="determinate", maximum=BAR_MAX)
+        self.bar.pack(fill="x", pady=(4, 2))
+        self.bar_value = 0
+        self.bar_values = []  # Every value the bar was set to (the self-test reads it)
+        self.overall = self.text(b, "Overall 0%", fg=th.DIM, pady=(0, 6))
         self.text(b, "Don't touch the calculator or the cable until it says done.", fg=th.DIM)
         tk.Label(b, textvariable=self.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
                  wraplength=590).pack(fill="x")
@@ -1916,16 +1947,15 @@ class PcCopyDialog(object):
         self.stage.configure(text=STAGES.get(stage, stage) + "...")
         if text:
             self.line.configure(text=text)
-        if total:
-            if self.bar_mode != "determinate":
-                self.bar.stop()
-                self.bar.configure(mode="determinate")
-                self.bar_mode = "determinate"
-            self.bar.configure(maximum=total, value=min(done or 0, total))
-        elif text and self.bar_mode != "indeterminate":
-            self.bar.configure(mode="indeterminate", value=0)
-            self.bar.start(15)
-            self.bar_mode = "indeterminate"
+        frac = overall_progress(self.slug, stage, done, total)
+        if frac is not None:
+            self.bar_value = max(self.bar_value, int(round(frac * BAR_MAX)))  # Never back
+            self.bar.configure(value=self.bar_value)
+            self.bar_values.append(self.bar_value)
+        order = [s for s, _w in PROGRESS_WEIGHTS[self.slug]]
+        step = ("  -  step %d of %d" % (order.index(stage) + 1, len(order) - 1)
+                if stage in order and stage != "done" else "")
+        self.overall.configure(text="Overall %d%%%s" % (100 * self.bar_value // BAR_MAX, step))
         if not self.cancel.is_set():
             self.status.set("%d s so far (%s in all)" % (time.time() - self.t0, self.spec["time"]))
 

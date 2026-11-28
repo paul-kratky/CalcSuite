@@ -117,6 +117,55 @@ class Fake89(object):
         pass
 
 
+def ce_appvars():
+    """The CEmu dumper's AppVars for a made-up OS of 4 segments, whose ROM passes check_ce_rom"""
+    import pc_copy as pc
+    os_size = pc.CE_SEG * 4
+    rom = bytearray(b"\x5a" * (pc.CE_SEG * 4))
+    rom[0x20000:0x2000a] = bytes.fromhex("800f0000000480121300")  # Field 0x800F holding 0x8012 = 0x13
+    out = {b"ROMData0": os_size.to_bytes(3, "little"), b"ROMData1": b"\x11" * pc.CE_SEG}
+    for i in range(4):
+        out[pc.ce_segment_name(i)] = bytes(rom[i * pc.CE_SEG:(i + 1) * pc.CE_SEG])
+    return out
+
+
+class FakeCE(object):
+    """The TI-84 Plus CE as ti84-cli serve answers, scripted: the dumper's AppVars are there once
+    Enter (key 05) has started it"""
+
+    def __init__(self, log, state):
+        self.log, self.state = log, state
+
+    def cmd(self, line, progress=None):
+        import calc_files as cf
+        self.log.append(line.split()[0])
+        if line == "info":
+            return 0, ["INFO name=TI-84 Plus CE", "INFO os=5.4.0 ram_free=150000 storage_free=3000000", "OK"]
+        if line == "key 05":
+            self.state["dumped"] = True
+        if line == "ls":
+            items = []
+            if self.state.get("dumped"):
+                for n, data in sorted(ce_appvars().items()):
+                    items.append("ITEM type=15 size=%d arch=1 locked=0 folder=- name=%s" %
+                                 (len(data) + 2, cf.to_hex(n)))
+            return 0, items + ["OK ls"]
+        if line.startswith("get 15 "):
+            name, local = line.split(" ")[3], line.split(" ", 5)[5]
+            data = ce_appvars()[bytes.fromhex(name)]
+            blob = len(data).to_bytes(2, "little") + data
+            for k in (1, 2):
+                if progress:
+                    progress(k * len(blob) // 2, len(blob))
+            with open(local, "wb") as fh:
+                fh.write(blob)
+            return 0, ["OK get"]
+        return 0, ["OK"]
+
+    def close(self):
+        pass
+
+
 def pc_copy_checks():
     import pc_copy as pc
     f = 0
@@ -275,9 +324,14 @@ def dialog_checks():
             time.sleep(0.02)
         return False
 
+    # Every dialog lives until the end: its Tk variables are then let go on this thread, not by
+    # a worker dropping the last reference (Tk would print "main thread is not in main loop")
+    keep = []
+
     def make(slug="ti89", lets_go=True):
         m = FakeMirror(slug, lets_go)
         d = up.PcCopyDialog(FakeSection(root, m), "make")
+        keep.append(d)
         d.start()
         return m, d
 
@@ -320,6 +374,39 @@ def dialog_checks():
         f += check(ok and "Reading the ROM..." in seen_stage and m.reconnects == 1,
                    "PC copy window: progress and the result arrive although the workers' after() is lost")
         d.close()
+
+        # The whole real dump_rom (scripted 84 and 89 links): the one bar only moves forward, to 100%
+        tmp = tempfile.mkdtemp(prefix="calcsuite_pcbar_")
+
+        def write_rom(slug, rom, meta):
+            path = os.path.join(tmp, "zz-%s.rom" % slug)
+            with open(path, "wb") as fh:
+                fh.write(rom)
+            return path, dict(meta, sha256=pc.sha256_bytes(rom))
+        bar_saved = (pc._default_connect, pc._backup, pc._write_rom, pc.CE_DUMP_WAIT)
+        try:
+            pc.dump_rom = saved["dump"]
+            pc._backup = lambda slug, s, info, steps, folder=None: (tmp, {"failed": []})
+            pc._write_rom = write_rom
+            pc.CE_DUMP_WAIT = 1.0
+            for slug in ("ti84", "ti89"):
+                state, log = {}, []
+                pc._default_connect = lambda sl, state=state, log=log: (
+                    lambda: FakeCE(log, state) if sl == "ti84" else Fake89(log))
+                m, d = make(slug)
+                ended = until(lambda: not d.running, 30)
+                vals = list(d.bar_values)
+                f += check(ended and shown(d, "Your PC copy is made") and len(set(vals)) >= 8 and
+                           all(b >= a for a, b in zip(vals, vals[1:])) and vals[-1] == up.BAR_MAX,
+                           "PC copy window (%s, the whole dump): the bar never goes back and ends at 100%% "
+                           "(%d values)" % (slug, len(vals)))
+                d.close()
+        finally:
+            pc._default_connect, pc._backup, pc._write_rom, pc.CE_DUMP_WAIT = bar_saved
+            pc.dump_rom = saved["dump"]
+        f += check(up.overall_progress("ti84", "wait", 45, 90) > up.overall_progress("ti84", "tidy") and
+                   up.overall_progress("ti89", "done") == 1.0 and up.overall_progress("ti89", "zz") is None,
+                   "PC copy bar: stages weighted in order, done is 100%")
 
         # A dump that never answers: Cancel ends it
         def dump_hang(model, report=None, cancel=None, connect=None):
@@ -367,6 +454,7 @@ def dialog_checks():
             return {"ready": False, "path": "C:\\zz\\setup.exe", "todo": "Run zz setup yourself"}
         pc.get_emulator = get_tiemu
         d = up.PcCopyDialog(FakeSection(root, FakeMirror("ti89")), "open")
+        keep.append(d)
         d.get_tiemu()
         until(lambda: statuses.append(d.status.get()) or "Run zz setup" in d.status.get(), 6)
         f += check("Run zz setup" in d.status.get() and any("(50%)" in s for s in statuses) and
@@ -379,6 +467,7 @@ def dialog_checks():
         pc.get_emulator = get_fails
         logged[:] = []
         d = up.PcCopyDialog(FakeSection(root, FakeMirror("ti89")), "open")
+        keep.append(d)
         d.get_tiemu()
         ok = until(lambda: "zz checksum" in d.status.get(), 4)
         f += check(ok and logged, "PC copy window: a failed download says why and is logged")
@@ -389,6 +478,7 @@ def dialog_checks():
         pc.open_in_emulator = lambda *a, **k: None
         pc.cemu_path = lambda: "C:\\zz\\CEmu.exe"
         d = up.PcCopyDialog(FakeSection(root, FakeMirror("ti84")), "open")
+        keep.append(d)
         d.open_cemu()
         ok = until(lambda: "CEmu is opening" in d.status.get(), 4)
         f += check(ok, "PC copy window: Open in CEmu ends on \"CEmu is opening\"")
@@ -401,6 +491,8 @@ def dialog_checks():
         pc.dump_rom, pc.get_emulator, pc.open_in_emulator = saved["dump"], saved["get"], saved["open_"]
         pc.tiemu_path, pc.cemu_path = saved["tiemu"], saved["cemu"]
         up.existing_roms, up.show_in_folder = saved["roms"], saved["folder"]
+        time.sleep(0.3)  # The workers end (their last lines run without the dialogs)
+        del keep[:]
         try:
             root.destroy()
         except tk.TclError:

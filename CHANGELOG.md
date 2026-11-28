@@ -15,6 +15,10 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   Cancel ends the step it's on at once (and the window stops waiting 30 s later if a step
   still doesn't end), the mirror has 40 s to let go, every stage updates the status line, the
   TiEmu download shows its percentage, and errors go to `CalcSuite files\logs\errors.log`.
+- **One progress bar for the whole PC copy**, weighted by stage (backup, garbage collect, the
+  dump, reading it back, cleaning up): it only moves forward and reaches 100% when it's made,
+  with "Overall n% - step n of m" under it. Before, each stage restarted the bar and the waits
+  made it bounce back and forth.
 
 ## [1.0.2] - 2026-11-28
 
