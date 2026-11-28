@@ -26,8 +26,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BIN = os.path.join(HERE, "bin")
@@ -83,14 +83,74 @@ PROBLEMS = {
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
-def _run(cmd, timeout=20, cwd=None):
-    """Runs a console program hidden; returns (exit code, stdout) or (None, error text)."""
+# How long each Windows query may take, and the whole check (diagnose) at most. A healthy PC
+# answers in about a second; these only bound a query Windows never answers.
+QUERY_TIMEOUT_S = 8
+PROCESSES_TIMEOUT_S = 5
+WINDOWS = os.name == "nt"  # A module flag so the self-test can run diagnose() with faked sources
+
+
+def _run(cmd, timeout=QUERY_TIMEOUT_S, cwd=None):
+    """Runs a console program hidden; returns (exit code, stdout) or (None, error text).
+
+    Never waits much longer than `timeout`: subprocess.run(timeout=...) kills the program but
+    then waits, with no limit, for its output pipe to close, which never happens while the
+    program can't die (stuck in a USB call to a calculator that froze) or a program it started
+    still holds the pipe. Here the pipe is given up 2 s after the kill instead."""
     try:
-        p = subprocess.run(cmd, capture_output=True, timeout=timeout, cwd=cwd,
-                           creationflags=_NO_WINDOW)
-    except (OSError, subprocess.TimeoutExpired) as e:
+        p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, cwd=cwd, creationflags=_NO_WINDOW)
+    except OSError as e:
         return None, str(e)
-    return p.returncode, p.stdout.decode("utf-8", "replace")
+    try:
+        out, _ = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            p.kill()
+        except OSError:
+            pass
+        try:
+            p.communicate(timeout=2)
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            pass  # Its reader thread is a daemon: left behind, it can't keep the app open
+        return None, "%s didn't answer within %d s" % (os.path.basename(cmd[0]), timeout)
+    return p.returncode, (out or b"").decode("utf-8", "replace")
+
+
+class QueryError(Exception):
+    """A Windows query that didn't run or didn't answer (its text says which)"""
+
+
+class _Source(object):
+    """One query run on a daemon thread (a query Windows never answers can't keep the app
+    open, which a ThreadPoolExecutor's worker would at exit)"""
+
+    def __init__(self, name, fn):
+        self.name, self.result, self.error = name, None, None
+        self.done = threading.Event()
+
+        def work():
+            try:
+                self.result = fn()
+            except Exception as e:  # Reported in the report's "errors", never silent
+                self.error = "%s failed: %s: %s" % (name, type(e).__name__, e)
+            self.done.set()
+        threading.Thread(target=work, daemon=True, name="doctor-" + name).start()
+
+
+def _gather(sources, deadline_s):
+    """{name: fn} run at once -> ({name: result, None when it failed}, [error texts]), within
+    deadline_s whatever the sources do"""
+    running = [_Source(name, fn) for name, fn in sources]
+    end = time.monotonic() + deadline_s
+    results, errors = {}, []
+    for s in running:
+        if not s.done.wait(max(0.0, end - time.monotonic())):
+            errors.append("%s didn't answer within %d s" % (s.name, deadline_s))
+        elif s.error:
+            errors.append(s.error)
+        results[s.name] = s.result if s.done.is_set() else None
+    return results, errors
 
 
 def _pid_hex(pid):
@@ -104,7 +164,9 @@ def helper_list(probe=True):
     if not os.path.isfile(HELPER):
         return None
     code, out = _run([HELPER, "list"] + (["--probe"] if probe else []), cwd=BIN)
-    if code is None or code != 0:
+    if code is None:
+        raise QueryError(out)
+    if code != 0:
         return None
     devices, packages = [], []
     for line in out.splitlines():
@@ -125,9 +187,9 @@ def libusb_pids():
     """Product ids libusb sees (ti84-cli devices: lists descriptors, opens nothing)."""
     if not os.path.isfile(TI84_CLI):
         return None
-    code, out = _run([TI84_CLI, "devices"], timeout=15, cwd=BIN)
+    code, out = _run([TI84_CLI, "devices"], cwd=BIN)
     if code is None:
-        return None
+        raise QueryError(out)
     pids = set()
     for line in out.splitlines():
         for word in line.split():
@@ -153,9 +215,9 @@ def pnp_devices():
     through PowerShell as JSON (no text parsing, so any Windows language works)."""
     enc = base64.b64encode(_PNP_SCRIPT.encode("utf-16-le")).decode("ascii")
     code, out = _run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
-                      "Bypass", "-EncodedCommand", enc], timeout=30)
+                      "Bypass", "-InputFormat", "None", "-EncodedCommand", enc])
     if code is None:
-        return None
+        raise QueryError(out)
     out = out.strip()
     if not out:
         return []
@@ -170,9 +232,9 @@ def pnp_devices():
 
 def running_programs():
     """(link programs, browsers) running now, by image name (tasklist, CSV)."""
-    code, out = _run(["tasklist.exe", "/fo", "csv", "/nh"], timeout=20)
+    code, out = _run(["tasklist.exe", "/fo", "csv", "/nh"], timeout=PROCESSES_TIMEOUT_S)
     if code is None:
-        return None, None
+        raise QueryError(out)
     found, browsers = {}, set()
     for row in csv.reader(io.StringIO(out)):
         if not row:
@@ -275,21 +337,31 @@ def diagnose(probe=True):
       "programs": link programs running now; "browsers": browsers running now
       "sources": which checks ran (helper / pnp / libusb / processes: True or False)
       "notes": [plain-English caveats]
+      "errors": [the parts of the check that failed or didn't answer in time, and why]
+    It finishes within about 20 s whatever Windows does (each query has a time limit).
     probe=True test-opens each WinUSB calculator for an instant (nothing is sent) to see
     whether another program holds it. Turn it off while CalcSuite itself is connected.
     """
     report = {"devices": [], "usb_failures": [], "programs": [], "browsers": [],
-              "sources": {}, "notes": []}
-    if os.name != "nt":
+              "sources": {}, "notes": [], "errors": []}
+    if not WINDOWS:
         report["notes"].append("The connection doctor checks Windows drivers only.")
         return report
-    # Processes first: the checks below start ti84-cli.exe, which must not count as running
-    programs, browsers = running_programs()
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        f_helper = pool.submit(helper_list, probe)
-        f_libusb = pool.submit(libusb_pids)
-        f_pnp = pool.submit(pnp_devices)
-        helper, usb_pids, pnp = f_helper.result(), f_libusb.result(), f_pnp.result()
+    # Processes first: the checks below start ti84-cli.exe, which must not count as running.
+    # Each part has its own time limit; one that fails or never answers is listed in "errors"
+    # and the report is made from the others.
+    got, errors = _gather([("the running programs (tasklist)", running_programs)],
+                          PROCESSES_TIMEOUT_S + 3)
+    programs, browsers = got["the running programs (tasklist)"] or (None, None)
+    got, more = _gather([("the driver helper (calcsuite-driver list)", lambda: helper_list(probe)),
+                         ("libusb's device list (ti84-cli devices)", libusb_pids),
+                         ("Windows' device list (PowerShell)", pnp_devices)],
+                        QUERY_TIMEOUT_S + 3)
+    errors += more
+    helper = got["the driver helper (calcsuite-driver list)"]
+    usb_pids = got["libusb's device list (ti84-cli devices)"]
+    pnp = got["Windows' device list (PowerShell)"]
+    report["errors"] = errors
     report["sources"] = {"helper": helper is not None, "libusb": usb_pids is not None,
                          "pnp": pnp is not None, "processes": programs is not None}
     report["programs"] = programs or []
@@ -571,6 +643,8 @@ def format_report(report):
         lines.append("Running link programs: " + ", ".join(report["programs"]))
     for n in report["notes"]:
         lines.append("Note: " + n)
+    for e in report.get("errors", []):
+        lines.append("Not checked: " + e)
     missing = [k for k, v in report["sources"].items() if not v]
     if missing:
         lines.append("Checks that could not run: " + ", ".join(missing))

@@ -1556,23 +1556,63 @@ class InfoSection(object):
         self.pc_dialog = PcCopyDialog(self, mode)
 
     # ---- The connection doctor ----
+    # The check itself gives up on any Windows query after calc_doctor's time limits (a report
+    # comes within about 20 s at the worst, in about a second normally); this is the window's own
+    # limit on top, whatever happens to the worker
+    DOCTOR_WAIT_S = 25
+
     def check(self):
+        """The connection doctor on a worker thread. The window polls for its report (nothing
+        crosses from the worker to Tk) and always ends with the report or a plain error."""
         for c in self.doctor.winfo_children():
             c.destroy()
         tk.Label(self.doctor, text="Checking Windows' drivers...", bg=th.PANEL, fg=th.DIM).pack(anchor="w")
+        self.doctor_gen = gen = getattr(self, "doctor_gen", 0) + 1
+        box = {}
+        log = self.mirror_mod.log_error
 
         def work():
-            import calc_doctor
             try:
+                import calc_doctor
                 # probe=False: CalcSuite itself holds the calculator (it would show as busy)
-                report = calc_doctor.diagnose(probe=False)
+                box["report"] = calc_doctor.diagnose(probe=False)
             except Exception as e:
-                report = {"devices": [], "notes": ["The check failed: %s" % e]}
+                log("checking the drivers (connection doctor)")
+                box["report"] = {"devices": [], "notes": [],
+                                 "errors": ["The check failed: %s: %s" % (type(e).__name__, e)]}
+        threading.Thread(target=work, daemon=True, name="doctor").start()
+        t0 = time.time()
+
+        def poll():
+            if gen != self.doctor_gen:
+                return  # Check again started a newer one
             try:
-                self.frame.after(0, lambda: self.show_doctor(report))
-            except (tk.TclError, RuntimeError):
-                pass
-        threading.Thread(target=work, daemon=True).start()
+                if "report" in box:
+                    report = box["report"]
+                    for e in report.get("errors", []):
+                        log("checking the drivers (connection doctor)", detail=e)
+                    self.show_doctor(report)
+                elif time.time() - t0 >= self.DOCTOR_WAIT_S:
+                    why = "the driver check didn't finish within %d s" % self.DOCTOR_WAIT_S
+                    log("checking the drivers (connection doctor)", detail=why)
+                    self.doctor_failed("The check didn't finish within %d s: Windows didn't answer "
+                                       "its device queries. Press Check again; if it keeps "
+                                       "happening, unplug the calculator, wait 3 seconds and plug "
+                                       "it back in." % self.DOCTOR_WAIT_S)
+                else:
+                    self.frame.after(150, poll)
+            except tk.TclError:
+                pass  # The panel was closed
+            except Exception:
+                log("showing the connection doctor's report")
+                self.doctor_failed("The check's report couldn't be shown (details in errors.log).")
+        self.frame.after(150, poll)
+
+    def doctor_failed(self, text):
+        for c in self.doctor.winfo_children():
+            c.destroy()
+        tk.Label(self.doctor, text=text, bg=th.PANEL, fg=th.ACCENT, anchor="w", justify="left",
+                 wraplength=400).pack(fill="x")
 
     def show_doctor(self, report):
         for c in self.doctor.winfo_children():
@@ -1610,6 +1650,9 @@ class InfoSection(object):
             if d.get("alt_fix") == "restore_ti" or (d.get("can_restore_ti") and d.get("present")):
                 th.button(row, "Restore TI's driver...",
                           lambda d=d: self.fix("restore", d)).pack(side="left")
+        for e in report.get("errors", [])[:3]:  # A query that failed or never answered
+            tk.Label(self.doctor, text="Not checked: %s" % e, bg=th.PANEL, fg=th.ACCENT, anchor="w",
+                     justify="left", wraplength=400).pack(fill="x", pady=(4, 0))
         for n in report.get("notes", [])[:2]:
             tk.Label(self.doctor, text=n, bg=th.PANEL, fg=th.DIM, anchor="w", justify="left",
                      wraplength=400).pack(fill="x", pady=(4, 0))

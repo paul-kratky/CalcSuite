@@ -1454,6 +1454,49 @@ static int read_clock_fields(Link *l, int cur[6]) {
     return 0;
 }
 
+/* The new clock: how long the link stays quiet after a field is written (the clock takes it
+   on its next tick, up to a second later), then how often and how many times it's read back */
+#define CLK_SETTLE_MS 1100
+#define CLK_RECHECK_MS 400
+#define CLK_READBACKS 4
+
+/* One field of the new clock written, then read back until it shows. seconds: the field is
+   the seconds, which may have moved on by up to two meanwhile. 0, or the exit code after
+   printing ERR (a field that never lands stops the set: nothing is written over it). */
+static int clock_write_field(Link *l, uint16_t id, int value, int seconds) {
+    unsigned char v[2];
+    unsigned size = 1;
+    if (id == PID_CLK_YEAR) {
+        v[0] = (unsigned char)(value >> 8);
+        v[1] = (unsigned char)value;
+        size = 2;
+    } else {
+        v[0] = (unsigned char)value;
+    }
+    int r = param_set(l, id, v, size);
+    if (r) return r;
+    sleep_ms(CLK_SETTLE_MS); /* Quiet: no request while the clock takes the write */
+    int g = -1;
+    for (int tries = 0; tries < CLK_READBACKS; tries++) {
+        unsigned char *a = NULL;
+        uint32_t n = 0;
+        unsigned sz = 0;
+        if (param_request(l, &id, 1, &a, &n)) {
+            printf("ERR setclock: no answer\n");
+            return 4;
+        }
+        const unsigned char *got = param_value(a, n, id, &sz);
+        g = !got || sz != size ? -1 : size == 2 ? (got[0] << 8) | got[1] : got[0];
+        free(a);
+        if (g == value) return 0;
+        if (seconds && g >= 0 && (g == (value + 1) % 60 || g == (value + 2) % 60)) return 0;
+        sleep_ms(CLK_RECHECK_MS);
+    }
+    printf("ERR setclock: the calculator's clock didn't take field 0x%04x (wrote %d, it reads %d); "
+           "nothing more was written\n", (unsigned)id, value, g);
+    return 4;
+}
+
 /* "setclock YYYY MM DD hh mm ss": the calculator's date and time (its own local time);
    "setclock now": the PC's local time when the command runs */
 static int do_setclock(Link *l, const char *arg) {
@@ -1502,10 +1545,15 @@ static int do_setclock(Link *l, const char *arg) {
         printf("OK clock set to %04d-%02d-%02d %02d:%02d:%02d (classic clock)\n", y, mo, d, h, mi, s);
         return 0;
     }
-    /* The new clock, field by field. Measured on a TI-84 Plus CE, OS 5.4.0: each field written
-       reaches the clock a moment later, and a field written before the last one has arrived is
-       lost (the clock also stands still meanwhile). So each field is read back until it shows,
-       and the time written moves on with the seconds this takes. */
+    /* The new clock (TI-84 Plus CE), field by field. Measured on OS 5.4.0: the calculator acks
+       a field at once but its clock takes it a moment later (on its next tick, up to a second),
+       standing still meanwhile, and a field written before the last one has landed is lost.
+       1.0.2 asked for the field again ten times a second while it landed (up to 30 requests a
+       field, up to 12 writes); on the bench that froze the CE. Now, as TILP writes it: one
+       write, then the link stays quiet until the clock has had time to take it (CLK_SETTLE_MS),
+       then a few slow read-backs; nothing more is written while a field hasn't landed (the set
+       stops with an error instead), and a date is never invalid on the way (31 January to
+       February: the day goes to 1 first). */
     static const uint16_t ids[6] = {PID_CLK_YEAR, PID_CLK_MONTH, PID_CLK_DAY, PID_CLK_HOURS,
                                     PID_CLK_MINUTES, PID_CLK_SECONDS};
     const unsigned long long t0 = now_ms();
@@ -1513,37 +1561,22 @@ static int do_setclock(Link *l, const char *arg) {
     if (read_clock_fields(l, cur)) return 4; /* What already matches (the date, mostly) stays */
     for (int pass = 0; pass < 2; pass++) {
         for (int i = 0; i < 6; i++) {
-            /* The seconds go one ahead: the clock stands still until the write arrives */
+            /* The seconds go one ahead: the clock stands still until the write lands */
             uint32_t t = target + (uint32_t)((now_ms() - t0) / 1000) + (i == 5);
             int f[6];
             date_from_1997(t, &f[0], &f[1], &f[2], &f[3], &f[4], &f[5]);
-            if (i < 5 && cur[i] == f[i]) continue; /* Each field written costs about 1 s */
-            unsigned char v[2];
-            unsigned size = 1;
-            if (i == 0) {
-                v[0] = (unsigned char)(f[0] >> 8);
-                v[1] = (unsigned char)f[0];
-                size = 2;
-            } else {
-                v[0] = (unsigned char)f[i];
-            }
-            int r = param_set(l, ids[i], v, size);
-            if (r) return r;
-            /* Until it shows (up to 3 s); the seconds may have moved on by one meanwhile */
-            for (int tries = 0; tries < 30; tries++) {
-                unsigned char *a = NULL;
-                uint32_t n = 0;
-                unsigned sz = 0;
-                if (param_request(l, &ids[i], 1, &a, &n)) {
-                    printf("ERR setclock: no answer\n");
-                    return 4;
+            if (i < 5 && cur[i] == f[i]) continue; /* Each field written costs about 1.5 s */
+            if (i <= 1) { /* The year or month changes: the day must stay valid meanwhile */
+                int ny = i == 0 ? f[0] : cur[0], nm = i == 0 ? cur[1] : f[1];
+                if (ny >= 1997 && nm >= 1 && nm <= 12 && cur[2] > month_days(ny, nm)) {
+                    int r = clock_write_field(l, PID_CLK_DAY, 1, 0);
+                    if (r) return r;
+                    cur[2] = 1;
                 }
-                const unsigned char *got = param_value(a, n, ids[i], &sz);
-                int g = !got || sz != size ? -1 : size == 2 ? (got[0] << 8) | got[1] : got[0];
-                free(a);
-                if (g == f[i] || (i == 5 && g == (f[i] + 1) % 60)) break;
-                sleep_ms(100);
             }
+            int r = clock_write_field(l, ids[i], f[i], i == 5);
+            if (r) return r;
+            cur[i] = f[i];
         }
         /* All six read back together: right unless a minute (or hour...) turned over */
         if (read_clock_fields(l, cur)) return 4;
