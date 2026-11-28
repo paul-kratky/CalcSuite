@@ -23,6 +23,11 @@ files on them, and a guide for writing programs. For the **TI-Nspire CX II** (CA
    install, no Python needed. Open `CalcSuite.exe` in the folder it makes (not from inside the
    zip). Everything CalcSuite saves stays in that folder, in `CalcSuite files`; the guides as
    PDFs are in `Guides`.
+
+   If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**:
+   CalcSuite isn't code-signed yet, so Windows doesn't know it. To check the download first, see
+   [Is it safe?](#is-it-safe). The same zip is also a GitHub Package:
+   `oras pull ghcr.io/paul-kratky/calcsuite:latest`.
 2. **Open CalcSuite** with the calculators plugged in and switched on. Each one gets a tab; one
    plugged in later gets its tab by itself.
 3. **The first time only:** Windows needs the WinUSB driver for each calculator, and TI's
@@ -69,13 +74,18 @@ each with its frame rate, **Screenshot** and **Record**. Click a screen to type 
 calculator: it gets an orange outline and a **KEYBOARD** tag. Double click a screen to open its
 tab.
 
+**Program editor** (a tab beside the calculators, opened with **Program editor...**) is where
+you write programs: [details](#the-program-editor). Its tab shows the file's name, with a dot
+while it has unsaved changes; **✕** closes it (asking first if there's something to save).
+
 **A calculator's tab** shows its screen big, with **Screenshot**, **Copy screen**, **Paste
 text**, **Record**, **Send program...** and **Keyboard** (on/off) under it, and **Last key:
 F5 → GRAPH** so you see what each PC key did. **Key history** shows the last 8 keys as keycaps
 under the screen; **Show keys in recordings** puts that strip into your GIF and MP4 too.
 **Open in its own window** (top right) pops the calculator out into a window of its own;
 closing that window puts it back as a tab. A calculator that's unplugged greys out ("not
-plugged in") and comes back when you plug it in again.
+plugged in") and comes back when you plug it in again. Drag the thin handle between the screen
+and the side panel to make the panel wider; in **Functions**, drag the one under the list.
 
 ![A calculator tab with the Files panel](docs/img/calculator-tab.png)
 
@@ -88,7 +98,7 @@ The panel on the right of a tab:
 | **Symbols** | ∫ d/dx √ π θ Σ ∞ ≤ ≥ ≠ → i e ∠ ° ² ⁻¹ and more: click one to type it on the calculator. A symbol the calculator doesn't have is greyed out and says what to use instead. |
 | **Guide** | How to write programs for this calculator (TI-Basic for the 84 and the 89, Python for the Nspire), with a contents list and search. Every example has **Copy** and **Send to calculator**. |
 | **Get programs** | Programs picked for engineering work (unit converters, circuit tools, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists everything CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
-| **Info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
+| **Info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#clearing-a-calculator)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
 
 <img src="docs/img/symbols-panel.png" width="49%" alt="The Symbols panel"> <img src="docs/img/guide-panel.png" width="49%" alt="The Guide panel">
 
@@ -182,8 +192,9 @@ click. How to write the text: [TI-Basic from the PC](#ti-basic-from-the-pc).
 ### The program editor
 
 Write TI-84 Plus CE TI-Basic, TI-89 Titanium TI-Basic or Nspire Python in CalcSuite itself:
-**Program editor...** under a calculator's screen on its tab (`python -I tools/editor.py [file]`
-opens it on its own). It checks as you type, underlines each
+**Program editor...** under a calculator's screen opens the **Program editor** tab, aimed at that
+calculator (`python -I tools/editor.py [file]` opens it as a window of its own). It checks as
+you type, underlines each
 mistake and lists it with its fix (F8 goes to the next one), colours the code like VS Code,
 completes command names (Ctrl+Space) and shows the command's syntax with the current argument
 in bold. **Build** (Ctrl+B) makes the calculator's file (`.8xp`, `.89p`, `.tns`) in
@@ -192,6 +203,8 @@ on the clipboard for Discord or e-mail. **F5** checks, builds, sends and runs it
 sends it; open it on the handheld), **F6** sends only. Nothing is built or sent while there are
 errors. **Copy AI instructions** gives a chat AI the rules for your calculator; paste its
 answer into an empty editor and **Copy problems for the AI** hands back what the checker found.
+**Ctrl+Backspace** and **Ctrl+Delete** delete a word at a time, **Ctrl+/** comments a line out,
+**Ctrl+F** finds.
 
 ## Files, backup and restore
 
@@ -217,6 +230,18 @@ assembly programs.) The Nspire's clock can't be read or set over USB: set it on 
 **Exit Press-to-Test...** uses TI's own way only: for the Nspire, CalcSuite lets go of the
 handheld and opens TI-Nspire CX II Connect; for the 84, TI's steps. The TI-89 Titanium has no
 Press-to-Test.
+
+### Clearing a calculator
+
+Both are in **Info**, and both back up the whole calculator first (into
+`CalcSuite files\backups`), so **Restore...** can bring things back.
+
+- **Delete all programs...** (Nspire: **Delete all documents...**): every program (the 89: and
+  function; the Nspire: every `.tns` and `.py`). Apps, the OS and your other variables stay.
+- **Reset the calculator...**: on the TI-84 Plus CE, **Clear RAM** or **Everything (like new)**,
+  after you type `RESET`; CalcSuite presses the 84's own reset menu (2nd MEM, 7: Reset...) for
+  you. The TI-89 Titanium and the Nspire reset only from the calculator itself: CalcSuite shows
+  the steps.
 
 ## A PC copy of your calculator
 
@@ -275,6 +300,21 @@ and what to do.
 | A calculator never connects | Its driver: **Info > Install the WinUSB driver...** (it shows what it will do first, and Windows asks for admin rights). If that fails, the Zadig steps under [Get started](#get-started). |
 | TI's own software no longer sees the calculator | That's the WinUSB driver. **Restore TI's driver...** in **Info** gives it back, or: Device Manager > the calculator > Uninstall device, with "delete the driver" ticked. |
 | A key does nothing | Some special keys aren't mapped yet: [open an issue](https://github.com/paul-kratky/CalcSuite/issues) with the key and the calculator. |
+| Something in the window stays on "Asking..." or doesn't react | Look in `CalcSuite files\logs\errors.log`: every error inside the window is written there. Attach it to an [issue](https://github.com/paul-kratky/CalcSuite/issues). |
+| "Windows protected your PC" | **More info**, then **Run anyway** (CalcSuite isn't code-signed yet). Check the download first: [Is it safe?](#is-it-safe) |
+
+## Is it safe?
+
+- **No telemetry, nothing in the background.** CalcSuite goes online only when you ask: TI's
+  site (OS versions), ticalc.org and GitHub (programs you pick), PyPI (ffmpeg, for video) and
+  the emulators' pages (PC copy). Admin rights only for the USB driver, after showing what will
+  change. Your ROM never leaves your PC. Details: [SECURITY.md](SECURITY.md).
+- **Built in the open.** Every release is built by GitHub from this repository's code, not on
+  anyone's PC; the release notes give the zip's SHA-256 and a VirusTotal scan, and GitHub signs
+  where it was built. Check a download with the GitHub CLI:
+  `gh attestation verify CalcSuite-<version>-win64.zip -R paul-kratky/CalcSuite`.
+- **Signed and checked.** Release tags and commits are signed (GitHub shows **Verified**);
+  CodeQL scans the code and OpenSSF Scorecard rates the project (the badge at the top).
 
 ## Writing Python programs
 
