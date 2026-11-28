@@ -255,6 +255,420 @@ def ti89_text(vtype, data):
     return None
 
 
+# ---- Numbers, lists and matrices (the data bridge: data_bridge.py) ----
+#
+# The 84 family keeps a real number in 9 bytes: a type byte (bits 0-5 the type: 0x00 real, 0x0C
+# a complex number's part; bit 7 the sign), the exponent + 0x80, then 14 BCD digits d.ddd...
+# (16 is 00 81 16 00..., read from a TI-84 Plus CE backup). A complex number is two of them
+# (real, imaginary; both typed 0x0C). A list (0x01 real, 0x0D complex): its length (2 bytes,
+# little endian), then its numbers; a matrix (0x02, real only): columns, rows (a byte each),
+# then the numbers row by row. OS 5.x's exact forms (what Ans can hold in MATHPRINT) are read
+# as their value: 0x18/0x1B fractions (a float), 0x1C/0x1D radicals ((±a√b ± c√d)/e in BCD
+# nibbles), 0x20/0x21 and 0x1E/0x1F multiples of π (TI-Toolkit's tivars documents them).
+#
+# The 89 keeps an expression backwards, its tag last (TIGCC's estack documentation; checked
+# against TI-89 Titanium OS 3.10 backups): an integer is its bytes (little endian), their count,
+# then 0x1F (0x20: negative; 0 has no bytes); a fraction its denominator then its numerator
+# (each an integer without the tag), then 0x21 (0x22: negative); a float a 2-byte exponent
+# (+0x4000, bit 15 the sign, big endian) and 14 BCD digits d.ddd..., then 0x23; a complex
+# number its real then its imaginary part, then 0x9D; i alone is 0x26; a list 0xE5, its
+# elements last first, then 0xD9; a matrix is a list of lists (its rows). The variable's data
+# starts with the expression's size (2 bytes, big endian).
+
+import collections as _collections
+from decimal import Decimal, Context, ROUND_HALF_UP, InvalidOperation
+from fractions import Fraction
+
+TIComplex = _collections.namedtuple("TIComplex", "re im")
+_C14 = Context(prec=14, rounding=ROUND_HALF_UP)
+_C40 = Context(prec=40)
+_PI = Decimal("3.14159265358979323846264338327950288419716939937510")
+REAL_TYPES_84 = (0x00, 0x18, 0x1C, 0x20, 0x21)
+COMPLEX_TYPES_84 = (0x0C, 0x1B, 0x1D, 0x1E, 0x1F)
+LIST_MAX_84, MATRIX_MAX_84 = 999, 99
+
+
+def _bcd(b):
+    s = b.hex()
+    if not s.isdigit():
+        raise ValueError("not a TI number (a digit isn't 0-9)")
+    return s
+
+
+def _sci(v):
+    """A non-zero Decimal rounded to 14 digits -> (negative, 14 digits as text, exponent)"""
+    t = _C14.plus(abs(Decimal(v)))
+    digits = "".join(str(d) for d in t.as_tuple().digits)
+    return v < 0, (digits + "0" * 14)[:14], t.adjusted()
+
+
+def _decimal(v):
+    """int, Fraction or Decimal -> Decimal (a fraction to 40 digits: rounded to 14 later)"""
+    if isinstance(v, Fraction):
+        return _C40.divide(Decimal(v.numerator), Decimal(v.denominator))
+    if isinstance(v, (int, Decimal)) and not isinstance(v, bool):
+        d = Decimal(v)
+        if not d.is_finite():
+            raise ValueError("%s isn't a number a calculator keeps" % v)
+        return d
+    raise ValueError("%r isn't a real number" % (v,))
+
+
+def real84_bytes(v, part=False):
+    """A real number -> its 9 bytes on the 84 (part: as half of a complex number, type 0x0C).
+    Rounds to 14 digits; past 9.9999999999999E99 raises ValueError, under 1E-99 is 0."""
+    d = _decimal(v)
+    kind = 0x0C if part else 0x00
+    if d == 0:
+        return bytes((kind, 0x80)) + bytes(7)
+    neg, digits, exp = _sci(d)
+    if exp > 99:
+        raise ValueError("%s is too big for the TI-84 Plus (up to 9.9999999999999E99)" % number_text(d))
+    if exp < -99:
+        return bytes((kind, 0x80)) + bytes(7)
+    return bytes((kind | (0x80 if neg else 0), 0x80 + exp)) + bytes.fromhex(digits)
+
+
+def _radical84(b):
+    d = b[1:9].hex()
+    if not d[1:].isdigit() or d[0] not in "0123":
+        raise ValueError("not a TI radical (a digit isn't 0-9)")
+    sign = int(d[0])
+    den, rs, ls, rr, lr = (int(d[i:i + 3]) for i in (1, 4, 7, 10, 13))
+    if den == 0:
+        raise ValueError("a TI radical over 0")
+    left = _C40.multiply(Decimal(-ls if sign & 1 else ls), _C40.sqrt(Decimal(lr)))
+    right = _C40.multiply(Decimal(-rs if sign & 2 else rs), _C40.sqrt(Decimal(rr)))
+    return _C14.divide(_C40.add(left, right), Decimal(den))
+
+
+def real84_value(b):
+    """9 bytes of an 84 number (any real type, or a complex number's half) -> Decimal"""
+    if len(b) < 9:
+        raise ValueError("a TI-84 number is 9 bytes")
+    kind = b[0] & 0x3F
+    if kind in (0x1C, 0x1D):
+        return _radical84(b)
+    v = Decimal(int(_bcd(b[2:9]))).scaleb(b[1] - 0x80 - 13)
+    if b[0] & 0x80:
+        v = -v
+    if kind in (0x20, 0x21, 0x1E, 0x1F):  # A multiple of π
+        v = _C14.multiply(v, _PI)
+    return v
+
+
+def complex84_bytes(v):
+    if not isinstance(v, TIComplex):
+        v = TIComplex(v, 0)
+    return real84_bytes(v.re, True) + real84_bytes(v.im, True)
+
+
+def complex84_value(b):
+    if len(b) < 18:
+        raise ValueError("a TI-84 complex number is 18 bytes")
+    return TIComplex(real84_value(b[:9]), real84_value(b[9:18]))
+
+
+def list84_data(values):
+    """Numbers -> (type 0x01 real list or 0x0D complex list, the variable's data)"""
+    values = list(values)
+    if len(values) > LIST_MAX_84:
+        raise ValueError("a TI-84 list holds up to %d numbers (this has %d)" % (LIST_MAX_84, len(values)))
+    cplx = any(isinstance(v, TIComplex) for v in values)
+    one = complex84_bytes if cplx else real84_bytes
+    return (0x0D if cplx else 0x01), struct.pack("<H", len(values)) + b"".join(one(v) for v in values)
+
+
+def list84_values(vtype, data):
+    """A list's data (0x01 or 0x0D) -> [Decimal or TIComplex]"""
+    if len(data) < 2:
+        raise ValueError("the list is cut short")
+    n = struct.unpack_from("<H", data)[0]
+    size = 18 if vtype == 0x0D else 9
+    if len(data) < 2 + n * size:
+        raise ValueError("the list is cut short (%d numbers said, %d bytes)" % (n, len(data)))
+    one = complex84_value if vtype == 0x0D else real84_value
+    return [one(data[2 + k * size:2 + (k + 1) * size]) for k in range(n)]
+
+
+def _rect(rows, most=None, what="matrix"):
+    rows = [list(r) for r in rows]
+    if not rows or not rows[0]:
+        raise ValueError("a %s needs at least one row and one column" % what)
+    if any(len(r) != len(rows[0]) for r in rows):
+        raise ValueError("every row of a %s has the same number of columns" % what)
+    if most and (len(rows) > most or len(rows[0]) > most):
+        raise ValueError("a TI-84 matrix is up to %d x %d" % (most, most))
+    return rows
+
+
+def matrix84_data(rows):
+    """Rows of real numbers -> a matrix's data (type 0x02)"""
+    rows = _rect(rows, MATRIX_MAX_84)
+    if any(isinstance(v, TIComplex) for r in rows for v in r):
+        raise ValueError("the TI-84's matrices hold real numbers only")
+    return bytes((len(rows[0]), len(rows))) + b"".join(real84_bytes(v) for r in rows for v in r)
+
+
+def matrix84_rows(data):
+    if len(data) < 2:
+        raise ValueError("the matrix is cut short")
+    cols, nrows = data[0], data[1]
+    if len(data) < 2 + cols * nrows * 9:
+        raise ValueError("the matrix is cut short")
+    return [[real84_value(data[2 + (r * cols + c) * 9:2 + (r * cols + c + 1) * 9]) for c in range(cols)]
+            for r in range(nrows)]
+
+
+def value84(vtype, data):
+    """An 84 variable as a value: Decimal (a real, the exact forms as their value), TIComplex,
+    a list of them, a matrix (a list of rows) or a str (a string's text). ValueError else."""
+    if vtype in REAL_TYPES_84:
+        return real84_value(data)
+    if vtype in COMPLEX_TYPES_84:
+        return complex84_value(data)
+    if vtype in (0x01, 0x0D):
+        return list84_values(vtype, data)
+    if vtype == 0x02:
+        return matrix84_rows(data)
+    if vtype == 0x04:
+        return detokenize_84(data)
+    raise ValueError("a %s isn't a number, list or matrix"
+                     % TYPES_84.get(vtype, ("type %02X" % vtype,))[0].lower())
+
+
+def _int89_at(b, p):
+    """The integer whose byte count is at b[p] -> (value, the index below it)"""
+    if p < 0:
+        raise ValueError("the expression is cut short")
+    n = b[p]
+    if p - n < 0:
+        raise ValueError("the expression is cut short")
+    return int.from_bytes(b[p - n:p], "little"), p - n - 1
+
+
+def _read89(b, p, depth):
+    """The value whose tag is at b[p] -> (value, the index below it)"""
+    if p < 0:
+        raise ValueError("the expression is cut short")
+    tag = b[p]
+    if tag in (0x1F, 0x20):
+        v, q = _int89_at(b, p - 1)
+        return (-v if tag == 0x20 else v), q
+    if tag in (0x21, 0x22):
+        num, q = _int89_at(b, p - 1)
+        den, q = _int89_at(b, q)
+        if den == 0:
+            raise ValueError("a fraction over 0")
+        return Fraction(-num if tag == 0x22 else num, den), q
+    if tag == 0x23:
+        if p < 9:
+            raise ValueError("the expression is cut short")
+        e = (b[p - 9] << 8) | b[p - 8]
+        v = Decimal(int(_bcd(b[p - 7:p]))).scaleb((e & 0x7FFF) - 0x4000 - 13)
+        return (-v if e & 0x8000 else v), p - 10
+    if tag == 0x9D:
+        im, q = _read89(b, p - 1, 9)
+        re_, q = _read89(b, q, 9)
+        if any(isinstance(x, (TIComplex, list, str)) for x in (re_, im)):
+            raise ValueError("a complex number whose parts aren't numbers")
+        return TIComplex(re_, im), q
+    if tag == 0x26:
+        return TIComplex(0, 1), p - 1
+    if tag == 0xD9:
+        if depth > 1:
+            raise ValueError("a list too deep for a list or matrix")
+        items, q = [], p - 1
+        while True:
+            if q < 0:
+                raise ValueError("a list without its end")
+            if b[q] == 0xE5:
+                return items, q - 1
+            v, q = _read89(b, q, depth + 1)
+            items.append(v)
+    if tag == 0x2D and depth == 0:  # A string: 0, the text, 0, then the tag
+        if p < 2 or b[p - 1] != 0:
+            raise ValueError("a string without its end")
+        s = b.rfind(b"\x00", 0, p - 1)
+        if s < 0:
+            raise ValueError("a string without its start")
+        back = {c: u for u, c in CHARS_89.items()}
+        back[0xAD] = "-"
+        return "".join(back.get(c, chr(c)) for c in b[s + 1:p - 1]), s - 1
+    raise ValueError("an expression (tag %02X), not a number, list or matrix" % tag)
+
+
+def value89(data):
+    """A TI-89 variable's data (expression 0x00, list 0x04, matrix 0x06, string 0x0C) -> int,
+    Fraction, Decimal (a float), TIComplex, a list of them, a matrix (a list of rows) or a str.
+    ValueError for anything else (an expression with variables, a polar number...)."""
+    if len(data) < 3:
+        raise ValueError("the variable is cut short")
+    n = struct.unpack_from(">H", data)[0]
+    body = data[2:2 + n]
+    if len(body) != n or n == 0:
+        raise ValueError("the variable is cut short")
+    v, q = _read89(body, n - 1, 0)
+    if q != -1:
+        raise ValueError("more than one value in the variable")
+    if isinstance(v, list) and v and isinstance(v[0], list):
+        if any(not isinstance(r, list) or len(r) != len(v[0]) for r in v):
+            raise ValueError("a matrix whose rows aren't the same length")
+    elif isinstance(v, list) and any(isinstance(x, list) for x in v):
+        raise ValueError("a list of lists that isn't a matrix")
+    return v
+
+
+def _int89_bytes(n):
+    mag = abs(n)
+    bs = mag.to_bytes((mag.bit_length() + 7) // 8, "little")
+    if len(bs) > 255:
+        raise ValueError("the integer is too long for the TI-89")
+    return bs + bytes((len(bs), 0x20 if n < 0 else 0x1F))
+
+
+def number89_bytes(v):
+    """One number -> its bytes in an 89 expression: an int (exact), a Fraction (exact), a
+    Decimal (a float, 14 digits, up to 9.9999999999999E999) or a TIComplex of them"""
+    if isinstance(v, TIComplex):
+        if isinstance(v.re, TIComplex) or isinstance(v.im, TIComplex):
+            raise ValueError("a complex number's parts are real")
+        return number89_bytes(v.re) + number89_bytes(v.im) + b"\x9D"
+    if isinstance(v, bool):
+        raise ValueError("not a number")
+    if isinstance(v, int):
+        return _int89_bytes(v)
+    if isinstance(v, Fraction):
+        if v.denominator == 1:
+            return _int89_bytes(v.numerator)
+        den = _int89_bytes(v.denominator)[:-1]
+        num = _int89_bytes(abs(v.numerator))[:-1]
+        return den + num + (b"\x22" if v < 0 else b"\x21")
+    d = _decimal(v)
+    zero = b"\x40\x00" + bytes(7) + b"\x23"
+    if d == 0:
+        return zero
+    neg, digits, exp = _sci(d)
+    if exp > 999:
+        raise ValueError("%s is too big for the TI-89 (up to 9.9999999999999E999)" % number_text(d))
+    if exp < -999:
+        return zero
+    e = (0x4000 + exp) | (0x8000 if neg else 0)
+    return struct.pack(">H", e) + bytes.fromhex(digits) + b"\x23"
+
+
+def _sized89(body):
+    if len(body) > 65000:
+        raise ValueError("too big for one TI-89 variable (%d bytes)" % len(body))
+    return struct.pack(">H", len(body)) + body
+
+
+def list89_data(values):
+    """Numbers -> a TI-89 list's data (type 0x04)"""
+    return _sized89(b"\xE5" + b"".join(number89_bytes(v) for v in reversed(list(values))) + b"\xD9")
+
+
+def matrix89_data(rows):
+    """Rows of numbers -> a TI-89 matrix's data (type 0x06)"""
+    rows = _rect(rows)
+    body = b"".join(b"\xE5" + b"".join(number89_bytes(v) for v in reversed(r)) + b"\xD9"
+                    for r in reversed(rows))
+    return _sized89(b"\xE5" + body + b"\xD9")
+
+
+def number89_data(v):
+    """One number -> a TI-89 expression variable's data (type 0x00)"""
+    return _sized89(number89_bytes(v))
+
+
+_NUM_RE = r"(?:\d+\.?\d*|\.\d+)(?:E[+-]?\d+)?"
+_REAL_RE = re.compile(r"^[+-]?" + _NUM_RE + "$")
+_FRAC_RE = re.compile(r"^([+-]?\d+)/(\d+)$")
+
+
+def parse_number(text):
+    """A cell's text -> int (digits only), Fraction ("1/3"), Decimal ("2.5", "1E-5", "2."),
+    TIComplex ("3+2i", "-i", "2.5E3-1E-2i"), or None for an empty cell. Takes the calculators'
+    own minus signs (⁻ −), ᴇ for E, 𝑖 or j for i, and a decimal comma ("2,5"). ValueError
+    names what it can't read."""
+    raw = text
+    s = (text or "").strip().replace(" ", "").replace(" ", "")
+    if not s:
+        return None
+    if len(s) > 400:
+        raise ValueError("%r... is too long for a number" % s[:20])
+    for a, b in (("−", "-"), ("⁻", "-"), ("‐", "-"), ("ᴇ", "E"), ("e", "E"), ("𝑖", "i"),
+                 ("ⅈ", "i"), ("j", "i"), ("﹢", "+")):
+        s = s.replace(a, b)
+    if "," in s and "." not in s and s.count(",") == 1:
+        s = s.replace(",", ".")
+    if s.endswith("i"):
+        body = s[:-1]
+        cut = max((k for k in range(1, len(body)) if body[k] in "+-" and body[k - 1] != "E"),
+                  default=0)
+        re_text, im_text = body[:cut], body[cut:]
+        if im_text in ("", "+", "-"):
+            im_text += "1"
+        try:
+            re_v = parse_number(re_text) if re_text else 0
+            im_v = parse_number(im_text)
+        except ValueError:
+            raise ValueError("%r isn't a number" % raw)
+        if isinstance(re_v, TIComplex) or isinstance(im_v, TIComplex) or im_v is None:
+            raise ValueError("%r isn't a number" % raw)
+        return TIComplex(re_v, im_v)
+    m = _FRAC_RE.match(s)
+    if m:
+        if int(m.group(2)) == 0:
+            raise ValueError("%r divides by 0" % raw)
+        return Fraction(int(m.group(1)), int(m.group(2)))
+    if not _REAL_RE.match(s):
+        raise ValueError("%r isn't a number" % raw)
+    if "." not in s and "E" not in s:
+        return int(s)
+    try:
+        return Decimal(s)
+    except InvalidOperation:
+        raise ValueError("%r isn't a number" % raw)
+
+
+def number_text(v, float_mark=False):
+    """A value -> text with every digit the calculator keeps: 0.33333333333333, 1.5E-99,
+    3+2i, 1/3. float_mark: an approximate whole number gets a point ("2.", as the 89 shows a
+    float), so it reads back as a float"""
+    if isinstance(v, TIComplex):
+        re_t, im_t = number_text(v.re, float_mark), number_text(v.im, float_mark)
+        if im_t in ("0", "0."):
+            return re_t
+        if im_t in ("1", "-1"):
+            im_t = im_t[:-1]
+        if re_t == "0":
+            return im_t + "i"
+        return re_t + ("" if im_t.startswith("-") else "+") + im_t + "i"
+    if isinstance(v, Fraction):
+        return str(v.numerator) if v.denominator == 1 else "%d/%d" % (v.numerator, v.denominator)
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, str):
+        return v
+    d = Decimal(v)
+    if d == 0:
+        return "0." if float_mark else "0"
+    t = _C14.plus(d)
+    adj = t.adjusted()
+    if -5 <= adj < 15:
+        s = format(t, "f")
+        if "." in s:
+            s = s.rstrip("0").rstrip(".")
+        if float_mark and "." not in s:
+            s += "."
+        return s
+    neg, digits, exp = _sci(t)
+    digits = digits.rstrip("0") or "0"
+    mant = digits[0] + ("." + digits[1:] if len(digits) > 1 else "")
+    return "%s%sE%d" % ("-" if neg else "", mant, exp)
+
+
 # ---- TI-Basic (TI-84 Plus family) as text ----
 
 _ONE = {

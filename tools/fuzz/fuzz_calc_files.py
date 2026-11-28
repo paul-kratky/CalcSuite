@@ -35,7 +35,7 @@ else:
     import picture_formats as pf
 
 TARGETS = ("ti8x", "ti89", "tok84", "tok89", "nspire_ls", "dusb_ls", "os_page",
-           "picture", "nspire_runs")
+           "picture", "nspire_runs", "num84", "num89", "cell")
 
 
 def fuzz_one(data):
@@ -71,6 +71,21 @@ def fuzz_one(data):
         elif target == "nspire_runs" and len(body) >= 3:  # The Nspire program's run code
             pf.decode_runs(body[3:].decode("latin-1"), 1 + body[0] % 64, 1 + body[1] % 8,
                            1 + body[2] % 64)
+        elif target == "num84":  # Lists, matrices, Ans: the first byte is the variable's type
+            if body:
+                v = cf.value84(body[0], body[1:])
+                cf.number_text(v) if not isinstance(v, list) else [cf.number_text(x) for x in v
+                                                                    if not isinstance(x, list)]
+        elif target == "num89":
+            v = cf.value89(body)
+            if not isinstance(v, (list, str)):
+                cf.number89_data(v)  # What reads back is sendable (or a ValueError)
+        elif target == "cell":  # A grid cell, a pasted or CSV number
+            v = cf.parse_number(text)
+            if v is not None:
+                cf.number_text(v, True)
+                cf.number89_bytes(v)
+                cf.complex84_bytes(v)
     except ValueError:
         pass  # A refused input: fine
 
@@ -95,6 +110,15 @@ def seeds():
     add("picture", pf.ce_pic_8ci([k % 15 for k in range(pf.CE_PIC_W * pf.CE_PIC_H)], "Pic1"))
     add("picture", pf.ce_image_8ca([k & 0xFFFF for k in range(pf.CE_IMAGE_W * pf.CE_IMAGE_H)], "Image1"))
     add("nspire_runs", bytes((9, 1, 3)) + pf.encode_runs([0, 0, 1, 2, 2, 2, 2, 2, 1, 0] * 2, 10, 4).encode())
+    add("num84", b"\x01" + cf.list84_data([1, cf.Decimal("-2.5E-99"), cf.Fraction(1, 3)])[1])
+    add("num84", b"\x0d" + cf.list84_data([cf.TIComplex(3, -2), 0])[1])
+    add("num84", b"\x02" + cf.matrix84_data([[1, 2], [3, 4]]))
+    add("num84", bytes((0x1c, 0x1c, 0x00, 0x30, 0x00, 0x20, 0x00, 0x00, 0x00, 0x30)))
+    add("num89", cf.matrix89_data([[1, cf.Fraction(-1, 3)], [cf.Decimal("2.5"), cf.TIComplex(1, 2)]]))
+    add("num89", cf.list89_data([0, -12, cf.Decimal("1E-999")]))
+    add("num89", b"\x00\x05\x00hi\x00\x2d")
+    add("cell", "-2.5E3-1E-2i".encode())
+    add("cell", "1/3".encode())
     return out
 
 

@@ -229,6 +229,8 @@ def main():
     failures += solver_checks.main()
     import picture_checks  # Make a picture: the formats byte for byte, colours, the window (faked)
     failures += picture_checks.main()
+    import data_checks  # Data bridge: TI numbers, lists, matrices, the grid, Copy answer (faked link)
+    failures += data_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 

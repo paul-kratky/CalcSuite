@@ -24,6 +24,19 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   the rest are solved in the program from a guess (secant method on the Nspire and the 89, the
   84's `solve(`). Every program passes the editor's checkers before it can be sent or saved.
   Eight ready-made engineering sets. A frame that can live in a main-window tab.
+- **Data bridge** (a new **Data** section in the side panel): the TI-84 Plus CE's and TI-89
+  Titanium's lists and matrices in a spreadsheet-style grid inside the panel (edit, add or
+  remove rows and columns, copy and paste tab-separated text with Excel, import and save CSV),
+  sent back under a name you choose, and a quick plot (a list against its index, or x against y).
+  Lists go to the TI-Nspire as a small program (`zzdata.tns`) that stores them when run; its
+  lists can't be read back over the link. Guide: `docs/DATA_BRIDGE.md`.
+- **Copy answer** (the tab's button row and the Data section): the last answer on the PC
+  clipboard with every digit the calculator keeps ("Copied 0.33333333333333 from the TI-84 Plus
+  CE"). The 84: its Ans. The 89: through a tiny program, `main\zzans`, run over the link (exact
+  answers stay exact: `1/3`). The Nspire's link has no command for it: the button says so.
+- TI's number formats in `calc_files.py`: 84 reals, complex numbers, lists, matrices and OS 5's
+  exact forms; 89 integers, fractions, floats, complex numbers, lists and matrices, with
+  round-trip self-tests and three new fuzz targets.
 
 ### Fixed
 - Sending several TI files in a row (Restore, Get all, Make a picture) can no longer lose its

@@ -1081,6 +1081,8 @@ class Tab(object):
         bar.pack(fill="x", pady=(8, 0))
         th.button(bar, "Screenshot", mirror.screenshot).pack(side="left")
         th.button(bar, "Copy screen", mirror.copy_screen).pack(side="left", padx=(6, 0))
+        th.button(bar, "Copy answer", lambda: __import__("data_bridge").copy_answer(
+            mirror, bar, mirror.set_status)).pack(side="left", padx=(6, 0))
         th.button(bar, "Paste text", lambda: mirror.paste_text()).pack(side="left", padx=(6, 0))
         self.rec_btn = th.button(bar, "Record", mirror.toggle_record)
         self.rec_btn.pack(side="left", padx=(6, 0))

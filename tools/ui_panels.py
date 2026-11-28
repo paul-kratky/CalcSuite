@@ -22,8 +22,8 @@ import program_library as plib
 import reference
 import ui_theme as th
 
-SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Calculator info",
-            "Macros")
+SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Data",
+            "Calculator info", "Macros")
 INFO = "Calculator info"  # The Info section's name (its tab)
 WIDTH = 450  # The narrowest default; the default is a share of the window (mirror.Tab.PANEL_SHARE)
 GUIDES = {"nspire": ("docs", "PYTHON_NSPIRE_GUIDE.md"), "ti84": ("docs", "TIBASIC_84.md"),
@@ -70,7 +70,7 @@ class SidePanel(object):
         if name not in self.sections:
             cls = {"Files": FilesSection, "Keys": KeysSection, "Symbols": SymbolsSection,
                    "Functions": FunctionsSection, "Guide": GuideSection, "Get programs": ProgramsSection,
-                   INFO: InfoSection,
+                   INFO: InfoSection, "Data": _data_section,
                    "Macros": macros_ui.MacrosSection}[name]
             self.sections[name] = cls(self, self.body)
         self.sections[name].frame.pack(fill="both", expand=True)
@@ -170,6 +170,12 @@ def bind_wheel(widget, inner):
     widget.bind("<MouseWheel>", inner._wheel)
     for c in widget.winfo_children():
         bind_wheel(c, inner)
+
+
+def _data_section(panel, parent):
+    """Data: lists and matrices, Copy answer (data_bridge.py)"""
+    import data_bridge
+    return data_bridge.DataSection(panel, parent)
 
 
 # ---- Files: the calculator manager, inside the panel ----
