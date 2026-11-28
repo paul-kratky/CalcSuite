@@ -135,6 +135,9 @@ jobs:
         run: |
           $zip = (Get-ChildItem out/CalcSuite-*-win64.zip).Name
           Copy-Item '${{ steps.attest.outputs.bundle-path }}' "out/$zip.sigstore.json"
+          # The same bundle under the name SLSA tools and Scorecard read as build provenance (one
+          # JSON line: the signed in-toto SLSA statement)
+          Copy-Item '${{ steps.attest.outputs.bundle-path }}' "out/$zip.intoto.jsonl"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
@@ -225,7 +228,7 @@ jobs:
           $env:GH_TOKEN | oras login ghcr.io -u $env:GITHUB_ACTOR --password-stdin
           if ($LASTEXITCODE) { throw "oras login failed" }
           Push-Location out
-          $files = @((Get-ChildItem CalcSuite-*-win64.zip).Name, 'SHA256SUMS.txt') + @((Get-ChildItem *.sigstore.json -ErrorAction SilentlyContinue).Name)
+          $files = @((Get-ChildItem CalcSuite-*-win64.zip).Name, 'SHA256SUMS.txt') + @((Get-ChildItem *.sigstore.json, *.intoto.jsonl -ErrorAction SilentlyContinue).Name)
           oras push "${repo}:$ver" @files `
             --artifact-type application/vnd.calcsuite.release.v1 `
             --annotation "org.opencontainers.image.source=https://github.com/$env:GITHUB_REPOSITORY" `
@@ -247,7 +250,7 @@ jobs:
           $zip = (Get-ChildItem out/CalcSuite-*-win64.zip).FullName
           if (-not $zip) { throw "No zip in the build artifact" }
           # An array: splatting one string (@sig) would pass it letter by letter
-          $sig = @(Get-ChildItem out/*.sigstore.json -ErrorAction SilentlyContinue | ForEach-Object FullName)
+          $sig = @(Get-ChildItem out/*.sigstore.json, out/*.intoto.jsonl -ErrorAction SilentlyContinue | ForEach-Object FullName)
           gh release create $env:GITHUB_REF_NAME --draft --verify-tag --title $env:GITHUB_REF_NAME `
             --notes-file out/notes.md $zip out/SHA256SUMS.txt @sig
           if ($LASTEXITCODE) { throw "gh release create failed" }
