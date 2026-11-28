@@ -9,10 +9,12 @@
   .tns files: lists go to it as a small Python program (a .tns in My Documents) that stores
   them with ti_system.store_list when it runs; reading them back isn't possible over the link.
 - Copy answer (the tab's button row and the Data section): the last answer, with every digit
-  the calculator keeps, on the PC clipboard. The 84: its Ans variable, read over the link. The
-  89: its home screen history isn't a variable, so a tiny program (main\\zzans) stores ans(1)
-  in zzv (and string(ans(1)) in zzs); CalcSuite runs it over the link and reads them. The
-  Nspire's link has no such command: the button says so.
+  the calculator keeps, on the PC clipboard. Neither the 84 nor the 89 hands its last answer
+  over the link (the CE refuses Ans by every name; the 89 refuses ans() inside a program),
+  so CalcSuite types a store on the home screen and reads that: the 84 {Ans}→ZZANS (a list
+  answer: Ans→ZZANS), the 89 ans(1)→zzv:string(zzv)→zzs (only on its Home screen with an
+  empty entry line), then removes them. The Nspire's link has no such command: the button
+  says so.
 
 Every link command goes through the Mirror's link thread (run_batch, from a worker thread
 here); widgets are only touched on Tk's thread (after()). The number formats are in
@@ -34,11 +36,6 @@ import ui_theme as th
 
 LIST_TYPES = {"ti84": (0x01, 0x0D), "ti89": (0x04,)}
 MATRIX_TYPES = {"ti84": (0x02,), "ti89": (0x06,)}
-# Ans can hold any of these: tried in this order (the request names the type)
-ANS_TYPES_84 = (0x00, 0x0C, 0x01, 0x0D, 0x02, 0x18, 0x1B, 0x1C, 0x1D, 0x20, 0x21, 0x1E, 0x1F, 0x04)
-ANS_NAME_84 = b"Ans"
-PROG_89 = ("zzans()\nPrgm\nTry\nans(1)→zzv\nstring(zzv)→zzs\nElse\nClrErr\n"
-           "\"\"→zzs\nEndTry\nEndPrgm\n")
 NSPIRE_NO_ANSWER = ("The TI-Nspire's USB link has no command that reads the last answer (TI's own "
                     "software can't either): its variables live inside its documents. Copy "
                     "screen puts a picture of the screen on the clipboard instead.")
@@ -428,42 +425,121 @@ def send_blob(m, blob, ext, tmp, stem="zzdata"):
         raise LinkError(_why(lines))
 
 
-def read_answer_84(m, tmp):
-    for t in ANS_TYPES_84:
-        data = get_data(m, t, b"", ANS_NAME_84, 0, tmp, quiet=True)
-        if data is not None:
-            return cf.value84(t, data)
-    raise LinkError("the TI-84 Plus CE didn't hand over Ans over the link (it refused every "
-                    "kind of answer). Store it in a variable (Ans→A, or Ans→ʟZZANS for a list) "
-                    "and use Data > Open, or the Files panel")
-
-
-def read_answer_89(m, tmp, wait_s=8.0):
-    """Runs main\\zzans (sent first when it isn't there), which stores ans(1) in zzv and its
-    text in zzs, and reads them. Returns the value (or the text when it isn't a number)."""
-    items = list_vars(m, "ti89")
-    for i in items:  # Old results: a stale zzs would look like this run's
-        if i["name"] in (b"zzv", b"zzs"):
-            run(m, "rm %02x %s %s" % (i["type"], cf.to_hex(i["name"]), cf.to_hex(i["folder"])))
-    if not any(i["name"] == b"zzans" and i["type"] in (0x12, 0x13) and i["folder"] == b"main"
-               for i in items):
-        _name, _t, blob = cf.program_89p(PROG_89, folder="main")
-        send_blob(m, blob, "89p", tmp, "zzans")
-    run(m, "home")
-    code, lines = run(m, "exec prgm %s %s" % (b"main".hex(), b"zzans".hex()))
+def _keys(m, codes):
+    """Presses keys on the calculator (its own codes), through the paced key path"""
+    code, lines = run(m, "keys " + " ".join("%x" % c for c in codes))
     if code:
-        raise LinkError("the 89 didn't run main\\zzans: %s" % _why(lines))
+        raise LinkError("the calculator didn't take the keys: %s" % _why(lines))
+
+
+def _frame(m, tmp):
+    """The calculator's screen now: (width, height, RGB bytes)"""
+    path = os.path.join(tmp, "zzanswer_%d.ppm" % os.getpid())
+    code, lines = run(m, "shot " + path)
+    if code:
+        raise LinkError("couldn't see the screen: %s" % _why(lines))
+    with open(path, "rb") as f:
+        data = f.read()
+    os.remove(path)
+    parts = data.split(maxsplit=4)  # P6 w h max pixels
+    w, h = int(parts[1]), int(parts[2])
+    return w, h, parts[4][:w * h * 3]
+
+
+def _wait_for(m, slug, name, wait_s):
     t0 = time.time()
     while time.time() - t0 < wait_s:
-        time.sleep(0.6)
-        found = {i["name"]: i for i in list_vars(m, "ti89") if i["name"] in (b"zzv", b"zzs")}
-        if b"zzs" not in found:
-            continue
-        s = found[b"zzs"]
+        time.sleep(0.5)
+        for i in list_vars(m, slug):
+            if i["name"] == name:
+                return i
+    return None
+
+
+def _remove(m, item):
+    run(m, "rm %02x %s %s" % (item["type"], cf.to_hex(item["name"]), cf.to_hex(item["folder"])))
+
+
+def read_answer_84(m, tmp):
+    """The CE won't hand over Ans over the link (it refuses it under every name and type:
+    bench, OS 5.4.0, 2026-11-28), so CalcSuite types it into a list on the home screen:
+    QUIT, {Ans}→ZZANS (a list name needs no ʟ when a list is stored), reads ZZANS and removes
+    it. A list answer goes in as Ans→ZZANS. Leaves that line in the home screen's history."""
+    import calc_models  # noqa: F401  (puts ti84_cli, with ti84_keys, on the path)
+    from ti84_keys import CHAR, NAMED
+    name = [CHAR[c] for c in "ZZANS"]
+    for old in list_vars(m, "ti84"):
+        if old["name"] == b"ZZANS":
+            _remove(m, old)
+    tries = ([CHAR["{"], NAMED["ans"], CHAR["}"]], [NAMED["ans"]])  # A number, then a list
+    for k, what in enumerate(tries):
+        _keys(m, [NAMED["quit"]])
+        time.sleep(0.4)
+        _keys(m, what + [NAMED["sto"]] + name + [NAMED["enter"]])
+        item = _wait_for(m, "ti84", b"ZZANS", 4.0)
+        if item is not None:
+            data = get_data(m, item["type"], item["folder"], item["name"], item["size"], tmp)
+            _remove(m, item)
+            value = cf.value84(item["type"], data)
+            if k == 0 and isinstance(value, list) and len(value) == 1:
+                return value[0]  # {Ans}: the number itself
+            return value
+        _keys(m, [NAMED["quit"]])  # Leaves the error screen (ERR:DATA TYPE) for the next try
+        time.sleep(0.4)
+    raise LinkError("the TI-84 Plus CE's answer isn't a number or a list (a matrix or a "
+                    "string): store it yourself (Ans→[J] or Ans→Str1) and use Data > Open")
+
+
+# The TI-89 Titanium's Home screen: its toolbar's dividers (F1 Tools ... F6 Clean Up) at these
+# columns, rows 3-11 (bench, OS 3.10, 2026-11-28; the Apps desktop and the other apps differ)
+HOME_89_DIVIDERS = (0, 20, 49, 66, 87, 113, 144, 159)
+
+
+def ti89_home_state(frame):
+    """(frame) -> "home" (Home screen, empty entry line), "busy" (Home, text in the entry
+    line), or "other" (the Apps desktop or another app)"""
+    w, h, rgb = frame
+    if w != 160 or h != 100:
+        return "other"
+
+    def dark(x, y):
+        i = (y * w + x) * 3
+        return rgb[i] + rgb[i + 1] + rgb[i + 2] < 200
+    dividers = [x for x in range(w) if all(dark(x, y) for y in range(3, 12))]
+    if dividers != list(HOME_89_DIVIDERS):
+        return "other"
+    # The entry line: rows 82-90 above the status line; the cursor sits in its first columns
+    if any(dark(x, y) for y in range(82, 91) for x in range(8, w - 2)):
+        return "busy"
+    return "home"
+
+
+def read_answer_89(m, tmp):
+    """Types ans(1)→zzv:string(zzv)→zzs on the 89's Home screen (only when it shows the Home
+    screen with an empty entry line), reads zzv (or the text in zzs) and removes both. A
+    program can't do it: the 89 refuses ans() inside one (bench, OS 3.10: "Invalid ans()")."""
+    from calc_models import Ti89
+    state = ti89_home_state(_frame(m, tmp))
+    if state == "other":
+        raise LinkError("open the 89's Home screen first (from the Apps desktop, pick Home), "
+                        "then Copy answer again")
+    if state == "busy":
+        raise LinkError("the 89's entry line has something typed in it: clear it (or press "
+                        "ENTER), then Copy answer again")
+    for i in list_vars(m, "ti89"):
+        if i["name"] in (b"zzv", b"zzs"):
+            _remove(m, i)
+    codes, missing = Ti89.paste_keys("ans(1)→zzv:string(zzv)→zzs\n")
+    if missing:
+        raise LinkError("can't type %s on the 89" % "".join(sorted(missing)))
+    _keys(m, codes)
+    s = _wait_for(m, "ti89", b"zzs", 6.0)
+    if s is None:
+        raise LinkError("the 89 didn't store its answer (no answer yet? run a calculation on "
+                        "its Home screen first)")
+    found = {i["name"]: i for i in list_vars(m, "ti89") if i["name"] in (b"zzv", b"zzs")}
+    try:
         text = cf.value89(get_data(m, s["type"], s["folder"], s["name"], s["size"], tmp))
-        if not isinstance(text, str) or not text:
-            raise LinkError("the 89's last answer isn't something that can be stored (run a "
-                            "calculation on its home screen first)")
         v = found.get(b"zzv")
         if v is not None:
             try:
@@ -471,8 +547,9 @@ def read_answer_89(m, tmp, wait_s=8.0):
             except (ValueError, LinkError):
                 pass  # An expression with variables, a polar number: its text then
         return text
-    raise LinkError("main\\zzans didn't store the answer within %d s (is the 89 busy, or on a "
-                    "screen that isn't Home?)" % wait_s)
+    finally:
+        for i in found.values():
+            _remove(m, i)
 
 
 _ANSWER = {"busy": False, "last": None}  # last: (slug, text, time) of the last copy
@@ -505,10 +582,6 @@ def copy_answer(m, widget, say):
         try:
             value = read_answer_84(m, tmp) if slug == "ti84" else read_answer_89(m, tmp)
             text = answer_text(value, slug)
-            last = _ANSWER["last"]
-            if slug == "ti89" and text in ("Done", "\"Done\"") and last and last[0] == slug and \
-                    getattr(m, "last_key", 0) < last[2]:
-                text = last[1]  # Our own run of zzans made "Done" the newest answer
             on_tk(widget, done, text, None)
         except (LinkError, ValueError, OSError) as e:
             on_tk(widget, done, None, str(e))
@@ -640,8 +713,8 @@ class DataSection(object):
         row.pack(fill="x")
         th.button(row, "Copy answer", self.copy_answer).pack(side="left")
         self.answer = tk.StringVar(master=f, value={
-            "ti84": "Ans with all 14 digits, onto the PC clipboard",
-            "ti89": "Runs main\\zzans on the 89 (sent once) to read ans(1) in full",
+            "ti84": "Types {Ans}→ZZANS on the home screen, reads it in full, removes it",
+            "ti89": "Types ans(1)→zzv on the Home screen, reads it in full, removes it",
             "nspire": "Not possible over the TI-Nspire's link (click for why)"}[self.slug])
         tk.Label(row, textvariable=self.answer, bg=th.PANEL, fg=th.DIM, anchor="w", justify="left",
                  wraplength=300).pack(side="left", fill="x", expand=True, padx=(8, 0))

@@ -158,16 +158,12 @@ def nspire_symbol_checks():
     f += check(all(getattr(N.keys_for(s), "cell", None) == rc for s, rc in cells.items()) and
                all(keys(s)[:2] == ["catalog", "4"] and keys(s)[-1] == "enter" for s in cells),
                "Nspire Symbols: the rest walk the symbol palette (catalog 4) to their cell")
-    absk = keys("|x|")
-    f += check(absk[:2] == ["catalog", "5"] and
-               absk[-6:] == ["down", "right", "right", "right", "right", "enter"] and
-               isinstance(N.keys_for("|x|"), cm.TemplateKeys) and
-               isinstance(N.keys_for("∫"), cm.TemplateKeys),
-               "Nspire Symbols: |x| is the template tab's absolute value (row 2, column 5)")
-    spelled = [s for s, _w, k, _n in N.SYMBOLS if isinstance(k, str) or
-               (k and len(k) == 1 and len(k[0]) > 1 and N.code_for(k[0]) is None)]
+    f += check(N.keys_for("|x|") == "abs(" and isinstance(N.keys_for("∫"), cm.TemplateKeys),
+               "Nspire Symbols: |x| types abs( (the template tab's cell opened Create a Matrix on the bench)")
+    spelled = [s for s, _w, k, _n in N.SYMBOLS if s != "|x|" and (isinstance(k, str) or
+               (k and len(k) == 1 and len(k[0]) > 1 and N.code_for(k[0]) is None))]
     f += check(not spelled and all(cm.symbol_codes(N, keys(s)) for s, _w, _k, _n in N.SYMBOLS),
-               "Nspire Symbols: every button is key presses with codes, none a spelling (%s)" % spelled)
+               "Nspire Symbols: every button but |x| is key presses with codes, none a spelling (%s)" % spelled)
     f += check(c("ctrl+square") == 0x009200 and c("ctrl+var") == 0x00A800 and c("ee") == 0x00A400,
                "Nspire keys: ctrl x², ctrl var and EE are TILP's codes")
     # Pasted symbols: the same keys; no @ spellings, no <= /= =: infinity

@@ -303,7 +303,10 @@ def _sci(v):
 
 
 def _decimal(v):
-    """int, Fraction or Decimal -> Decimal (a fraction to 40 digits: rounded to 14 later)"""
+    """int, float, Fraction or Decimal -> Decimal (a fraction to 40 digits: rounded to 14 later;
+    a float by its shortest repr, so 2.5 is 2.5, not 2.4999...)"""
+    if isinstance(v, float):
+        v = Decimal(repr(v))
     if isinstance(v, Fraction):
         return _C40.divide(Decimal(v.numerator), Decimal(v.denominator))
     if isinstance(v, (int, Decimal)) and not isinstance(v, bool):

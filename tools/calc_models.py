@@ -283,8 +283,9 @@ class Nspire(Calc):
     #   Integral, 3 Sum: TI's CX II guidebook, keys_for picks by the model). The Calculator and
     #   the Scratchpad's Calculate have the same menu 4 Calculus. The template opens with the
     #   cursor in its first box; tab or the arrows move between the boxes.
-    # - a key of its own: π (π), x² (²), (-) (‾); untried yet (NSPIRE_UNTRIED_KEYS): ctrl x²
-    #   (√), ctrl var (→), EE (E), and |x| from the catalog's template tab
+    # - a key of its own: π (π), x² (²), (-) (‾), ctrl x² (√), ctrl var (→), EE (E): the last
+    #   three bench-tested on a CX II CAS, OS 6.40.74, 2026-11-28 (NSPIRE_UNTRIED_KEYS = False
+    #   still brings back the palette walks); |x| types abs(
     # - the rest: the symbol palette (catalog, tab 4: a grid 11 wide that remembers its last
     #   pick, so each press goes back to π first: arrows stop at the edges, ~55 rows; bench,
     #   CX II CAS, OS 6.40.74, 2026-11-27)
@@ -315,7 +316,9 @@ class Nspire(Calc):
         ("E", "×10^ (EE)", ["ee"], None),
         ("!", "factorial", ["!"], None),
         ("►", "convert ► (symbol palette)", _palette(0, 8), None),
-        ("|x|", "absolute value template (catalog, templates tab)", _template(1, 4), None),
+        # abs( (shown as |x| after enter): the catalog's template tab isn't laid out as TI's
+        # reference shows (bench, OS 6.40.74, 2026-11-28: the cell picked opened Create a Matrix)
+        ("|x|", "absolute value abs(", "abs(", None),
     )
     # The CX II without CAS: its Calculus menu has no symbolic derivative
     MENU_NONCAS = {"∫": _menu("4", "2"), "d/dx": _menu("4", "1"), "Σ": _menu("4", "3")}

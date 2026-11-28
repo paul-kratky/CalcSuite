@@ -11,13 +11,11 @@ The status line then says what was copied: `Copied 0.33333333333333 from the TI-
 
 | Calculator | How | What you get |
 | --- | --- | --- |
-| TI-84 Plus CE | Reads the `Ans` variable over the link | All 14 digits; complex numbers as `3+2i`; a list one number per line; a matrix as rows of tab-separated cells (pastes into Excel's cells); a string as its text. OS 5 exact answers (fractions, π and √ forms) come as their decimal value. |
-| TI-89 Titanium | The 89's home screen history isn't a variable the link can read, so CalcSuite sends a tiny program once, `main\zzans`, and runs it over the link: it stores `ans(1)` in `zzv` and `string(ans(1))` in `zzs`, which CalcSuite then reads (and replaces on the next copy). | Exact results stay exact (`1/3`, `-22/7`); floats with all 14 digits; lists and matrices as above. A symbolic result (`x^2+1`) or a polar number comes as the 89's own text of it. |
+| TI-84 Plus CE | The CE won't hand `Ans` over the link, so CalcSuite presses QUIT and types `{Ans}→ZZANS` on the home screen (a list answer: `Ans→ZZANS`), reads ZZANS and removes it. That line stays in the home screen's history. | All 14 digits; complex numbers as `3+2i`; a list one number per line; a matrix as rows of tab-separated cells (pastes into Excel's cells); a string as its text. OS 5 exact answers (fractions, π and √ forms) come as their decimal value. |
+| TI-89 Titanium | The 89 won't read `ans()` inside a program, so on its **Home screen** (with an empty entry line) CalcSuite types `ans(1)→zzv:string(zzv)→zzs`, reads them and removes them. On the Apps desktop, in another app or with something typed in the entry line it types nothing and says what to do. | Exact results stay exact (`1/3`, `-22/7`); floats with all 14 digits; lists and matrices as above. A symbolic result (`x^2+1`) or a polar number comes as the 89's own text of it. |
 | TI-Nspire CX II | Not possible: TI's link protocol has no command that reads the last answer, and the handheld's variables live inside its documents. The button says so. | Use **Copy screen** for a picture. |
 
-On the 89, running `zzans` leaves `zzans()` and `Done` in the home screen's history, so
-`ans(1)` is `Done` afterwards: copying again without a new calculation copies the same answer
-as before (CalcSuite remembers it until you press a key).
+Both leave the store line in the home screen's history; your answer itself is unchanged (a store answers with the same value).
 
 ## Lists and matrices
 
