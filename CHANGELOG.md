@@ -4,6 +4,20 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 ## [Unreleased]
 
+### Added
+- **Compare backups** (Files, **Compare...**): two backups of a calculator, or a backup and the
+  calculator now (read in full, or only its list for a quick look), as a list of what was added,
+  removed and changed (by SHA-256), with sizes and dates. **Show the difference** shows a
+  program's text side by side or as a unified diff (84 TI-Basic, the 89's texts and programs not
+  yet run, Nspire `.py` and the Python inside a `.tns`). **Restore this one** sends a single
+  item from a backup back, asking before it replaces anything. `tools/backup_compare.py` does
+  the same on the command line.
+- **Key macros** (a **Macros** panel on every calculator's tab): record keys, save them by name
+  per calculator model (`CalcSuite files\macros`), play them back through the same paced path as
+  typing, with optional waits; edit (rename, reorder, add or remove keys, waits), duplicate,
+  delete, import and export. A few harmless examples per calculator. A macro with keys that
+  delete, clear or open a reset menu asks before its first replay.
+
 ### Fixed
 - **Make a PC copy never stays on "Letting go of the link..."** (TI-84 Plus CE and TI-89
   Titanium): the ROM was dumped and saved, but the window never heard. The app's own module was

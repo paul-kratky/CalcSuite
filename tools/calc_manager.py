@@ -27,6 +27,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+import backup_compare_ui
 import calc_backup as cb
 import calc_files as cf
 import ui_theme as th
@@ -112,6 +113,8 @@ class Manager(object):
             side="left", fill="x", expand=True, padx=8)
         if not self.embedded:
             tk.Button(top, text="About this calculator", command=self.about, **BUTTON).pack(side="right")
+        tk.Button(top, text="Compare...", command=lambda: backup_compare_ui.CompareDialog(self),
+                  **BUTTON).pack(side="right", padx=(0, 6))
         self.restore_btn = tk.Button(top, text="Restore...", command=self.restore, **BUTTON)
         self.restore_btn.pack(side="right", padx=(0, 6))
         self.backup_btn = tk.Button(top, text="Back up...", command=self.backup, **BUTTON)

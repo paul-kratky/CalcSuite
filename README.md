@@ -83,7 +83,7 @@ talk to a calculator at a time.
 ## The window
 
 <details>
-<summary>All screens, a calculator's tab, the Program editor tab and the side panel (Files, Keys, Symbols, Functions, Guide, Get programs, Calculator info)</summary>
+<summary>All screens, a calculator's tab, the Program editor tab and the side panel (Files, Keys, Symbols, Functions, Guide, Get programs, Calculator info, Macros)</summary>
 
 **All screens** (the first tab) shows every connected calculator's live screen side by side,
 each with its frame rate, **Screenshot** and **Record**. Click a screen to type on that
@@ -116,6 +116,7 @@ The panel on the right of a tab:
 | **Symbols** | ∫ d/dx √ π θ Σ ∞ ≤ ≥ ≠ → i e ∠ ° ² ⁻¹ and more: click one to type it on the calculator. A symbol the calculator doesn't have is greyed out and says what to use instead. |
 | **Guide** | How to write programs for this calculator (TI-Basic for the 84 and the 89, Python for the Nspire), with a contents list and search. Every example has **Copy** and **Send to calculator**. |
 | **Get programs** | Programs and games for this calculator, in sections: Electrical, Mechanical, Chemistry, Physics, Math, Computer engineering, Utilities and Games (unit converters, circuit and beam tools, molar mass and gas laws, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire; Tetris, chess, Minesweeper and more). **Search** filters the list as you type (name, description, section). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists every program (not the games) CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
+| **Macros** | Record keys on this calculator, save them by name, play them back ([details](#keys-and-mouse)). |
 | **Calculator info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#files-backup-and-restore)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
 
 <img src="docs/img/symbols-panel.png" width="49%" alt="The Symbols panel"> <img src="docs/img/guide-panel.png" width="49%" alt="The Guide panel">
@@ -140,7 +141,7 @@ driver...** gives TI's software its driver back). Run from the source instead
 ## Keys and mouse
 
 <details>
-<summary>Which PC key is which calculator key, and what the mouse does</summary>
+<summary>Which PC key is which calculator key, what the mouse does, and key macros</summary>
 
 What you type goes to the calculator: letters, digits and symbols as themselves (on the 84,
 lower case is the capital). Keys go first: the picture catches up when you pause. The **Keys**
@@ -167,6 +168,25 @@ panel lists every key for the calculator in front of you.
 | Double click | enter | ENTER | ENTER |
 | Right click | the context menu | CLEAR | ESC |
 | Middle click | menu | | HOME |
+
+### Macros
+
+The **Macros** panel records keys and plays them back. **Record**, then use the calculator as
+usual (the keyboard, clicks on the screen, Symbols, Paste text): every key it gets is kept.
+**Stop recording**, give it a name, **Save**. With **Keep the pauses as waits**, a pause of
+0.7 s or more becomes a wait in the macro. **Play** (or double-click) sends the keys the same way
+typing does (paced by the link; a wait starts once the calculator has taken the keys before
+it); **Stop** ends it. **Edit...** renames a macro, moves keys up or down, removes or adds keys
+(the names the Keys panel uses, or a character) and changes the waits. **Import...** and
+**Export...** read and write `.json` files; your macros are kept in
+`CalcSuite files\macros\<model>.json`. Each calculator comes with a few examples that only
+move between screens (the 84: home screen, MODE and back, graph; the 89: home, MODE and back,
+Y=; the Nspire: home, the Scratchpad); **Duplicate** one to change it.
+
+A macro with keys that delete, clear or open a reset menu (DEL, CLEAR, backspace, 2nd MEM, the
+Nspire's ctrl X / ctrl N / ctrl Z, or a raw key code) asks before it plays for the first time,
+and again when such a key is added. What any macro does depends on the screen the calculator is
+on when you play it.
 
 </details>
 
@@ -254,7 +274,7 @@ answer into an empty editor and **Copy problems for the AI** hands back what the
 ## Files, backup and restore
 
 <details>
-<summary>Browse, download, upload and delete, back up and restore, clear a calculator, OS updates, Press-to-Test</summary>
+<summary>Browse, download, upload and delete, back up, compare and restore, clear a calculator, OS updates, Press-to-Test</summary>
 
 | | TI-Nspire CX II | TI-84 Plus CE | TI-89 Titanium |
 | --- | --- | --- | --- |
@@ -271,6 +291,15 @@ Downloads go to `CalcSuite files\from-calc` unless you pick another folder.
 and a `.b84` bundle; 89: TI files and a `.89g` group; a `manifest.json`). Apps and the OS can't
 be read: they're listed as skipped. **Restore...** shows what's in a backup, sends what you
 pick, and asks before replacing anything. It never wipes the calculator.
+
+**Compare...** puts two backups of this calculator side by side (or a backup and the calculator
+as it is now: read in full, or just its list of names and sizes for a quick look) and lists what
+was **added**, **removed** and **changed** (by each file's SHA-256), with sizes and the backups'
+dates. **Show the difference** shows a program's text side by side or as a unified diff (TI-Basic
+programs, strings and equations of the 84; the 89's texts, strings and programs not yet run; the
+Nspire's `.py` files and the Python program inside a `.tns`). **Restore this one** sends just
+that item from the backup back to the calculator, asking first if that name is there now. On
+the command line: `python -I tools/backup_compare.py BEFORE_FOLDER AFTER_FOLDER [NAME]`.
 
 **Calculator info** checks TI's website once a day for a newer OS and links to TI's download page.
 CalcSuite never downloads or installs an OS itself. (On the 84, OS 5.5 and later no longer run

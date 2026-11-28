@@ -277,6 +277,7 @@ class Mirror(object):
         self.history = []       # The last keys pressed, as labels (newest last)
         self.last_press = tk.StringVar(master=app.root, value="Last key: none yet")
         self.listeners = []     # fn(keysym) called after a key press (the Keys panel)
+        self.key_taps = []      # fn(line) for every key command queued (recording a macro)
         self.click_acted = 0.0  # When a single click last pressed keys (double click skips)
         # Fast mode (the TI-84 Plus CE only, experimental, off until set_fast(True)): see
         # set_fast() and docs/dev/FAST84_PLAN.md
@@ -555,6 +556,8 @@ class Mirror(object):
             self.jobs.append((line, note, done, progress))
             if line.startswith(("key ", "keys ")):
                 self.last_key = time.time()
+                for tap in list(getattr(self, "key_taps", ())):  # A macro recording (macros.py)
+                    tap(line)
 
     def run_batch(self, cmds, timeout=900):
         """[(line, progress)] on the link thread, waited for: [(code, lines)]. For a worker
