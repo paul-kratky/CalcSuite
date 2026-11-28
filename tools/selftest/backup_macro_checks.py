@@ -398,9 +398,10 @@ def macro_checks():
     # The warning rule
     for slug in mc.SLUGS:
         bi = mc.builtins(slug)
-        f += check(len(bi) >= 2 and all(not mc.risky_keys(slug, m) for m in bi) and
+        # Only the 84's "Go to MEM" opens a menu with Reset in it: it asks before its first replay
+        f += check(len(bi) >= 2 and all(not mc.risky_keys(slug, m) for m in bi if m["name"] != "Go to MEM") and
                    all(mc.code_of(slug, s["key"]) is not None for m in bi for s in m["steps"]),
-                   "built-in examples (%s): every key exists, none deletes, clears or resets" % slug)
+                   "built-in macros (%s): every key exists, none deletes, clears or resets" % slug)
     m = mc.new_macro("ti84", "zz", [{"key": "quit", "wait_ms": 0}, {"key": "del", "wait_ms": 0}])
     f += check([k for k, _w in mc.needs_warning("ti84", m)] == ["del"], "warning: DEL asks before the first replay")
     mc.accept_risky("ti84", m)
@@ -413,8 +414,82 @@ def macro_checks():
                    "warning: %s on the %s" % (key, slug))
     f += check(not mc.needs_warning("nspire", mc.new_macro("nspire", "zz", [{"key": "enter", "wait_ms": 0}])),
                "warning: enter alone doesn't")
-    f += check(mc.describe("ti84", mc.builtins("ti84")[1]) == "2nd QUIT, wait 0.3 s, MODE, wait 2 s, 2nd QUIT",
+    look = next(m for m in mc.builtins("ti84") if m["name"].startswith("Look at the MODE"))
+    f += check(mc.describe("ti84", look) == "2nd QUIT, wait 0.3 s, MODE, wait 2 s, 2nd QUIT",
                "describe: keys as their keycaps, with the waits")
+    f += goto_checks()
+    return f
+
+
+def goto_checks():
+    """The built-in "Go to" macros (their exact keys), pins and hotkeys: saved, read back,
+    conflicts moved, imports never steal a hotkey"""
+    f = 0
+    want = {
+        "ti84": {"Home": ["quit"], "Y=": ["y="], "WINDOW": ["window"], "TABLE": ["table"], "MODE": ["mode"],
+                 "STAT EDIT": ["stat", "enter"], "MATRIX": ["matrix"], "PRGM": ["prgm"], "MEM": ["mem"]},
+        "ti89": {"Home": ["home"], "Y=": ["y="], "WINDOW": ["window"], "GRAPH": ["graph"], "TABLE": ["table"],
+                 "Var-Link": ["var-link"], "MODE": ["mode"]},
+        "nspire": {"Home": ["home"], "Scratchpad: Calculate": ["home", "a"], "Scratchpad: Graph": ["home", "b"]},
+    }
+    labels = {"ti84": {"TABLE": "TABLE", "MATRIX": "MATRIX", "MEM": "MEM", "Home": "2nd QUIT"},
+              "ti89": {"Var-Link": "VAR-LINK", "Y=": "Y="}}
+    for slug, table in want.items():
+        got = {m["name"][6:]: [s["key"] for s in m["steps"]] for m in mc.builtins(slug) if m.get("go")}
+        f += check(got == table, "Go to macros (%s): %s" % (slug, ", ".join(sorted(got))))
+        codes = [mc.code_of(slug, k) for keys in table.values() for k in keys]
+        f += check(all(c is not None for c in codes), "Go to macros (%s): every key has a code" % slug)
+        for name, lab in labels.get(slug, {}).items():
+            f += check(mc.label_of(slug, table[name][-1]) == lab, "Go to %s on the %s presses %s" % (name, slug, lab))
+        for m in mc.builtins(slug):
+            if m.get("go"):
+                bad = [k for k, _w in mc.risky_keys(slug, m)]
+                f += check(bad in ([], ["mem"]), "Go to %s (%s) only navigates" % (m["name"][6:], slug))
+    # Pins and hotkeys
+    d = tempfile.mkdtemp(prefix="calcsuite_macros_pins_")
+    try:
+        allm = mc.builtins("ti84")
+        user = mc.new_macro("ti84", "zz mine", [{"key": "quit", "wait_ms": 0}])
+        allm.append(user)
+        yeq = next(m for m in allm if m["name"] == "Go to Y=")
+        yeq["pinned"] = True
+        user["pinned"] = True
+        f += check(mc.set_hotkey(allm, yeq, 1) is None and yeq["hotkey"] == 1, "hotkey: Ctrl+1 to Go to Y=")
+        was = mc.set_hotkey(allm, user, 1)
+        f += check(was is yeq and "hotkey" not in yeq and user["hotkey"] == 1,
+                   "hotkey: Ctrl+1 given to another macro moves (the old one says who had it)")
+        mc.set_hotkey(allm, yeq, 9)
+        try:
+            mc.set_hotkey(allm, yeq, 10)
+            f += check(False, "hotkey: Ctrl+10 refused")
+        except mc.MacroError:
+            f += check(True, "hotkey: Ctrl+10 refused")
+        f += check(mc.free_hotkeys(allm) == [2, 3, 4, 5, 6, 7, 8], "hotkey: the free ones listed")
+        mc.save("ti84", allm, d)
+        back = mc.load_all("ti84", d)
+        by = {m["name"]: m for m in back}
+        f += check(by["Go to Y="].get("pinned") and by["Go to Y="].get("hotkey") == 9 and
+                   by["zz mine"].get("pinned") and by["zz mine"].get("hotkey") == 1 and
+                   not by["Go to TABLE"].get("pinned") and len(back) == len(allm),
+                   "pins and hotkeys: saved with the macros (built-in ones by name) and read back")
+        f += check(mc.load("ti84", d) == [mc.validate("ti84", user)],
+                   "pins and hotkeys: load() is still the user's macros only")
+        # A file edited by hand with one hotkey twice, or a bad one: never two macros on one key
+        with open(mc.store_path("ti84", d), encoding="utf-8") as fh:
+            j = json.load(fh)
+        j["macros"].append({"name": "zz twice", "steps": [{"key": "mode", "wait_ms": 0}], "hotkey": 1})
+        j["macros"].append({"name": "zz odd", "steps": [{"key": "mode", "wait_ms": 0}], "hotkey": 12,
+                            "pinned": "yes"})
+        with open(mc.store_path("ti84", d), "w", encoding="utf-8") as fh:
+            json.dump(j, fh)
+        back = {m["name"]: m for m in mc.load_all("ti84", d)}
+        f += check(back["zz mine"].get("hotkey") == 1 and "hotkey" not in back["zz twice"] and
+                   "hotkey" not in back["zz odd"] and "pinned" not in back["zz odd"],
+                   "hotkeys: a doubled or bad one in the file is dropped, never two macros on one key")
+        _all, added = mc.merge(allm, [dict(mc.new_macro("ti84", "zz in", [{"key": "mode", "wait_ms": 0}]), hotkey=1)])
+        f += check(added[0].get("hotkey") is None and user["hotkey"] == 1, "import: a hotkey taken here isn't taken over")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
     return f
 
 
@@ -597,7 +672,7 @@ def window_macro_checks():
         sec = mui.MacrosSection(FakePanel(m), top, folder=d)
         sec.frame.pack(fill="both", expand=True)
         root.update()
-        f += check(len(sec.tree.get_children()) == 3, "Macros panel: the 84's three examples")
+        f += check(len(sec.tree.get_children()) == len(mc.builtins("ti84")), "Macros panel: the 84's built-in macros")
         sec.toggle_record()
         fmt = m.calc.key_fmt
         m.queue("key " + fmt % mc.code_of("ti84", "quit"))
@@ -651,6 +726,38 @@ def window_macro_checks():
             got = mc.load("ti84", d)[0]
             f += check(got["name"] == "zz edited" and [s["key"] for s in got["steps"]] == ["quit", "del", "enter", "math"]
                        and got["steps"][1]["wait_ms"] == 1500, "Macro editor: reorder, wait, add a key, rename, save")
+        # Pins and hotkeys from the panel (the box keeps them; the file has them)
+        box = sec.box
+        yeq = next(k for k, x in enumerate(sec.macros) if x["name"] == "Go to Y=")
+        sec.tree.selection_set(str(yeq))
+        root.update()
+        sec.toggle_pin()
+        f += check([x["name"] for x in box.pinned()] == ["Go to Y="] and
+                   mc.load_all("ti84", d)[yeq].get("pinned") and str(sec.pin_btn.cget("text")) == "Unpin",
+                   "Macros panel: Pin under the screen pins it (saved; the button says Unpin)")
+        f += check(sec.set_hotkey(3, ask=False) and box.by_hotkey(3) is sec.macros[yeq] and
+                   sec.tree.item(str(yeq), "values")[1] == "Ctrl+3", "Macros panel: Hotkey gives Ctrl+3 (shown in the list)")
+        mine = len(sec.macros) - 1
+        sec.tree.selection_set(str(mine))
+        root.update()
+        asked.clear()
+        messagebox.askyesno = lambda *a, **k: asked.append(a) or False
+        f += check(not sec.set_hotkey(3) and asked and box.by_hotkey(3) is sec.macros[yeq],
+                   "hotkey conflict: asked first; No keeps it where it was")
+        messagebox.askyesno = lambda *a, **k: asked.append(a) or True
+        f += check(sec.set_hotkey(3) and box.by_hotkey(3) is sec.macros[mine] and
+                   "hotkey" not in sec.macros[yeq] and mc.load_all("ti84", d)[mine].get("hotkey") == 3,
+                   "hotkey conflict: Yes moves Ctrl+3 to the picked macro (saved)")
+        m.queued = []
+        f += check(box.hotkey(3, top), "Ctrl+3 plays its macro")
+        pump(root, lambda: box.player is None, 5)
+        f += check(m.queued and m.queued[0].startswith("keys "), "Ctrl+3: its keys go to the calculator")
+        f += check(not box.hotkey(5, top), "Ctrl+5 with no macro: the key goes on to the calculator")
+        heard = []
+        box.listeners.append(lambda: heard.append(1))
+        sec.tree.selection_set(str(yeq))
+        sec.toggle_pin()
+        f += check(heard and not box.pinned(), "Unpin: the tab's pinned buttons hear about it")
         _shot_window(top, "macros-panel")
         top.destroy()
         # The real side panel and Files manager, with the faked mirror: the hooks are there
@@ -664,6 +771,24 @@ def window_macro_checks():
         root.update()
         f += check(isinstance(panel.sections.get("Macros"), mui.MacrosSection) and "Macros" in panel.buttons,
                    "side panel: a Macros tab that opens the Macros panel")
+        # The icon strip: one button per section, short labels, the full name as the heading
+        f += check(list(panel.buttons) == list(ui_panels.SECTIONS) and ui_panels.SECTIONS[-1] == ui_panels.INFO,
+                   "side panel strip: %s" % ", ".join(ui_panels.LABELS.get(n, n) for n in panel.buttons))
+        for n in (ui_panels.INFO, "Get programs"):  # Stand-ins: those sections need a real link
+            panel.sections[n] = type("S", (), {"frame": tk.Frame(panel.body)})()
+        panel.show("Info")
+        root.update()
+        c = panel.buttons[ui_panels.INFO]
+        texts = [c.itemcget(i, "text") for i in c.find_all() if c.type(i) == "text"]
+        f += check(panel.current == ui_panels.INFO and str(panel.head.cget("text")) == "Calculator info" and
+                   texts == ["Info"] and c.itemcget("bar", "fill") == th.ACCENT and str(c.cget("bg")) == th.PANEL2,
+                   "side panel strip: Info (label) opens Calculator info (heading), picked in the accent colour")
+        panel.show("Programs")
+        root.update()
+        f += check(panel.current == "Get programs" and str(panel.head.cget("text")) == "Get programs" and
+                   c.itemcget("bar", "fill") != th.ACCENT, "side panel strip: Programs is Get programs; one picked at a time")
+        f += check(panel.strip.frame.winfo_manager() == "pack" and panel.strip.frame.pack_info()["side"] == "right",
+                   "side panel strip: on the panel's right edge")
         mgr = calc_manager.Manager(m2, d, parent=top)
         root.update()
         texts = [str(w.cget("text")) for w in mgr.win.winfo_children()[0].winfo_children()
@@ -675,6 +800,89 @@ def window_macro_checks():
         messagebox.askyesno = saved
         shutil.rmtree(d, ignore_errors=True)
         _end(root)
+    return f
+
+
+def app_tab_checks():
+    """The main window's tool tabs (mirror.App.open_tool_tab, tool_tabs.window): made, shown,
+    the same key shows the same tab, ✕ closes through the tool's own close, popped out and
+    back, the tab before comes back. The App runs with no USB scan."""
+    try:
+        import tkinter as tk
+        import mirror
+        import tool_tabs
+    except Exception as e:
+        print("SKIP the tool tabs (%s)" % e)
+        return 0
+    f = 0
+    saved_scan = mirror.App.scan_loop
+    mirror.App.scan_loop = lambda self: None  # Never the real USB scan
+    try:
+        app = mirror.App()
+    except Exception as e:
+        mirror.App.scan_loop = saved_scan
+        print("SKIP the tool tabs (no window: %s)" % e)
+        return 0
+    try:
+        root = app.root
+        root.withdraw()
+        root.update()
+        calls = []
+
+        class Tool(tk.Frame):
+            def close(self):
+                calls.append("close")
+                self.destroy()
+        p = app.open_tool_tab("zz", "ZZ tool", lambda parent: Tool(parent))
+        root.update()
+        f += check(isinstance(p, Tool) and app.current == "tool:zz" and "tool:zz" in app.tab_widgets and
+                   p.winfo_toplevel() is root and str(app.pop_btn.cget("state")) == "normal",
+                   "tool tab: open_tool_tab makes a tab of the window and shows it")
+        app.show_tab("all")
+        again = app.open_tool_tab("zz", "ZZ again", lambda parent: 1 / 0)
+        f += check(again is p and app.current == "tool:zz" and len(app.tools) == 1,
+                   "tool tab: the same key again shows the tab it has")
+        app.close_tool_tab("zz")
+        root.update()
+        f += check(calls == ["close"] and not app.tools and "tool:zz" not in app.tab_widgets and app.current == "all",
+                   "tool tab: its close button runs the tool's close; the tab goes and the one before comes back")
+        # A tool written as a window gets a ToolFrame in a tab
+        closed = []
+        w = tool_tabs.window(root, "zzwin", "ZZ window")
+        w.title("ZZ renamed")
+        w.geometry("400x300")
+        w.minsize(10, 10)
+        w.protocol("WM_DELETE_WINDOW", lambda: (closed.append(1), w.destroy()))
+        root.update()
+        f += check(isinstance(w, tool_tabs.ToolFrame) and app.current == w._key and
+                   str(app.tab_widgets[w._key]["name"].cget("text")) == "ZZ renamed",
+                   "tool tab: a window-style tool builds into a tab (title() names the tab)")
+        w2 = tool_tabs.window(root, "zzwin", "ZZ second")
+        f += check(w2._key == "tool:zzwin#2" and len(app.tools) == 2, "tool tab: a second one with that key gets its own tab")
+        app.pop_out()
+        root.update()
+        f += check(w2.popped and app.current != w2._key, "tool tab: Open in its own window pops it out")
+        app.dock(w2._key)
+        root.update()
+        f += check(not w2.popped and app.current == w2._key, "tool tab: closing that window puts it back")
+        app.close_tool_tab(w._key)
+        w2.destroy()
+        root.update()
+        f += check(closed == [1] and not app.tools, "tool tab: the close button is the window's close; destroy() closes the tab")
+        # The tab strip's connection dot is an image (antialiased), recoloured by state
+        import ui_theme as th
+        dot = th.status_dot(root)
+        th.set_dot(dot, "connected")
+        a = str(dot.cget("image"))
+        th.set_dot(dot, "connecting")
+        b = str(dot.cget("image"))
+        th.set_dot(dot, bg=th.PANEL2)
+        f += check(a and b and a != b and b != str(dot.cget("image")) and dot.dot_state == "connecting",
+                   "tab dot: a smooth image per state and background")
+    finally:
+        mirror.App.scan_loop = saved_scan
+        mirror.APP = None
+        _end(app.root)
     return f
 
 
@@ -728,6 +936,7 @@ def main():
         f = compare_checks()
         f += macro_checks()
         f += window_macro_checks()
+        f += app_tab_checks()
     finally:
         mui.EditDialog.__init__ = orig
     return f

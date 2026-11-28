@@ -165,7 +165,7 @@ def ask_save(parent, name):
              padx=18).pack(anchor="w")
     row = tk.Frame(d, bg=PANEL_BG)
     row.pack(fill="x", padx=14, pady=14)
-    save = th.button(row, "Save", lambda: pick("save"), bg="#0E639C", activebackground="#1177BB")
+    save = th.button(row, "Save", lambda: pick("save"), bg=th.ACCENT, fg="#000000", activebackground="#ff915e", activeforeground="#000000")
     save.pack(side="right", padx=4)
     th.button(row, "Don't save", lambda: pick("discard")).pack(side="right", padx=4)
     th.button(row, "Cancel", lambda: pick("cancel")).pack(side="right", padx=4)
@@ -240,7 +240,7 @@ class Editor(object):
         st.configure("Editor.Treeview", background=PANEL_BG, fieldbackground=PANEL_BG, foreground=EDITOR_FG,
                      rowheight=22, borderwidth=0, bordercolor=PANEL_BG, lightcolor=PANEL_BG, darkcolor=PANEL_BG)
         st.layout("Editor.Treeview", [("Editor.Treeview.treearea", {"sticky": "nswe"})])
-        st.map("Editor.Treeview", background=[("selected", "#04395E")], foreground=[("selected", "#ffffff")])
+        st.map("Editor.Treeview", background=[("selected", "#2b2b33")], foreground=[("selected", "#ffffff")])
         st.configure("Editor.Treeview.Heading", background=PANEL_BG, foreground=th.DIM, relief="flat")
         st.configure("TCombobox", fieldbackground=th.PANEL2, background=th.PANEL2, foreground=th.FG,
                      arrowcolor=th.FG, bordercolor=th.LINE, lightcolor=th.PANEL2, darkcolor=th.PANEL2)
@@ -708,7 +708,7 @@ class Editor(object):
                 text.count("\n") + 1, c["error"], c["warning"]), SEV_COLOUR["error" if c["error"] else "warning"])
             self.copy_problems_button.pack(side="right", padx=6, pady=2)
         else:
-            self.set_status("Pasted %d lines: no problems found" % (text.count("\n") + 1), th.MINT)
+            self.set_status("Pasted %d lines: no problems found" % (text.count("\n") + 1), th.FG)
 
     def _focus_check(self):
         if self._popup is not None:
@@ -796,7 +796,7 @@ class Editor(object):
         elif c["warning"]:
             self.set_status("No errors; %d warning(s)" % c["warning"], SEV_COLOUR["warning"])
         else:
-            self.set_status("No problems found", th.MINT)
+            self.set_status("No problems found", th.FG)
 
     def highlight(self, text=None):
         text = self.get_text() if text is None else text
@@ -1183,7 +1183,7 @@ class Editor(object):
         self.win.clipboard_clear()
         self.win.clipboard_append(text)
         self.set_status("Copied instructions for a chat AI (%s): paste them before your request" % SHORT[self.lang],
-                        th.MINT)
+                        th.FG)
         return text
 
     def copy_problems(self):
@@ -1192,7 +1192,7 @@ class Editor(object):
         self.win.clipboard_clear()
         self.win.clipboard_append(text)
         self.set_status("Copied %d problem(s): paste them into the chat and ask it to fix them" % len(self.problems),
-                        th.MINT)
+                        th.FG)
         return text
 
     # ---- Files ----
@@ -1353,7 +1353,7 @@ class Editor(object):
             self.name_var.set(cf.name_84_from(os.path.splitext(os.path.basename(path))[0]) or "")
         self.text.edit_modified(False)
         self.update_title()
-        self.set_status("Saved %s" % path, th.MINT)
+        self.set_status("Saved %s" % path, th.FG)
         return True
 
     def close(self, force=False):
@@ -1474,7 +1474,7 @@ class Editor(object):
         self.show_build_buttons()
         if not quiet:
             self.set_status("Built %s (%s)%s" % (out, cf.human_size(os.path.getsize(out)),
-                                                  "; %d warning(s)" % c["warning"] if c["warning"] else ""), th.MINT)
+                                                  "; %d warning(s)" % c["warning"] if c["warning"] else ""), th.FG)
         return self.built
 
     def test_in_pc_copy(self):
@@ -1513,7 +1513,7 @@ class Editor(object):
             return None
         how = copy_file_to_clipboard(self.win, self.built["file"])
         self.set_status(("Copied %s: paste it into Discord, an e-mail or a folder" if how == "file" else
-                         "Copied the path of %s") % os.path.basename(self.built["file"]), th.MINT)
+                         "Copied the path of %s") % os.path.basename(self.built["file"]), th.FG)
         return how
 
     def send(self, run=True):
@@ -1567,7 +1567,7 @@ class Editor(object):
             note = " (%d warning(s))" % warn if warn else ""
             if not run:
                 self.set_status("Sent %s to the %s%s. %s. File: %s" % (
-                    name, m.calc.title, note, send_ti.how_to_run(slug, wanted), out), th.MINT)
+                    name, m.calc.title, note, send_ti.how_to_run(slug, wanted), out), th.FG)
                 return
             self.run_on_calc(m, name, args, note)
         self._queue(m, "ls", listed)
@@ -1624,9 +1624,9 @@ class Editor(object):
                     name, note, state["err"]), SEV_COLOUR["warning"])
             elif m.calc.slug == "ti89" and args:
                 self.set_status("Sent %s%s. On the 89: type its arguments after %s( and press ENTER" % (
-                    name, note, name), th.MINT)
+                    name, note, name), th.FG)
             else:
-                self.set_status("Sent and started %s%s: watch the calculator's screen" % (name, note), th.MINT)
+                self.set_status("Sent and started %s%s: watch the calculator's screen" % (name, note), th.FG)
         for k, line in enumerate(lines):
             self._queue(m, line, lambda code, out, k=k: done(k, code, out))
 
@@ -1640,7 +1640,7 @@ class Editor(object):
         def done(ok, msg):
             if ok:
                 self.set_status("Sent %s to My Documents. On the handheld: home > My Documents > %s, then "
-                                "ctrl+R runs it (close it first if it was open). File: %s" % (base, base, tns), th.MINT)
+                                "ctrl+R runs it (close it first if it was open). File: %s" % (base, base, tns), th.FG)
             else:
                 self.set_status(msg, SEV_COLOUR["error"])
         m.send_nspire_files([(tns, "/")], lambda ok, msg: self._inbox.put((done, (ok, msg))))

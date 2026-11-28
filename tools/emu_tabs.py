@@ -365,7 +365,7 @@ class EmuTab(object):
         body = tk.Frame(self.frame, bg=th.BG)
         body.pack(fill="both", expand=True)
         self.panel = EmuPanel(body, self)
-        self.panel.frame.pack(side="right", fill="y", padx=(0, 14), pady=(10, 10))
+        self.panel.frame.pack(side="right", fill="y", pady=(10, 0))
         # The emulator's window goes into this frame (its own Windows window: winfo_id)
         self.host = tk.Frame(body, bg="#050506", highlightthickness=0, bd=0)
         self.host.pack(side="left", fill="both", expand=True, padx=(14, 8), pady=(10, 10))
@@ -537,7 +537,7 @@ class EmuTab(object):
                 "checksums), then run it yourself."),
             [("Show the installer" if have else "Download TiEmu's installer", self.get_tiemu),
              ("Check again", self.start)])
-        self.set_dot(th.GREY)
+        self.set_dot("absent")
 
     def get_tiemu(self):
         import pc_copy
@@ -585,24 +585,24 @@ class EmuTab(object):
             self.note.place_forget()
             # The message that was there goes: the frame around the window repaints
             self.frame.after(120, lambda: self.win is not None and self.win.redraw(self.host.winfo_id()))
-            self.set_dot(th.MINT)
+            self.set_dot("connected")
             self.status.set("%s is running here: click into it to type on it (its keys are in the panel); "
                             "the rest of CalcSuite works as usual." % name)
             if self.app.current == self.key:
                 self.frame.after(60, self.focus)
         elif state == eh.STARTING:
-            self.set_dot(th.ACCENT)
+            self.set_dot("connecting")
             if why:
                 self.message("%s: %s..." % (name, why), [])
         elif state == eh.OWN:
-            self.set_dot(th.MINT)
+            self.set_dot("connected")
             self.btn_pop.configure(text="Back into the tab")
             self.message("%s is in its own window%s." % (
                 name, "" if why == "in its own window" else " (%s)" % why),
                 [("Back into the tab", self.dock), ("Show it", self.raise_own)])
             self.status.set("%s is in its own window. Back into the tab puts it here again." % name)
         elif state == eh.CLOSED:
-            self.set_dot(th.GREY)
+            self.set_dot("absent")
             self.btn_pop.configure(state="disabled")
             if self.restart_mode is not None:
                 fresh, self.restart_mode = self.restart_mode, None
@@ -617,18 +617,19 @@ class EmuTab(object):
                 else "Open again starts it with your ROM."), buttons)
             self.status.set("%s is closed." % name)
         elif state == eh.FAILED:
-            self.set_dot(th.RED)
+            self.set_dot("failed")
             self.message("%s didn't start: %s." % (name, why), [("Try again", self.start)])
             try:
                 raise RuntimeError(why)
             except RuntimeError:
                 log_error("starting %s in its tab" % name)
 
-    def set_dot(self, colour):
+    def set_dot(self, state):
+        """The tab's dot: "connected", "connecting", "absent" or "failed" (mirror.set_dot)"""
         w = self.app.tab_widgets.get(self.key)
         if w:
             try:
-                w["dot"].itemconfigure(1, fill=colour)
+                th.set_dot(w["dot"], state)
                 state = self.session.state if self.session else None
                 w["fps"].configure(text={eh.OWN: "own window", eh.CLOSED: "closed", eh.STARTING: "starting",
                                          eh.FAILED: "didn't start"}.get(state, ""))
@@ -748,7 +749,7 @@ class EmuTab(object):
         holder.place(relx=0, rely=0, relwidth=1, relheight=1)
         self.copy_holder = holder
         self.status.set("Making a PC copy of the %s." % TITLES[self.slug])
-        self.set_dot(th.ACCENT)
+        self.set_dot("connecting")
         self.copy_view = ui_panels.PcCopyDialog(section, mode, parent=holder, on_made=self.copy_made,
                                                 on_close=self.copy_closed)
 
@@ -776,7 +777,7 @@ class EmuTab(object):
             self.status.set("")
         else:
             self.message("No PC copy was made.", [("Make a PC copy...", self.make_copy)])
-        self.set_dot(th.GREY)
+        self.set_dot("absent")
 
     def show_rom(self):
         import ui_panels
@@ -888,22 +889,11 @@ class EmuPanel(object):
         self.tab, self.app = tab, tab.app
         self.m = None
         self.guide = (GUIDE[0], GUIDE[1], GUIDE_PDF)
-        self.frame = tk.Frame(parent, bg=th.PANEL, width=ui_panels.WIDTH)
-        self.frame.pack_propagate(False)
-        bar = tk.Frame(self.frame, bg=th.PANEL)
-        bar.pack(fill="x", padx=10, pady=(10, 6))
-        self.buttons = {}
-        for k, name in enumerate(self.SECTIONS):
-            b = tk.Label(bar, text=name, bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9, "bold"), padx=7, pady=4,
-                         cursor="hand2")
-            b.grid(row=0, column=k, sticky="ew", padx=2, pady=2)
-            b.bind("<Button-1>", lambda e, n=name: self.show(n))
-            self.buttons[name] = b
-            bar.columnconfigure(k, weight=1)
-        tk.Frame(self.frame, bg=th.LINE, height=1).pack(fill="x", padx=10)
-        self.body = tk.Frame(self.frame, bg=th.PANEL)
-        self.body.pack(fill="both", expand=True, padx=12, pady=10)
-        ui_panels.auto_wrap(self.frame, self.body)
+        # The same icon strip as a calculator's tab (ui_panels.panel_frame)
+        self.frame, self.strip, self.head, self.body = ui_panels.panel_frame(
+            parent, self.SECTIONS, self.show, full={"Keys": "Keys: %s's own" % self.tab.name,
+                                                    "Guide": "Guide: PC copies"})
+        self.buttons = self.strip.items
         self.sections = {}
         self.current = None
         self.show("Keys")
@@ -921,8 +911,8 @@ class EmuPanel(object):
                 self.sections[name] = ui_panels.GuideSection(self, self.body)
         self.sections[name].frame.pack(fill="both", expand=True)
         self.current = name
-        for n, b in self.buttons.items():
-            b.configure(bg=th.PANEL2 if n == name else th.PANEL, fg=th.ACCENT if n == name else th.DIM)
+        self.head.configure(text={"Keys": "%s's keys" % self.tab.name, "Guide": "PC copies guide"}[name])
+        self.strip.select(name)
         if hasattr(self.sections[name], "shown"):
             self.sections[name].shown()
 

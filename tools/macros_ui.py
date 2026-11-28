@@ -1,6 +1,10 @@
 """The Macros section of a calculator's side panel: record keys, save them by name, play them
-back, edit, import and export. The logic (recording, files, the replay plan, the warning rule)
-is macros.py; this is only the window.
+back, pin them as buttons under the screen, give them Ctrl+1..9, edit, import and export. The
+logic (recording, files, the replay plan, the warning rule, pins and hotkeys) is macros.py;
+this is only the window.
+
+Each calculator's tab has one MacroBox (box_for): the macros, the one playing, and play().
+The Macros panel, the pinned buttons under the screen and the hotkeys all go through it.
 
 A replay runs on a worker thread and goes through the tab's Mirror.queue like typed keys, so
 the link helper paces it; window work comes back with after(). MIT licence.
@@ -13,6 +17,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import macros as mc
+import tool_tabs
 import ui_theme as th
 
 
@@ -30,6 +35,174 @@ def entry(parent, var, width=20):
                     highlightbackground=th.LINE, highlightcolor=th.ACCENT)
 
 
+def box_for(mirror, folder=None):
+    """The calculator's MacroBox (one per Mirror; folder: the self-test's own, not kept)"""
+    b = getattr(mirror, "macro_box", None)
+    if b is None or b.folder != folder:
+        b = MacroBox(mirror, folder)
+        if folder is None:
+            mirror.macro_box = b
+    return b
+
+
+class MacroBox(object):
+    """One calculator's macros and their replay. listeners: fn() after the list, a pin or a
+    hotkey changed (the pinned buttons, the Keys panel); notes: fn(text) for what it says
+    (the Macros panel's note; the tab's status line gets it too); states: fn() when a replay
+    starts or ends."""
+
+    def __init__(self, mirror, folder=None):
+        self.m, self.folder = mirror, folder
+        self.slug, self.calc = mirror.calc.slug, mirror.calc
+        self.macros = []
+        self.player = None
+        self.recording = False
+        self.listeners, self.notes, self.states = [], [], []
+        self.load_note = None
+        self.load()
+
+    # ---- the list ----
+    def load(self):
+        try:
+            self.macros = mc.load_all(self.slug, self.folder)
+        except mc.MacroError as e:
+            log_error("reading the macros")
+            path = mc.store_path(self.slug, self.folder)
+            aside = path + ".unreadable-%s" % time.strftime("%Y%m%d-%H%M%S")
+            try:
+                os.replace(path, aside)
+                self.load_note = "The macros file couldn't be read (%s): it was kept as %s" % (e, aside)
+            except OSError:
+                self.load_note = "The macros file couldn't be read: %s" % e
+            self.macros = mc.builtins(self.slug)
+
+    def store(self):
+        """Saves the list (the user's macros, the built-ins' pins and hotkeys) and tells the
+        listeners. False (and says why) when it can't be written."""
+        ok = True
+        try:
+            mc.save(self.slug, self.macros, self.folder)
+        except OSError as e:
+            log_error("saving the macros")
+            self.say("Couldn't save the macros: %s" % e, status=False)
+            ok = False
+        self.changed()
+        return ok
+
+    def changed(self):
+        for fn in list(self.listeners):
+            try:
+                fn()
+            except tk.TclError:
+                try:
+                    self.listeners.remove(fn)  # Its window is gone
+                except ValueError:
+                    pass
+            except Exception:
+                log_error("showing the macros")
+
+    def user_macros(self):
+        return [m for m in self.macros if not m.get("builtin")]
+
+    def pinned(self):
+        return mc.pinned(self.macros)
+
+    def by_hotkey(self, n):
+        return mc.by_hotkey(self.macros, n)
+
+    def say(self, text, status=True):
+        for fn in list(self.notes):
+            try:
+                fn(text)
+            except tk.TclError:
+                pass
+        if status and hasattr(self.m, "set_status"):
+            self.m.set_status(text)
+
+    def state(self):
+        for fn in list(self.states):
+            try:
+                fn()
+            except tk.TclError:
+                pass
+
+    # ---- playing ----
+    def hotkey(self, n, parent):
+        """Ctrl+n on the calculator's tab: plays its macro. False when no macro has it (the
+        key then goes to the calculator as before)."""
+        m = self.by_hotkey(n)
+        if m is None:
+            return False
+        self.play(m, parent)
+        return True
+
+    def play(self, m, parent):
+        """Plays m (a pinned button, a hotkey, the panel's Play). parent: where a question
+        hangs. True when it started."""
+        if self.player is not None:
+            self.say("Wait for the macro to finish (or Stop it)")
+            return False
+        if self.recording:
+            self.say("Stop the recording first")
+            return False
+        if self.m.session is None:
+            self.say("The %s isn't connected yet" % self.calc.title)
+            return False
+        if not self.m.keys_on.get():
+            self.say("The keyboard is off for the %s (Keyboard, under the screen)" % self.calc.title)
+            return False
+        risky = mc.needs_warning(self.slug, m)
+        if risky:
+            listing = "\n".join("  %s" % why for _k, why in risky)
+            if not messagebox.askyesno(
+                    "Play this macro?", "%s presses keys that can delete or reset things on the %s:\n\n%s"
+                    "\n\nWhat they do depends on the screen the calculator is on. Play it now? (You're "
+                    "asked again only if keys like these are added.)" % (m["name"], self.calc.title, listing),
+                    icon="warning", parent=parent.winfo_toplevel()):
+                return False
+            mc.accept_risky(self.slug, m)
+            if not m.get("builtin"):
+                self.store()
+        try:
+            segments = mc.plan(self.slug, m["steps"])
+        except mc.MacroError as e:
+            self.say(str(e))
+            return False
+        mirror = self.m
+        fmt = self.calc.key_fmt
+
+        def send(codes, done):
+            if not mirror.running or mirror.session is None:
+                return False
+            mirror.queue("keys " + " ".join(fmt % c for c in codes), None,
+                         lambda code, lines: done(code == 0))
+            return True
+
+        def ended(ok, why):
+            try:
+                parent.after(0, lambda: self.played(m, ok, why))
+            except (tk.TclError, RuntimeError):
+                pass
+        self.player = mc.Player(segments, send, ended)
+        self.say("Playing %s..." % m["name"])
+        self.state()
+        try:
+            mirror.pressed(None, None, [], text="macro " + m["name"])
+        except Exception:
+            log_error("showing the macro's press")
+        threading.Thread(target=self.player.run, daemon=True).start()
+        return True
+
+    def stop(self):
+        if self.player is not None:
+            self.player.stop()
+
+    def played(self, m, ok, why):
+        self.player = None
+        self.say("Played %s" % m["name"] if ok else "%s stopped: %s" % (m["name"], why))
+        self.state()
+
+
 class MacrosSection(object):
     def __init__(self, panel, parent, folder=None):
         """folder: where the macros files are (default CalcSuite files\\macros; the self-test's own)"""
@@ -37,8 +210,8 @@ class MacrosSection(object):
         self.panel, self.m = panel, panel.m
         self.slug, self.calc = self.m.calc.slug, self.m.calc
         self.folder = folder
+        self.box = box_for(self.m, folder)
         self.recorder = None
-        self.player = None
         self.frame = tk.Frame(parent, bg=th.PANEL)
         outer, inner = up.scrolled(self.frame)
         outer.pack(fill="both", expand=True)
@@ -54,8 +227,7 @@ class MacrosSection(object):
         self.rec_note = tk.StringVar(master=self.frame, value=(
             "Record, then use the calculator as usual (keyboard, clicks on the screen, Symbols, paste): "
             "every key is kept. Stop recording, name it, Save."))
-        tk.Label(inner, textvariable=self.rec_note, bg=th.PANEL, fg=th.DIM, anchor="w", justify="left",
-                 wraplength=400).pack(fill="x", pady=(6, 0))
+        th.hint(inner, textvariable=self.rec_note).pack(fill="x", pady=(6, 0))
         self.save_row = tk.Frame(inner, bg=th.PANEL)
         self.name_var = tk.StringVar(master=self.frame)
         entry(self.save_row, self.name_var, 24).pack(side="left", fill="x", expand=True, ipady=3)
@@ -68,14 +240,18 @@ class MacrosSection(object):
         up.heading(inner, "Macros for the %s" % self.calc.title)
         mid = tk.Frame(inner, bg=th.PANEL)
         mid.pack(fill="x")
-        tree = self.tree = ttk.Treeview(mid, columns=("keys", "time"), style="Calc.Treeview",
-                                        selectmode="browse", height=8)
+        tree = self.tree = ttk.Treeview(mid, columns=("pin", "hotkey", "keys", "time"), style="Calc.Treeview",
+                                        selectmode="browse", height=10)
         tree.heading("#0", text="Name", anchor="w")
-        tree.column("#0", width=220, anchor="w")
+        tree.column("#0", width=200, anchor="w")
+        tree.heading("pin", text="Pinned", anchor="center")
+        tree.column("pin", width=60, anchor="center", stretch=False)
+        tree.heading("hotkey", text="Hotkey", anchor="w")
+        tree.column("hotkey", width=64, anchor="w", stretch=False)
         tree.heading("keys", text="Keys", anchor="e")
-        tree.column("keys", width=50, anchor="e", stretch=False)
+        tree.column("keys", width=46, anchor="e", stretch=False)
         tree.heading("time", text="Waits", anchor="e")
-        tree.column("time", width=60, anchor="e", stretch=False)
+        tree.column("time", width=54, anchor="e", stretch=False)
         tree.tag_configure("builtin", foreground=th.DIM)
         sb = ttk.Scrollbar(mid, orient="vertical", command=tree.yview, style="Calc.Vertical.TScrollbar")
         tree.configure(yscrollcommand=sb.set)
@@ -92,25 +268,44 @@ class MacrosSection(object):
         self.play_btn.pack(side="left")
         self.stop_btn = th.button(b1, "Stop", self.stop, state="disabled")
         self.stop_btn.pack(side="left", padx=(6, 0))
-        self.edit_btn = th.button(b1, "Edit...", self.edit)
-        self.edit_btn.pack(side="left", padx=(6, 0))
-        th.button(b1, "Duplicate", self.duplicate).pack(side="left", padx=(6, 0))
+        self.pin_btn = th.button(b1, "Pin under the screen", self.toggle_pin)
+        self.pin_btn.pack(side="left", padx=(6, 0))
+        self.hot_btn = th.button(b1, "Hotkey ▾", self.hotkey_menu)
+        self.hot_btn.pack(side="left", padx=(6, 0))
         b2 = tk.Frame(inner, bg=th.PANEL)
         b2.pack(fill="x", pady=(6, 0))
+        self.edit_btn = th.button(b2, "Edit...", self.edit)
+        self.edit_btn.pack(side="left")
+        th.button(b2, "Duplicate", self.duplicate).pack(side="left", padx=(6, 0))
         self.del_btn = th.button(b2, "Delete", self.delete)
-        self.del_btn.pack(side="left")
+        self.del_btn.pack(side="left", padx=(6, 0))
         th.button(b2, "Import...", self.import_).pack(side="left", padx=(6, 0))
         th.button(b2, "Export...", self.export).pack(side="left", padx=(6, 0))
-        self.note = tk.StringVar(master=self.frame, value=(
-            "Examples (grey) only move between screens; Duplicate one to change it. A macro with "
-            "keys that delete, clear or open a reset menu asks before it first plays."))
-        tk.Label(inner, textvariable=self.note, bg=th.PANEL, fg=th.DIM, anchor="w", justify="left",
-                 wraplength=400).pack(fill="x", pady=(8, 0))
+        self.note = tk.StringVar(master=self.frame, value=self.box.load_note or (
+            "The \"Go to\" macros only open a screen or a menu. Pin one to get a button under the "
+            "screen, or give it Ctrl+1 to Ctrl+9 (on this tab). Examples (grey) can't be changed: "
+            "Duplicate one to change it. A macro with keys that delete, clear or open a reset menu "
+            "asks before it first plays."))
+        th.hint(inner, textvariable=self.note).pack(fill="x", pady=(8, 0))
         up.bind_wheel(inner, inner)
-        self.macros = []
-        self.load()
+        self.box.notes.append(self.note.set)
+        self.box.states.append(self.play_state)
+        self.box.listeners.append(self.refill)
+        self.fill()
 
     # ---- Plumbing ----
+    @property
+    def macros(self):
+        return self.box.macros
+
+    @macros.setter
+    def macros(self, value):
+        self.box.macros = value
+
+    @property
+    def player(self):
+        return self.box.player
+
     def ui(self, fn, *args):
         try:
             self.frame.after(0, lambda: fn(*args))
@@ -118,48 +313,44 @@ class MacrosSection(object):
             pass
 
     def user_macros(self):
-        return [m for m in self.macros if not m.get("builtin")]
+        return self.box.user_macros()
 
     def load(self):
-        user = []
-        try:
-            user = mc.load(self.slug, self.folder)
-        except mc.MacroError as e:
-            log_error("reading the macros")
-            path = mc.store_path(self.slug, self.folder)
-            aside = path + ".unreadable-%s" % time.strftime("%Y%m%d-%H%M%S")
-            try:
-                os.replace(path, aside)
-                self.note.set("The macros file couldn't be read (%s): it was kept as %s" % (e, aside))
-            except OSError:
-                self.note.set("The macros file couldn't be read: %s" % e)
-        self.macros = mc.builtins(self.slug) + user
+        self.box.load()
+        if self.box.load_note:
+            self.note.set(self.box.load_note)
         self.fill()
 
     def store(self):
-        try:
-            mc.save(self.slug, self.user_macros(), self.folder)
-            return True
-        except OSError as e:
-            log_error("saving the macros")
-            self.note.set("Couldn't save the macros: %s" % e)
-            return False
+        return self.box.store()
+
+    def refill(self):
+        """The box's list changed (here or elsewhere): the list shows it, the pick stays"""
+        k, _m = self.selected()
+        self.fill(k)
 
     def fill(self, pick=None):
         self.tree.delete(*self.tree.get_children())
         for k, m in enumerate(self.macros):
             waits = mc.total_ms(m)
-            self.tree.insert("", "end", iid=str(k), text=m["name"] + ("  (example)" if m.get("builtin") else ""),
-                             values=(len(m["steps"]), mc.seconds(waits) if waits else ""),
-                             tags=("builtin",) if m.get("builtin") else ())
+            self.tree.insert("", "end", iid=str(k), text=m["name"] + (
+                "" if m.get("go") or not m.get("builtin") else "  (example)"),
+                values=("●" if m.get("pinned") else "", "Ctrl+%d" % m["hotkey"] if m.get("hotkey") else "",
+                        len(m["steps"]), mc.seconds(waits) if waits else ""),
+                tags=("builtin",) if m.get("builtin") and not m.get("go") else ())
         if pick is not None and 0 <= pick < len(self.macros):
             self.tree.selection_set(str(pick))
             self.tree.see(str(pick))
         self.picked()
 
     def selected(self):
-        sel = self.tree.selection()
-        return (int(sel[0]), self.macros[int(sel[0])]) if sel else (None, None)
+        try:
+            sel = self.tree.selection()
+        except tk.TclError:
+            return None, None
+        if not sel or int(sel[0]) >= len(self.macros):
+            return None, None
+        return int(sel[0]), self.macros[int(sel[0])]
 
     def picked(self):
         _k, m = self.selected()
@@ -167,14 +358,84 @@ class MacrosSection(object):
         builtin = bool(m and m.get("builtin"))
         for b in (self.edit_btn, self.del_btn):
             b.configure(state="disabled" if builtin or m is None else "normal")
+        self.pin_btn.configure(text="Unpin" if m and m.get("pinned") else "Pin under the screen",
+                               state="normal" if m else "disabled")
+        self.hot_btn.configure(text="Ctrl+%d ▾" % m["hotkey"] if m and m.get("hotkey") else "Hotkey ▾",
+                               state="normal" if m else "disabled")
+
+    def play_state(self):
+        playing = self.box.player is not None
+        self.play_btn.configure(state="disabled" if playing or self.recorder is not None else "normal")
+        self.stop_btn.configure(state="normal" if playing else "disabled")
+        self.rec_btn.configure(state="disabled" if playing else "normal")
+
+    # ---- Pins and hotkeys ----
+    def toggle_pin(self):
+        k, m = self.selected()
+        if m is None:
+            self.note.set("Pick a macro first")
+            return
+        if m.get("pinned"):
+            m.pop("pinned", None)
+            text = "%s isn't pinned any more" % m["name"]
+        else:
+            m["pinned"] = True
+            text = "%s is a button under the screen now" % m["name"]
+        self.store()
+        self.fill(k)
+        self.note.set(text)
+
+    def hotkey_menu(self):
+        k, m = self.selected()
+        if m is None:
+            self.note.set("Pick a macro first")
+            return
+        menu = th.menu(self.frame)
+        menu.add_command(label="No hotkey", command=lambda: self.set_hotkey(None))
+        menu.add_separator()
+        for n in mc.HOTKEYS:
+            other = self.box.by_hotkey(n)
+            menu.add_command(label="Ctrl+%d%s" % (n, "" if other is None else "   (%s)" % other["name"]),
+                             command=lambda n=n: self.set_hotkey(n))
+        b = self.hot_btn
+        try:
+            menu.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
+        finally:
+            menu.grab_release()
+
+    def set_hotkey(self, n, ask=True):
+        """Gives the picked macro Ctrl+n (None: none). A key another macro has: asked first,
+        then moved."""
+        k, m = self.selected()
+        if m is None:
+            return False
+        other = self.box.by_hotkey(n) if n is not None else None
+        if other is not None and other is not m and ask and not messagebox.askyesno(
+                "Move the hotkey?", "Ctrl+%d plays %s now. Give it to %s instead?" % (
+                    n, other["name"], m["name"]), parent=self.frame.winfo_toplevel()):
+            return False
+        try:
+            was = mc.set_hotkey(self.macros, m, n)
+        except mc.MacroError as e:
+            self.note.set(str(e))
+            return False
+        self.store()
+        self.fill(k)
+        if n is None:
+            self.note.set("%s has no hotkey now" % m["name"])
+        else:
+            self.note.set("Ctrl+%d plays %s on this tab%s" % (
+                n, m["name"], " (%s has none now)" % was["name"] if was is not None else ""))
+        return True
 
     # ---- Recording ----
     def toggle_record(self):
         if self.recorder is None:
-            if self.player is not None:
+            if self.box.player is not None:
                 self.note.set("Wait for the macro to finish (or Stop it)")
                 return
             self.recorder = mc.Recorder(self.slug, self.keep_pauses.get())
+            self.box.recording = True
             self.m.key_taps.append(self.recorder.tap)
             self.rec_btn.configure(text="Stop recording", bg=th.RED, fg="#000000")
             self.play_btn.configure(state="disabled")
@@ -182,6 +443,7 @@ class MacrosSection(object):
             self.tick()
             return
         rec, self.recorder = self.recorder, None
+        self.box.recording = False
         try:
             self.m.key_taps.remove(rec.tap)
         except ValueError:
@@ -229,63 +491,13 @@ class MacrosSection(object):
         if m is None:
             self.note.set("Pick a macro first")
             return
-        if self.player is not None or self.recorder is not None:
-            self.note.set("Stop the %s first" % ("macro" if self.player else "recording"))
+        if self.box.player is not None or self.recorder is not None:
+            self.note.set("Stop the %s first" % ("macro" if self.box.player else "recording"))
             return
-        if self.m.session is None:
-            self.note.set("The %s isn't connected yet" % self.calc.title)
-            return
-        if not self.m.keys_on.get():
-            self.note.set("The keyboard is off for the %s (Keyboard, under the screen)" % self.calc.title)
-            return
-        risky = mc.needs_warning(self.slug, m)
-        if risky:
-            listing = "\n".join("  %s" % why for _k, why in risky)
-            if not messagebox.askyesno(
-                    "Play this macro?", "%s presses keys that can delete or reset things on the %s:\n\n%s"
-                    "\n\nWhat they do depends on the screen the calculator is on. Play it now? (You're "
-                    "asked again only if keys like these are added.)" % (m["name"], self.calc.title, listing),
-                    icon="warning", parent=self.frame.winfo_toplevel()):
-                return
-            mc.accept_risky(self.slug, m)
-            if not m.get("builtin"):
-                self.store()
-        try:
-            segments = mc.plan(self.slug, m["steps"])
-        except mc.MacroError as e:
-            self.note.set(str(e))
-            return
-        mirror = self.m
-        fmt = self.calc.key_fmt
-
-        def send(codes, done):
-            if not mirror.running or mirror.session is None:
-                return False
-            mirror.queue("keys " + " ".join(fmt % c for c in codes), None,
-                         lambda code, lines: done(code == 0))
-            return True
-
-        self.player = mc.Player(segments, send, lambda ok, why: self.ui(self.played, m, ok, why))
-        self.play_btn.configure(state="disabled")
-        self.stop_btn.configure(state="normal")
-        self.rec_btn.configure(state="disabled")
-        self.note.set("Playing %s..." % m["name"])
-        try:
-            mirror.pressed(None, None, [], text="macro " + m["name"])
-        except Exception:
-            log_error("showing the macro's press")
-        threading.Thread(target=self.player.run, daemon=True).start()
+        self.box.play(m, self.frame)
 
     def stop(self):
-        if self.player is not None:
-            self.player.stop()
-
-    def played(self, m, ok, why):
-        self.player = None
-        self.play_btn.configure(state="normal")
-        self.stop_btn.configure(state="disabled")
-        self.rec_btn.configure(state="normal")
-        self.note.set("Played %s" % m["name"] if ok else "%s stopped: %s" % (m["name"], why))
+        self.box.stop()
 
     # ---- Changing the list ----
     def duplicate(self):
@@ -347,6 +559,7 @@ class MacrosSection(object):
         chosen = [dict(m, builtin=False)] if m is not None else self.user_macros()
         for c in chosen:
             c.pop("builtin", None)
+            c.pop("go", None)
         if not chosen:
             self.note.set("Nothing to export: record a macro first (or pick an example)")
             return
@@ -375,7 +588,9 @@ class EditDialog(object):
         m = section.macros[k]
         self.steps = [dict(s) for s in m["steps"]]
         self.orig = m
-        w = self.win = tk.Toplevel(section.frame.winfo_toplevel())
+        # A tab of the main window (a window of its own without it)
+        w = self.win = tool_tabs.window(section.frame.winfo_toplevel(), "macro:%s" % self.slug,
+                                        "Edit macro: %s" % m["name"])
         w.title("Edit macro: %s" % m["name"])
         w.configure(bg=th.BG)
         w.geometry("560x520")
@@ -510,5 +725,6 @@ class EditDialog(object):
         taken = [m["name"] for i, m in enumerate(self.section.macros) if i != self.k]
         m = mc.new_macro(self.slug, mc.unique_name(mc.clean_name(self.name_var.get()), taken), self.steps)
         m["ok_risky"] = [k for k in self.orig.get("ok_risky", [])]  # Keys newly added ask again
+        mc.set_prefs(m, self.orig)  # Its pin and hotkey stay
         self.section.edited(self.k, m)
         self.win.destroy()

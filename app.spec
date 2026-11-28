@@ -44,7 +44,7 @@ a = Analysis(
                    'program_library', 'key_strip', 'calc_models', 'ui_theme',
                    'reference', 'pc_copy', 'editor', 'code_check', 'paths', 'tns_writer',
                    'solver_builder', 'solver_ui', 'picture_window', 'picture_load', 'picture_formats',
-                   'data_bridge'],
+                   'data_bridge', 'tool_tabs', 'macros', 'macros_ui'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

@@ -83,7 +83,7 @@ talk to a calculator at a time.
 ## The window
 
 <details>
-<summary>All screens, a calculator's tab, the Program editor tab and the side panel (Files, Keys, Symbols, Functions, Guide, Get programs, Calculator info, Macros)</summary>
+<summary>All screens, a calculator's tab, the Program editor and tool tabs, and the side panel (Files, Keys, Symbols, Functions, Data, Programs, Macros, Guide, Info)</summary>
 
 **All screens** (the first tab) shows every connected calculator's live screen side by side,
 each with its frame rate, **Screenshot** and **Record**. Click a screen to type on that
@@ -94,9 +94,15 @@ tab.
 you write programs: [details](#sending-programs). Its tab shows the file's name, with a dot
 while it has unsaved changes; **✕** closes it (asking first if there's something to save).
 
-**A calculator's tab** shows its screen big, with **Screenshot**, **Copy screen**, **Paste
-text**, **Record**, **Send program...** and **Keyboard** (on/off) under it, and **Last key:
-F5 → GRAPH** so you see what each PC key did. **Key history** shows the last 8 keys as keycaps
+**Tools open as tabs too** (each with a **✕**): Make a picture, the Solver builder, Compare
+backups, Get all, a program's text, Restore, the macro editor and Test in PC copy. **Open in its
+own window** works for them as well. File pickers and yes/no questions stay small dialogs.
+
+**A calculator's tab** shows its screen big, with **Screenshot**, **Record**, **Send
+program...** and **Copy answer** under it, then your pinned macros, and **More ▾** with the rest
+(**Copy screen**, **Paste text**, **Reconnect**, **Program editor...**, **Make a picture...**,
+**Macros...**). **Reconnect** also shows beside More while the link is down. Below them:
+**Keyboard** (on/off) and **Last key: F5 → GRAPH** so you see what each PC key did. **Key history** shows the last 8 keys as keycaps
 under the screen; **Show keys in recordings** puts that strip into your GIF and MP4 too.
 **Open in its own window** (top right) pops the calculator out into a window of its own;
 closing that window puts it back as a tab. A calculator that's unplugged greys out ("not
@@ -107,7 +113,9 @@ screen and the panel to make it wider or narrower (double-click it: back to half
 
 ![A calculator tab with the Files panel](docs/img/calculator-tab.png)
 
-The panel on the right of a tab:
+The panel on the right of a tab: pick a section on the strip of icons along the window's right
+edge (the picked one is orange; point at one for its full name). The section's name heads the
+panel:
 
 | | |
 | --- | --- |
@@ -115,10 +123,10 @@ The panel on the right of a tab:
 | **Keys** | Which PC key presses which calculator key, for this calculator, and the mouse. The key you just pressed lights up. |
 | **Symbols** | ∫ d/dx √ π θ Σ ∞ ≤ ≥ ≠ → i e ∠ ° ² ⁻¹ and more: click one to type it on the calculator. A symbol the calculator doesn't have is greyed out and says what to use instead. |
 | **Guide** | How to write programs for this calculator (TI-Basic for the 84 and the 89, Python for the Nspire), with a contents list and search. Every example has **Copy** and **Send to calculator**. |
-| **Get programs** | Programs and games for this calculator, in sections: Electrical, Mechanical, Chemistry, Physics, Math, Computer engineering, Utilities and Games (unit converters, circuit and beam tools, molar mass and gas laws, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire; Tetris, chess, Minesweeper and more). **Search** filters the list as you type (name, description, section). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists every program (not the games) CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
-| **Macros** | Record keys on this calculator, save them by name, play them back ([details](#keys-and-mouse)). |
+| **Programs** (Get programs) | Programs and games for this calculator, in sections: Electrical, Mechanical, Chemistry, Physics, Math, Computer engineering, Utilities and Games (unit converters, circuit and beam tools, molar mass and gas laws, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire; Tetris, chess, Minesweeper and more). **Search** filters the list as you type (name, description, section). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists every program (not the games) CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
+| **Macros** | Record keys on this calculator, save them by name, play them back; "Go to" macros (Y=, WINDOW, TABLE, ...) to pin as buttons under the screen or give Ctrl+1..9 ([details](#keys-and-mouse)). |
 | **Data** | The calculator's lists and matrices in a grid you can edit, copy and paste with Excel, import from or save as CSV, plot, and send back; lists go to the Nspire as a small program. **Copy answer** (also under the screen) puts the last answer on the clipboard with every digit (84: Ans; 89: through a tiny program; not possible on the Nspire). Guide: [docs/DATA_BRIDGE.md](docs/DATA_BRIDGE.md). |
-| **Calculator info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#files-backup-and-restore)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
+| **Info** (Calculator info) | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#files-backup-and-restore)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
 
 <img src="docs/img/symbols-panel.png" width="49%" alt="The Symbols panel"> <img src="docs/img/guide-panel.png" width="49%" alt="The Guide panel">
 
@@ -180,9 +188,16 @@ typing does (paced by the link; a wait starts once the calculator has taken the 
 it); **Stop** ends it. **Edit...** renames a macro, moves keys up or down, removes or adds keys
 (the names the Keys panel uses, or a character) and changes the waits. **Import...** and
 **Export...** read and write `.json` files; your macros are kept in
-`CalcSuite files\macros\<model>.json`. Each calculator comes with a few examples that only
-move between screens (the 84: home screen, MODE and back, graph; the 89: home, MODE and back,
-Y=; the Nspire: home, the Scratchpad); **Duplicate** one to change it.
+`CalcSuite files\macros\<model>.json`. Each calculator comes with **Go to** macros that only
+open a screen or a menu (the 84: Home, Y=, WINDOW, TABLE, MODE, STAT EDIT, MATRIX, PRGM, MEM;
+the 89: Home, Y=, WINDOW, GRAPH, TABLE, Var-Link, MODE; the Nspire: Home, the Scratchpad's
+Calculate and Graph) and an example with waits; **Duplicate** one to change it.
+
+**Pin under the screen** puts a macro (yours or a Go to) as a button after Copy answer;
+**Unpin** takes it away. **Hotkey ▾** gives it **Ctrl+1** to **Ctrl+9**: on that calculator's
+tab the key plays it (not on All screens, not while you type into a box, not inside a PC copy).
+A key another macro has moves to this one after you say yes. Pins and hotkeys are saved with
+the macros; the Keys panel lists the hotkeys.
 
 A macro with keys that delete, clear or open a reset menu (DEL, CLEAR, backspace, 2nd MEM, the
 Nspire's ctrl X / ctrl N / ctrl Z, or a raw key code) asks before it plays for the first time,
@@ -256,7 +271,7 @@ click. How to write the text: [TI-Basic from the PC](#ti-basic-from-the-pc).
 ### The program editor
 
 Write TI-84 Plus CE TI-Basic, TI-89 Titanium TI-Basic or Nspire Python in CalcSuite itself:
-**Program editor...** under a calculator's screen opens the **Program editor** tab, aimed at that
+**More ▾ > Program editor...** under a calculator's screen opens the **Program editor** tab, aimed at that
 calculator (`python -I tools/editor.py [file]` opens it as a window of its own). It checks as
 you type, underlines each
 mistake and lists it with its fix (F8 goes to the next one), colours the code like VS Code,
@@ -321,7 +336,7 @@ Press-to-Test.
 
 ### Pictures for the calculator
 
-**Make a picture...** (under the file list) turns a picture from the PC into the calculator's
+**Make a picture...** (under the file list, or **More ▾**; it opens in a tab) turns a picture from the PC into the calculator's
 own: **Open picture...**, **Paste** (ctrl+V: a copied picture or picture file), or drag one onto
 it. The preview is what the calculator will show, pixel for pixel. **Fit** keeps the whole
 picture (bars around, white or black), fills the screen (the edges cut off) or stretches it;

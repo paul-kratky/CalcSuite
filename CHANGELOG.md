@@ -4,7 +4,38 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 
 ## [Unreleased]
 
+### Changed
+- **The side panel's sections are a strip of icons** along the window's right edge (Files,
+  Keys, Symbols, Functions, Data, Programs, Macros, Guide, Info), each with a short label; the
+  picked one is orange with a bar on its edge, and the section's full name heads the panel
+  ("Get programs", "Calculator info"). The PC copy tabs' Keys / Guide use the same strip. The
+  panel still starts at about half the window, and its handle still drags and snaps.
+- **Tools open as tabs of the window**, with a ✕, not as windows: Make a picture, the Solver
+  builder, Compare backups and its text differences, the macro editor, Get all, Restore, a
+  program's text and Test in PC copy. **Open in its own window** pops a tool tab out too.
+  File pickers and yes/no questions stay dialogs.
+- **Four buttons under a calculator's screen**: Screenshot, Record, Send program..., Copy
+  answer, then your pinned macros and **More ▾** (Copy screen, Paste text, Reconnect, Program
+  editor..., Make a picture..., Macros...). **Reconnect** also shows beside it while the link is
+  down. The checkboxes are one row below.
+- **One accent colour**: orange marks only what's picked or where you are (the tab, the panel
+  section, the keyboard target, progress bars, the panel width's snap, a tab still connecting).
+  Mint is only a connection (a connected calculator's dot) and links. Warnings are amber, added
+  items in Compare blue.
+- **The tab strip's connection dot is round and smooth** (drawn antialiased, sized to the
+  screen's scale), no longer a jagged Canvas oval.
+- **Type sizes**: headings 16 px semibold, text 13 px, hints and status lines 12 px (nothing
+  smaller except the strip's labels); the status line under the screen and the panel texts got
+  bigger.
+
 ### Added
+- **Go to macros and quick access** (Macros panel): built-in macros that only open a screen or
+  a menu (TI-84 Plus CE: Home, Y=, WINDOW, TABLE, MODE, STAT EDIT, MATRIX, PRGM, MEM; TI-89
+  Titanium: Home, Y=, WINDOW, GRAPH, TABLE, Var-Link, MODE; TI-Nspire: Home, Scratchpad
+  Calculate and Graph). **Pin under the screen** makes any macro a button after Copy answer;
+  **Hotkey ▾** gives it Ctrl+1..9 on that calculator's tab (not on All screens, in a text box or
+  in a PC copy; a key in use moves after a yes). Pins and hotkeys are saved with the macros; the
+  Keys panel lists the hotkeys.
 - **Compare backups** (Files, **Compare...**): two backups of a calculator, or a backup and the
   calculator now (read in full, or only its list for a quick look), as a list of what was added,
   removed and changed (by SHA-256), with sizes and dates. **Show the difference** shows a
