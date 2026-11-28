@@ -43,7 +43,7 @@ to `CalcSuite.exe`. The guides are in `Guides`, and in the app (**Guide**, **Fun
 | Problem | Fix |
 | --- | --- |
 | It keeps looking for the calculator | Switch it on (it sleeps after a few minutes), use a data cable, close TI's software, try another USB port |
-| It never connects | **Calculator info** > **Install the WinUSB driver...**; if that fails, the Zadig steps in the [README](README.md#get-started) |
+| It never connects | **Calculator info** > **Install the WinUSB driver...**; if that fails, the Zadig steps in the [user guide](docs/USER_GUIDE.md#get-started) |
 | TI's software no longer sees the calculator | **Calculator info** > **Restore TI's driver...** |
 | Something stays on "Asking..." | `CalcSuite files\logs\errors.log` says why: attach it to an [issue](https://github.com/paul-kratky/CalcSuite/issues) |
 

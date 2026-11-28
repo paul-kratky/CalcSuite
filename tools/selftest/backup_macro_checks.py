@@ -373,6 +373,10 @@ def macro_checks():
                   lambda ok, why: ended.append((ok, why)),
                   sleep=lambda s: (events.append(("sleep", s, time.time() - t0)), time.sleep(s)))
     p.run()
+    for _ in range(40):  # The faked answers come from timer threads: a slow CI runner lags
+        if sum(1 for e in events if e[0] == "done") == 3:
+            break
+        time.sleep(0.05)
     kinds = [e[0] for e in events]
     f += check(ended == [(True, None)] and kinds[:3] == ["send", "done", "sleep"] and
                events[2][1] == 0.3, "player: the wait starts only after the calculator took the keys")

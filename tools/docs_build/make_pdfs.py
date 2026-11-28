@@ -25,7 +25,7 @@ import reference  # noqa: E402
 
 # (PDF file name, Markdown source, the cover title; None: the file's own # heading)
 GUIDES = [
-    ("CalcSuite - User guide.pdf", "README.md", "CalcSuite user guide"),
+    ("CalcSuite - User guide.pdf", "docs/USER_GUIDE.md", None),
     ("CalcSuite - Quick start.pdf", "QUICKSTART.md", None),
     ("CalcSuite - TI-84 Plus CE TI-Basic guide.pdf", "docs/TIBASIC_84.md", None),
     ("CalcSuite - TI-89 Titanium TI-Basic guide.pdf", "docs/TIBASIC_89.md", None),

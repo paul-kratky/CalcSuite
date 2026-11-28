@@ -12,7 +12,7 @@
   the calculator keeps, on the PC clipboard. Neither the 84 nor the 89 hands its last answer
   over the link (the CE refuses Ans by every name; the 89 refuses ans() inside a program),
   so CalcSuite types a store on the home screen and reads that: the 84 {Ans}→ZZANS (a list
-  answer: Ans→ZZANS), the 89 ans(1)→zzv:string(zzv)→zzs (only on its Home screen with an
+  answer: Ans→ZZANS), the 89 string(ans(1))→zzs:ans(1)→zzv (only on its Home screen with an
   empty entry line), then removes them. The Nspire's link has no such command: the button
   says so.
 
@@ -493,6 +493,7 @@ def read_answer_84(m, tmp):
 # The TI-89 Titanium's Home screen: its toolbar's dividers (F1 Tools ... F6 Clean Up) at these
 # columns, rows 3-11 (bench, OS 3.10, 2026-11-28; the Apps desktop and the other apps differ)
 HOME_89_DIVIDERS = (0, 20, 49, 66, 87, 113, 144, 159)
+ANSWER_LINE_89 = "string(ans(1))→zzs:ans(1)→zzv"
 
 
 def ti89_home_state(frame):
@@ -508,14 +509,21 @@ def ti89_home_state(frame):
     dividers = [x for x in range(w) if all(dark(x, y) for y in range(3, 12))]
     if dividers != list(HOME_89_DIVIDERS):
         return "other"
-    # The entry line: rows 82-90 above the status line; the cursor sits in its first columns
-    if any(dark(x, y) for y in range(82, 91) for x in range(8, w - 2)):
+    # The entry line: rows 84-92, under the full line on row 83 (bench, OS 3.10). After ENTER
+    # the last entry stays there highlighted (white on a dark block from the left edge) and
+    # typing replaces it: fine. Plain dark text past the cursor's columns is typing: busy.
+    rows = range(84, 93)
+    start = 0
+    if all(dark(0, y) for y in rows):  # A highlighted entry: skip its block (its top row is
+        while start < w and dark(start, 84):  # solid; descenders like g's reach its bottom one)
+            start += 1
+    if any(dark(x, y) for y in rows for x in range(max(8, start + 2), w - 2)):
         return "busy"
     return "home"
 
 
 def read_answer_89(m, tmp):
-    """Types ans(1)→zzv:string(zzv)→zzs on the 89's Home screen (only when it shows the Home
+    """Types string(ans(1))→zzs:ans(1)→zzv on the 89's Home screen (only when it shows the Home
     screen with an empty entry line), reads zzv (or the text in zzs) and removes both. A
     program can't do it: the 89 refuses ans() inside one (bench, OS 3.10: "Invalid ans()")."""
     from calc_models import Ti89
@@ -529,24 +537,26 @@ def read_answer_89(m, tmp):
     for i in list_vars(m, "ti89"):
         if i["name"] in (b"zzv", b"zzs"):
             _remove(m, i)
-    codes, missing = Ti89.paste_keys("ans(1)→zzv:string(zzv)→zzs\n")
+    # The store into zzv comes last: the line's own answer is then the answer itself again, so
+    # the next copy reads the same value (string(...) last made the newest answer its text)
+    codes, missing = Ti89.paste_keys(ANSWER_LINE_89 + "\n")
     if missing:
         raise LinkError("can't type %s on the 89" % "".join(sorted(missing)))
     _keys(m, codes)
-    s = _wait_for(m, "ti89", b"zzs", 6.0)
-    if s is None:
+    v = _wait_for(m, "ti89", b"zzv", 6.0)
+    if v is None:
         raise LinkError("the 89 didn't store its answer (no answer yet? run a calculation on "
                         "its Home screen first)")
     found = {i["name"]: i for i in list_vars(m, "ti89") if i["name"] in (b"zzv", b"zzs")}
     try:
-        text = cf.value89(get_data(m, s["type"], s["folder"], s["name"], s["size"], tmp))
-        v = found.get(b"zzv")
-        if v is not None:
-            try:
-                return cf.value89(get_data(m, v["type"], v["folder"], v["name"], v["size"], tmp))
-            except (ValueError, LinkError):
-                pass  # An expression with variables, a polar number: its text then
-        return text
+        try:
+            return cf.value89(get_data(m, v["type"], v["folder"], v["name"], v["size"], tmp))
+        except (ValueError, LinkError):
+            pass  # An expression with variables, a polar number: its text then
+        s = found.get(b"zzs")
+        if s is None:
+            raise LinkError("the 89's answer couldn't be read")
+        return cf.value89(get_data(m, s["type"], s["folder"], s["name"], s["size"], tmp))
     finally:
         for i in found.values():
             _remove(m, i)

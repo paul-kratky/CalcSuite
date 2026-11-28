@@ -8,7 +8,8 @@ Guidance for Claude Code in this repository.
 calculators live, types into them from the PC, writes and sends programs, manages their files,
 backs them up and checks for OS updates. For the **TI-Nspire CX II (CAS)**, the **TI-84 Plus CE**
 and the **TI-89 Titanium**, several at once. Plus a command-line kit for TI-Nspire Python
-(`docs/PYTHON_KIT.md`). README.md is the user guide; CHANGELOG.md says what changed.
+(`docs/PYTHON_KIT.md`). README.md is the short tour; docs/USER_GUIDE.md is the user guide (its
+PDF ships in the release); CHANGELOG.md says what changed.
 
 ## Layout
 
@@ -35,7 +36,7 @@ and the **TI-89 Titanium**, several at once. Plus a command-line kit for TI-Nspi
 python -I tools/build_tools.py [--force] [--luna]   # the link helpers into tools/bin/ (MSYS2 UCRT64 gcc; --luna: the .tns test reference)
 python -I tools/selftest/run_selftest.py             # every test; must print ALL PASSED
 python -I tools/docs_build/check_examples.py         # every example program in the guides
-python tools/docs_build/make_pdfs.py [--version vX.Y.Z]  # rebuild docs/pdf/ after changing README, QUICKSTART or docs/
+python tools/docs_build/make_pdfs.py [--version vX.Y.Z]  # rebuild docs/pdf/ after changing QUICKSTART or docs/
 python tools/mirror.py                                # run the app from the source
 ```
 
@@ -77,8 +78,10 @@ python tools/mirror.py                                # run the app from the sou
   beside the exe, through `tools/paths.py` (`files_dir()`, `cache_dir()`): never Documents,
   AppData, Program Files or the registry. Helper programs it starts (CEmu, TiEmu, ffmpeg) are kept
   there too. Only a run from the source uses Documents/LOCALAPPDATA.
-- **README:** keep every `##` section folded under `<details><summary>one line</summary>`
-  except Get started (the PDF builder prints them unfolded). Point links at `##` headings.
+- **README:** short and concise (the owner's rule, 2026-11-28): a sentence or two per feature
+  with its screenshot, nothing folded (no `<details>`). Screenshots full size (never
+  `width=` shrunk), from the real app (docs/img/). The detail goes in docs/USER_GUIDE.md and
+  the other guides; point links at `##` headings.
 - No telemetry; go online only when the user asks (SECURITY.md lists every place).
 
 ## Writing TI-Nspire Python (the kit)
