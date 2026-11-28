@@ -223,6 +223,8 @@ def main():
     failures += pc_copy_checks.main()
     import info_checks  # Info always ends: the doctor's queries, a silent link, waiting requests
     failures += info_checks.main()
+    import backup_macro_checks  # Backup compare, single restore, key macros: faked links
+    failures += backup_macro_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 

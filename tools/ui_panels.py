@@ -16,12 +16,14 @@ import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 import calc_models
+import macros_ui
 import md_render
 import program_library as plib
 import reference
 import ui_theme as th
 
-SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Calculator info")
+SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Calculator info",
+            "Macros")
 INFO = "Calculator info"  # The Info section's name (its tab)
 WIDTH = 450  # The narrowest default; the default is a share of the window (mirror.Tab.PANEL_SHARE)
 GUIDES = {"nspire": ("docs", "PYTHON_NSPIRE_GUIDE.md"), "ti84": ("docs", "TIBASIC_84.md"),
@@ -68,7 +70,8 @@ class SidePanel(object):
         if name not in self.sections:
             cls = {"Files": FilesSection, "Keys": KeysSection, "Symbols": SymbolsSection,
                    "Functions": FunctionsSection, "Guide": GuideSection, "Get programs": ProgramsSection,
-                   INFO: InfoSection}[name]
+                   INFO: InfoSection,
+                   "Macros": macros_ui.MacrosSection}[name]
             self.sections[name] = cls(self, self.body)
         self.sections[name].frame.pack(fill="both", expand=True)
         self.current = name
