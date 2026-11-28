@@ -1,6 +1,8 @@
 """Fuzz test for everything CalcSuite reads from outside: TI-84 and TI-89 files a user opens
 (read_ti8x, read_ti89, the program/text readers), TI-Basic text (tokenize_84, program_89p), the
-link helpers' listings (parse_nspire_ls, parse_dusb_ls) and TI's OS web page (parse_os_page).
+link helpers' listings (parse_nspire_ls, parse_dusb_ls), TI's OS web page (parse_os_page), and
+Make a picture's readers (picture_formats.read_picture: .8ca, .8ci, .89i; decode_runs: the
+Nspire picture program's run code).
 
 A parser may refuse an input with ValueError (that's how they report a bad file); any other
 exception or a hang is a bug.
@@ -27,10 +29,13 @@ except ImportError:
 if atheris:
     with atheris.instrument_imports():
         import calc_files as cf
+        import picture_formats as pf
 else:
     import calc_files as cf
+    import picture_formats as pf
 
-TARGETS = ("ti8x", "ti89", "tok84", "tok89", "nspire_ls", "dusb_ls", "os_page")
+TARGETS = ("ti8x", "ti89", "tok84", "tok89", "nspire_ls", "dusb_ls", "os_page",
+           "picture", "nspire_runs")
 
 
 def fuzz_one(data):
@@ -61,6 +66,11 @@ def fuzz_one(data):
                 cf.name_text(item["name"], "89")
         elif target == "os_page":
             cf.parse_os_page(text)
+        elif target == "picture":  # Make a picture: a .8ca / .8ci / .89i opened as the picture
+            pf.read_picture(body)
+        elif target == "nspire_runs" and len(body) >= 3:  # The Nspire program's run code
+            pf.decode_runs(body[3:].decode("latin-1"), 1 + body[0] % 64, 1 + body[1] % 8,
+                           1 + body[2] % 64)
     except ValueError:
         pass  # A refused input: fine
 
@@ -81,6 +91,10 @@ def seeds():
     add("dusb_ls", b"ITEM type=05 size=12 arch=0 locked=0 folder=- name=5a5a\n")
     add("os_page", b'<tr><td><a href="/x/TI-NspireCXIICAS-6.4.0.74.tcc2" class="download-file">'
                    b'Operating System</a></td><td class="column-version"> 6.4 </td></tr>')
+    add("picture", pf.ti89_pic_89i([1, 0, 1] * 8, 6, 4, "zzfuzz"))
+    add("picture", pf.ce_pic_8ci([k % 15 for k in range(pf.CE_PIC_W * pf.CE_PIC_H)], "Pic1"))
+    add("picture", pf.ce_image_8ca([k & 0xFFFF for k in range(pf.CE_IMAGE_W * pf.CE_IMAGE_H)], "Image1"))
+    add("nspire_runs", bytes((9, 1, 3)) + pf.encode_runs([0, 0, 1, 2, 2, 2, 2, 2, 1, 0] * 2, 10, 4).encode())
     return out
 
 
@@ -105,6 +119,7 @@ def mutate(rng, b):
 def quick(n):
     rng = random.Random(80)
     pool = seeds()
+    n_seeds = len(pool)  # The seeds stay; made once (the picture seeds take a moment)
     for s in pool:
         fuzz_one(s)
     for k in range(n):
@@ -117,7 +132,7 @@ def quick(n):
         if k % 4 == 0:
             pool.append(x)
             if len(pool) > 2000:
-                pool.pop(rng.randrange(len(seeds()), len(pool)))
+                pool.pop(rng.randrange(n_seeds, len(pool)))
     print("fuzz quick: %d inputs, no crash" % n)
 
 

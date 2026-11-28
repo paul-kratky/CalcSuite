@@ -43,7 +43,7 @@ a = Analysis(
     hiddenimports=['tivars', 'calc_backup', 'calc_doctor', 'ui_panels', 'md_render',
                    'program_library', 'key_strip', 'calc_models', 'ui_theme',
                    'reference', 'pc_copy', 'editor', 'code_check', 'paths', 'tns_writer',
-                   'solver_builder', 'solver_ui'],
+                   'solver_builder', 'solver_ui', 'picture_window', 'picture_load', 'picture_formats'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

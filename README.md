@@ -318,6 +318,25 @@ assembly programs.) The Nspire's clock can't be read or set over USB: set it on 
 handheld and opens TI-Nspire CX II Connect; for the 84, TI's steps. The TI-89 Titanium has no
 Press-to-Test.
 
+### Pictures for the calculator
+
+**Make a picture...** (under the file list) turns a picture from the PC into the calculator's
+own: **Open picture...**, **Paste** (ctrl+V: a copied picture or picture file), or drag one onto
+it. The preview is what the calculator will show, pixel for pixel. **Fit** keeps the whole
+picture (bars around, white or black), fills the screen (the edges cut off) or stretches it;
+**Dots** blends the few colours into smooth shades (Smooth, Pattern) or keeps flat colours.
+
+| | What it makes | See it on the calculator |
+| --- | --- | --- |
+| TI-84 Plus CE | **Image1-0** (`.8ca`): 133 x 83 in full colour, shown 2 x 2 behind graphs | Graph, 2nd FORMAT, Background Image1 (or `BackgroundOn Image1`) |
+| | **Pic1-0** (`.8ci`): 265 x 165 in the 84's 15 colours | Graph, 2nd DRAW, STO, RecallPic 1 |
+| TI-89 Titanium | a picture (`.89i`), black and white: 159 x 77 (the Graph screen), 160 x 100 or 240 x 128 | `RclPic name` on Home, then the Graph screen (diamond F3) |
+| TI-Nspire CX II | a Python program that paints it (318 x 212, 8-64 colours, kept under 20 KB by using bigger pixels when needed) | My Documents > the program, ctrl+R; any key ends it |
+
+**Send** sends it to the calculator of this tab (asking before replacing a name); **Save...**
+writes the file (for the Nspire a `.tns`, or the `.py`). TI's own `ti_image` module only shows
+pictures that TI's software put into a document, which is why the Nspire gets a program.
+
 ### Clearing a calculator
 
 Both are in **Calculator info**, and both back up the whole calculator first (into

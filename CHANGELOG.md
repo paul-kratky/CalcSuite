@@ -26,6 +26,8 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   Eight ready-made engineering sets. A frame that can live in a main-window tab.
 
 ### Fixed
+- Sending several TI files in a row (Restore, Get all, Make a picture) can no longer lose its
+  "Sent" message when the calculator answers the first file before the rest are queued.
 - **Make a PC copy never stays on "Letting go of the link..."** (TI-84 Plus CE and TI-89
   Titanium): the ROM was dumped and saved, but the window never heard. The app's own module was
   loaded twice (as the program and by the panels' `import mirror`), and the second copy sent
@@ -68,6 +70,15 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   function form (`integral(`...), shown as ∫ Σ d after Enter; a lone ∫ or Σ is the template. A
   long paste is cut into commands between symbols, never inside one.
 ### Added
+- **Make a picture** (Files panel): a PC picture (open a PNG, JPEG, BMP, GIF or TIFF, paste one
+  with ctrl+V, or drag one in) made into the calculator's own picture, with a live preview at
+  the calculator's resolution and colours; Fit / Fill / Stretch, dithering (Smooth, Pattern,
+  None), brightness and contrast; **Send** to this tab's calculator or **Save** the file.
+  TI-84 Plus CE: **Image1-0** (`.8ca`, a graph background, 133 x 83 in full colour) or
+  **Pic1-0** (`.8ci`, 265 x 165 in the 15 colours). TI-89 Titanium: a picture (`.89i`, black
+  and white, 159 x 77, 160 x 100 or 240 x 128). TI-Nspire CX II: a Python program that paints
+  it with ti_draw (8-64 colours of its own, the finest pixel size that keeps it under 20 KB).
+  Windows' own GDI+ reads the pictures (phone photos the right way up): no new dependency.
 - **Get programs in sections** for each calculator: Electrical, Mechanical, Chemistry, Physics,
   Math, Computer engineering, Utilities and **Games** (8 for the TI-84 Plus CE, 7 for the TI-89
   Titanium, 8 for the TI-Nspire CX II), with a **Search** box that filters as you type. 51 new

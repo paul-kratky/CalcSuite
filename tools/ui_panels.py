@@ -184,6 +184,9 @@ class FilesSection(object):
         m.manager = calc_manager.Manager(m, mirror_mod.KIT, mirror_mod.prepare_for_nspire,
                                          parent=holder, about_cb=lambda: panel.show(INFO))
         m.manager.win.pack(fill="both", expand=True)
+        import picture_window  # Make a picture: a PC picture as the calculator's own (its window)
+        th.button(self.frame, "Make a picture...", lambda: picture_window.open_for(m, mirror_mod.KIT)
+                  ).pack(anchor="w", pady=(8, 0))
 
 
 # ---- Keys: generated from the calculator's own key table ----
