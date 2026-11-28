@@ -139,7 +139,13 @@ class Calc(object):
         return None
 
     @classmethod
-    def paste_keys(cls, text):
+    def keys_for(cls, symbol, info=None):
+        """A Symbols button's keys on this calculator (info: its last "info" answer, for a
+        model whose menus differ between versions)"""
+        return cls.symbol_keys(symbol)
+
+    @classmethod
+    def paste_keys(cls, text, info=None):
         """Text -> ([codes], set of characters it can't type). New lines are Enter."""
         codes, missing = [], set()
         i = 0
@@ -168,12 +174,59 @@ class PaletteKeys(list):
     cell = None
 
 
+class TemplateKeys(list):
+    """Keys that put in one of the Nspire's 2D templates (a Calculus menu item, a cell of the
+    catalog's template tab): the template's boxes are then filled on the calculator"""
+
+
+class KeyCodes(list):
+    """Key codes to send, with .safe: the indexes where a long run may be cut into several
+    commands without cutting one symbol's keys (a palette walk) in two"""
+    safe = ()
+
+
+def chunks(codes, size, most=200):
+    """Codes in runs of about `size`, cut only where codes.safe allows: one symbol's keys
+    longer than size (a palette walk, ~80) stay one run, up to `most` (the helper's line)"""
+    if not isinstance(codes, KeyCodes):  # Every key on its own (the 84, the 89): cut at size
+        return [list(codes[i:i + size]) for i in range(0, len(codes), size)]
+    safe = sorted(set(codes.safe))
+    out, start = [], 0
+    while len(codes) - start > size:
+        near = [s for s in safe if start < s <= start + size]
+        later = [s for s in safe if start + size < s <= start + most]
+        cut = max(near) if near else (min(later) if later else min(len(codes), start + most))
+        out.append(list(codes[start:cut]))
+        start = cut
+    if start < len(codes):
+        out.append(list(codes[start:]))
+    return out
+
+
 def _palette(row, col):
     """The Nspire's keys for the symbol at row, col of its symbol palette (catalog, tab 4)"""
     keys = PaletteKeys(["catalog", "4"] + ["up"] * 60 + ["left"] * 10 + ["down"] * row +
                        ["right"] * col + ["enter"])
     keys.cell = (row, col)
     return keys
+
+
+def _template(row, col):
+    """The Nspire's keys for the template at row, col of the catalog's template tab (tab 5),
+    from wherever it was left (arrows stop at the edges: the grid is 6 x 4)"""
+    return TemplateKeys(["catalog", "5"] + ["up"] * 6 + ["left"] * 8 + ["down"] * row +
+                        ["right"] * col + ["enter"])
+
+
+def _menu(*items):
+    return TemplateKeys(["menu"] + list(items))
+
+
+# Keys a CX II has for a symbol of its own (TI's CX II guidebook, keyboard shortcuts: ctrl x²
+# square root, ctrl var store →, the EE key), and the absolute value template from the
+# catalog's template tab. Their codes are TILP's (keysnsp.h) and haven't been tried on the CX II
+# yet: False puts the palette walks (bench-tested) and abs( back.
+NSPIRE_UNTRIED_KEYS = True
 
 
 # The short walk (palette_keys) is off until it passes a clean bench test: on 2026-11-27 it
@@ -216,53 +269,101 @@ class Nspire(Calc):
                   "left": "←", "right": "→", "up": "↑", "down": "↓",
                   "home": "home", "menu": "menu", "doc": "doc", "catalog": "catalog",
                   "var": "var", "click": "click", "ctrl+menu": "ctrl menu",
-                  "ctrl+w": "ctrl W", "ctrl+left": "ctrl ←", "ctrl+right": "ctrl →"}
+                  "ctrl+w": "ctrl W", "ctrl+left": "ctrl ←", "ctrl+right": "ctrl →",
+                  "pi": "π", "square": "x²", "neg": "(-)", "ee": "EE",
+                  "ctrl+square": "ctrl x²", "ctrl+var": "ctrl var"}
     menus = ("F1", "F2", "F3", "F4", "F5")
     double_click, right_click, middle_click = "enter", "ctrl+menu", "menu"
     click_help = (("Click", "click (the X: close the document; page tabs: next page)"),)
     extra_keys = (("Editing", "Ctrl+letter", "ctrl+letter"),
                   ("Editing", "Ctrl+Shift+C / V", "the handheld's own copy / paste"))
-    # Each button types the real symbol (bench, CX II CAS, OS 6.40.74, 2026-11-27):
-    # - ∫ d/dx Σ: the templates from the Calculus menu (menu 4, in a Calculator page or the
-    #   Scratchpad's Calculate)
+    # Each button presses the handheld's own keys for the real symbol, never a spelling:
+    # - ∫ d/dx Σ: the templates from the Calculus menu (menu 4; a CAS has 1 Derivative,
+    #   3 Integral, 5 Sum, the other CX II 1 Numerical Derivative at a Point, 2 Numerical
+    #   Integral, 3 Sum: TI's CX II guidebook, keys_for picks by the model). The Calculator and
+    #   the Scratchpad's Calculate have the same menu 4 Calculus. The template opens with the
+    #   cursor in its first box; tab or the arrows move between the boxes.
+    # - a key of its own: π (π), x² (²), (-) (‾); untried yet (NSPIRE_UNTRIED_KEYS): ctrl x²
+    #   (√), ctrl var (→), EE (E), and |x| from the catalog's template tab
     # - the rest: the symbol palette (catalog, tab 4: a grid 11 wide that remembers its last
-    #   pick, so each press goes back to π first: arrows stop at the edges, ~55 rows)
+    #   pick, so each press goes back to π first: arrows stop at the edges, ~55 rows; bench,
+    #   CX II CAS, OS 6.40.74, 2026-11-27)
     # - Latin-1 characters (± °) type themselves: a key code with the character in its top byte
-    # Pasted text (PASTE) still types the spellings, which the Nspire turns into symbols on Enter.
     SYMBOLS = (
-        ("∫", "integral template (menu 4 3: Calculus > Integral)", ["menu", "4", "3"], None),
-        ("d/dx", "derivative template (menu 4 1: Calculus > Derivative)", ["menu", "4", "1"], None),
-        ("√", "square root (symbol palette)", _palette(2, 9), None),
+        ("∫", "integral template (menu 4 3: Calculus > Integral)", _menu("4", "3"), None),
+        ("d/dx", "derivative template (menu 4 1: Calculus > Derivative)", _menu("4", "1"), None),
+        ("√", "square root template (ctrl x²)", ["ctrl+square"], None),
         ("π", "pi (its own key)", ["pi"], None),
         ("θ", "theta (symbol palette)", _palette(0, 5), None),
-        ("Σ", "sum template (menu 4 5: Calculus > Sum)", ["menu", "4", "5"], None),
+        ("Σ", "sum template (menu 4 5: Calculus > Sum)", _menu("4", "5"), None),
         ("∞", "infinity (symbol palette)", _palette(0, 4), None),
         ("≤", "less or equal (symbol palette)", _palette(1, 6), None),
         ("≥", "greater or equal (symbol palette)", _palette(1, 8), None),
         ("≠", "not equal (symbol palette)", _palette(1, 4), None),
-        ("→", "store (symbol palette)", _palette(0, 6), None),
+        ("→", "store → (ctrl var)", ["ctrl+var"], None),
         ("i", "imaginary unit (symbol palette)", _palette(0, 2), None),
         ("e", "e, the constant (symbol palette)", _palette(0, 1), None),
         ("∠", "angle, polar (symbol palette)", _palette(1, 2), None),
         ("°", "degrees", ["°"], None),
-        ("²", "squared", ["square"], None),
+        ("²", "squared (x²)", ["square"], None),
         ("⁻¹", "inverse (symbol palette)", _palette(5, 9), None),
-        ("‾", "negative sign", ["neg"], None),
+        ("‾", "negative sign (-)", ["neg"], None),
         ("±", "plus or minus (shows; the Nspire can't calculate with it)", ["±"], None),
-        ("×", "times", "*", None),
-        ("÷", "divide", "/", None),
-        ("^", "power", "^", None),
-        ("E", "×10^ (symbol palette)", _palette(0, 3), None),
-        ("!", "factorial", "!", None),
+        ("×", "times", ["*"], None),
+        ("÷", "divide", ["/"], None),
+        ("^", "power (a raised box: → leaves it)", ["^"], None),
+        ("E", "×10^ (EE)", ["ee"], None),
+        ("!", "factorial", ["!"], None),
         ("►", "convert ► (symbol palette)", _palette(0, 8), None),
-        ("|x|", "absolute value", "abs(", None),
+        ("|x|", "absolute value template (catalog, templates tab)", _template(1, 4), None),
     )
-    PASTE = {"∫": "integral(", "√": "sqrt(", "π": "pi", "θ": "theta",
-             "Σ": "sumSeq(", "∞": "infinity", "≤": "<=", "≥": ">=",
-             "≠": "/=", "→": "=:", "\U0001d456": "@i", "ℯ": "@e", "∠": "@<",
-             "°": "@d", "²": "^2", "⁻¹": "^-1", "×": "*", "÷": "/",
-             "►": "@>", "▸": "@>", "ᴇ": "@E", "−": "-", "⁻": ["neg"],
-             "∂": "derivative("}
+    # The CX II without CAS: its Calculus menu has no symbolic derivative
+    MENU_NONCAS = {"∫": _menu("4", "2"), "d/dx": _menu("4", "1"), "Σ": _menu("4", "3")}
+    # The bench-tested way for each untried key (NSPIRE_UNTRIED_KEYS = False)
+    TRIED = {"√": _palette(2, 9), "→": _palette(0, 6), "E": _palette(0, 3), "|x|": "abs("}
+    # Pasted text: the same keys as the buttons. ∫ Σ ∂ followed by "(" are written as TI's
+    # own function names (integral( sumSeq( derivative(, shown as ∫ Σ d after enter): pasted
+    # text gives their arguments in a row, which a template's boxes don't take in that order.
+    # √ stays sqrt(: the Nspire turns it into the root's box as it is typed.
+    PASTE = {"√": "sqrt(", "π": ["pi"], "θ": _palette(0, 5),
+             "∞": _palette(0, 4), "≤": _palette(1, 6), "≥": _palette(1, 8),
+             "≠": _palette(1, 4), "→": ["ctrl+var"], "\U0001d456": _palette(0, 2),
+             "ℯ": _palette(0, 1), "∠": _palette(1, 2), "²": ["square"], "⁻¹": _palette(5, 9),
+             "×": "*", "÷": "/", "►": _palette(0, 8), "▸": _palette(0, 8), "ᴇ": ["ee"],
+             "−": "-", "⁻": ["neg"]}
+    FUNCTION_FORM = {"∫": "integral(", "Σ": "sumSeq(", "∂": "derivative("}
+
+    @classmethod
+    def is_cas(cls, info):
+        """Whether the handheld is a CAS, from its "info" answer (unknown: a CAS, the user's)"""
+        info = info or {}
+        name = info.get("name", "").replace("_", " ")
+        if "CX II" in name:
+            return "CAS" in name
+        return True  # Renamed by its owner (0x1c on a CX II CAS), or nothing known yet
+
+    @classmethod
+    def keys_for(cls, symbol, info=None):
+        keys = cls.symbol_keys(symbol)
+        if not cls.is_cas(info) and symbol in cls.MENU_NONCAS:
+            return cls.MENU_NONCAS[symbol]
+        if not NSPIRE_UNTRIED_KEYS and symbol in cls.TRIED:
+            return cls.TRIED[symbol]
+        return keys
+
+    @classmethod
+    def paste_entry(cls, ch, after, info=None):
+        """What a pasted character types: a string (typed), a list of key names, or None
+        (the character itself); after is the next character"""
+        if ch in cls.FUNCTION_FORM:
+            if after == "(":
+                return cls.FUNCTION_FORM[ch]
+            return cls.keys_for({"∫": "∫", "Σ": "Σ", "∂": "d/dx"}[ch], info)
+        if not NSPIRE_UNTRIED_KEYS:
+            for sym, tried in (("→", "→"), ("ᴇ", "E")):
+                if ch == sym:
+                    return cls.TRIED[tried]
+        return cls.PASTE.get(ch)
 
     @classmethod
     def code_for(cls, name):
@@ -288,28 +389,43 @@ class Nspire(Calc):
         return list(keys) if isinstance(keys, str) else keys
 
     @classmethod
-    def paste_keys(cls, text):
-        """As Calc's, plus: after ^ the exponent is closed with the right arrow (the Nspire's ^
-        opens a raised box that would swallow the rest of the line)"""
+    def paste_keys(cls, text, info=None):
+        """As Calc's, with the Symbols buttons' keys for the symbols (paste_entry), plus: after
+        ^ the exponent is closed with the right arrow (the Nspire's ^ opens a raised box that
+        would swallow the rest of the line). Returns KeyCodes: .safe marks where a long paste
+        may be cut into commands (never inside one symbol's keys)."""
         expanded = []
-        for k, ch in enumerate(text):
-            seq = cls.PASTE.get(ch)
+        k = 0
+        while k < len(text):
+            ch = text[k]
+            if text.startswith("⁻¹", k):
+                ch, step = "⁻¹", 2
+            else:
+                step = 1
+            seq = cls.paste_entry(ch, text[k + step:k + step + 1], info)
             if seq is None:
                 expanded.append(ch)
             elif isinstance(seq, str):
-                if seq.endswith("(") and text[k + 1:k + 2] == "(":
+                if seq.endswith("(") and text[k + step:k + step + 1] == "(":
                     seq = seq[:-1]  # "√(16)": the bracket is already there
                 expanded.extend(seq)
             else:
-                expanded.append(tuple(seq))
+                expanded.append(_Seq(seq, ch))
+            k += step
         right = cls.resolve("right")
-        codes, missing, stack, exp_ends, typed = [], set(), [], [], ""
+        codes, missing, stack, exp_ends, typed = KeyCodes(), set(), [], [], ""
+        safe = []
         for i, item in enumerate(expanded):
             while exp_ends and exp_ends[-1] <= i:  # The exponent ends here: leave its box
                 codes.append(right)
                 exp_ends.pop()
+            safe.append(len(codes))
             if isinstance(item, tuple):
-                codes += [cls.resolve(k) for k in item]
+                got = [cls.resolve(k) for k in item]
+                if any(c is None for c in got):
+                    missing.add(item.ch)
+                else:
+                    codes += got
                 typed = ""
                 continue
             ch = item
@@ -335,6 +451,7 @@ class Nspire(Calc):
             if ch == "^":
                 exp_ends.append(exponent_end(expanded, i + 1))
         codes += [right] * len(exp_ends)
+        codes.safe = tuple(s for s in safe if 0 < s < len(codes))
         return codes, missing
 
     @classmethod
@@ -347,6 +464,14 @@ class Nspire(Calc):
         if y < 24 and x < 100:
             return ["ctrl+right"]  # The page tabs and the right arrow: next page
         return ["click"]
+
+
+class _Seq(tuple):
+    """A pasted symbol's key names, with .ch: the character it stands for"""
+    def __new__(cls, keys, ch):
+        t = tuple.__new__(cls, keys)
+        t.ch = ch
+        return t
 
 
 def exponent_end(chars, i):
