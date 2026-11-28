@@ -279,8 +279,25 @@ def library_checks():
                    "Program library (%s): only its items, verified first" % slug)
         f += check(all(i["action"] != "download" or pl.host_ok(i["download_url"]) for i in mine),
                    "Program library (%s): downloads only from ticalc.org / GitHub" % slug)
+        secs = [s for s, _g in pl.by_section(mine)]
+        f += check(all(i.get("section") in pl.SECTIONS for i in mine) and "Games" in secs and
+                   len(dict(pl.by_section(mine))["Games"]) >= 5 and
+                   sum(len(g) for _s, g in pl.by_section(mine)) == len(mine),
+                   "Program library (%s): every item in a known section, games among them (%s)" % (slug, secs))
+        f += check(all(i.get("license") and i.get("info_url") and i.get("send") for i in mine),
+                   "Program library (%s): every item has a licence note, a page and what it sends" % slug)
     f += check(all(i["action"] == "ti_page" for i in items if i.get("official")),
                "Program library: TI's own apps never download")
+    ids = [i["id"] for i in items]
+    f += check(len(ids) == len(set(ids)), "Program library: ids are unique")
+    some = [{"name": "Beam Diagram", "description": "shear and moment", "section": "Mechanical"},
+            {"name": "Tetris", "description": "falling blocks", "section": "Games"}]
+    f += check([i["name"] for i in pl.search(some, "SHEAR beam")] == ["Beam Diagram"] and
+               [i["name"] for i in pl.search(some, "games")] == ["Tetris"] and
+               len(pl.search(some, "  ")) == 2 and not pl.search(some, "beam tetris"),
+               "Program library: search by name, description and section, every word")
+    f += check([s for s, _g in pl.by_section(some + [{"name": "x", "section": "Odd"}])] ==
+               ["Mechanical", "Games", "Odd"], "Program library: sections in their order, unknown ones last")
     asm = {"calculator": "ti84", "needs_asm": True}
     f += check(pl.needs_old_os(asm, "ti84", "5.4.0")[0] is False and pl.needs_old_os(asm, "ti84", "5.8.5")[0] is True
                and pl.needs_old_os(asm, "ti84", None)[0] is None, "Program library: ASM needs OS 5.4 or older")
@@ -314,8 +331,9 @@ def get_all_checks():
         f += check(len(send) + len(skip) == len(mine) and send and all(
             i["action"] == "download" and pl.host_ok(i["download_url"]) for i in send),
             "Get all (%s): %d to send, %d left out, nothing lost" % (slug, len(send), len(skip)))
-        f += check(all(i["action"] != "download" for i, _r in skip) and all(r for _i, r in skip),
-                   "Get all (%s): only page and TI items left out, each with a reason" % slug)
+        f += check(all(i["action"] != "download" or i.get("section") == "Games" for i, _r in skip)
+                   and all(r for _i, r in skip),
+                   "Get all (%s): only page, TI and game items left out, each with a reason" % slug)
     send84, skip84 = pl.get_all_plan(items, "ti84")
     ids84 = {i["id"] for i in send84}
     f += check("ce-khicas" in {i["id"] for i, _r in skip84} and not any(i.get("official") for i in send84),

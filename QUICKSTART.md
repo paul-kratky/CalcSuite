@@ -15,7 +15,7 @@ Plus CE and the TI-89 Titanium.
 
 1. Plug the calculator in with a data cable and switch it on.
 2. Close TI's own software (TI Connect CE, CX II Connect): one program at a time.
-3. **The first time only,** CalcSuite opens the calculator's **Info** and offers to set up its
+3. **The first time only,** CalcSuite opens the calculator's **Calculator info** and offers to set up its
    USB driver: **OK**, then **Yes** on Windows' prompt. A minute or two, once per calculator.
 
 Its screen appears on **All screens** and in its own tab, live.
@@ -40,8 +40,8 @@ to `CalcSuite.exe`. The guides are in `Guides`, and in the app (**Guide**, **Fun
 | Problem | Fix |
 | --- | --- |
 | It keeps looking for the calculator | Switch it on (it sleeps after a few minutes), use a data cable, close TI's software, try another USB port |
-| It never connects | **Info** > **Install the WinUSB driver...**; if that fails, the Zadig steps in the [README](README.md#get-started) |
-| TI's software no longer sees the calculator | **Info** > **Restore TI's driver...** |
+| It never connects | **Calculator info** > **Install the WinUSB driver...**; if that fails, the Zadig steps in the [README](README.md#get-started) |
+| TI's software no longer sees the calculator | **Calculator info** > **Restore TI's driver...** |
 | Something stays on "Asking..." | `CalcSuite files\logs\errors.log` says why: attach it to an [issue](https://github.com/paul-kratky/CalcSuite/issues) |
 
 Everything else: the [README](README.md), the user guide (`Guides\User guide.pdf`).

@@ -11,7 +11,7 @@ python -I tools/pc_copy.py open 84      open the newest ROM again (with the newe
 python -I tools/pc_copy.py list         the ROMs made so far
 ```
 
-A button in the calculator's **Info** panel and a **PC copy** tab are coming.
+A button in the calculator's **Calculator info** panel and a **PC copy** tab are coming.
 
 ## What you need
 

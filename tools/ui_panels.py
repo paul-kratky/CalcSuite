@@ -1,4 +1,5 @@
-"""The side panel of a calculator's tab: Files, Keys, Symbols, Functions, Guide, Get programs, Info.
+"""The side panel of a calculator's tab: Files, Keys, Symbols, Functions, Guide, Get programs,
+Calculator info.
 
 Each section is built the first time it's shown. Everything that talks to the calculator goes
 through the tab's Mirror (its link thread); downloads and the connection doctor run in worker
@@ -20,8 +21,9 @@ import program_library as plib
 import reference
 import ui_theme as th
 
-SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Info")
-WIDTH = 450
+SECTIONS = ("Files", "Keys", "Symbols", "Functions", "Guide", "Get programs", "Calculator info")
+INFO = "Calculator info"  # The Info section's name (its tab)
+WIDTH = 450  # The narrowest default; the default is a share of the window (mirror.Tab.PANEL_SHARE)
 GUIDES = {"nspire": ("docs", "PYTHON_NSPIRE_GUIDE.md"), "ti84": ("docs", "TIBASIC_84.md"),
           "ti89": ("docs", "TIBASIC_89.md")}
 # Save as PDF: the PDFs in docs/pdf/ (tools/docs_build/make_pdfs.py writes them, same names)
@@ -53,6 +55,7 @@ class SidePanel(object):
         tk.Frame(self.frame, bg=th.LINE, height=1).pack(fill="x", padx=10)
         self.body = tk.Frame(self.frame, bg=th.PANEL)
         self.body.pack(fill="both", expand=True, padx=12, pady=10)
+        auto_wrap(self.frame, self.body)
         self.sections = {}
         self.current = None
         self.show("Keys")
@@ -65,7 +68,7 @@ class SidePanel(object):
         if name not in self.sections:
             cls = {"Files": FilesSection, "Keys": KeysSection, "Symbols": SymbolsSection,
                    "Functions": FunctionsSection, "Guide": GuideSection, "Get programs": ProgramsSection,
-                   "Info": InfoSection}[name]
+                   INFO: InfoSection}[name]
             self.sections[name] = cls(self, self.body)
         self.sections[name].frame.pack(fill="both", expand=True)
         self.current = name
@@ -73,6 +76,64 @@ class SidePanel(object):
             b.configure(bg=th.PANEL2 if n == name else th.PANEL, fg=th.ACCENT if n == name else th.DIM)
         if hasattr(self.sections[name], "shown"):
             self.sections[name].shown()
+
+
+# ---- Text that wraps to the panel's width ----
+_WRAPPED = {}   # A side panel's frame (Tk path name) -> its body: labels inside wrap to the width
+MARGIN = 34     # Pixels a label sized by its own text keeps from the body's right edge (a
+                # scrollbar, a box's padding)
+
+
+def auto_wrap(frame, body):
+    """Labels inside frame that wrap (wraplength > 0) wrap to the width the panel has instead
+    of a fixed number, so their text follows the panel when it's dragged wider or narrower
+    (before, they stayed 400 pixels wide: cut off in a narrower panel, a narrow column in a
+    wide one). One class binding covers labels made later too (the doctor's, the About box's);
+    the panel's own <Configure> brings the ones sized by their text back when it widens."""
+    if not _WRAPPED:
+        frame.bind_class("Label", "<Configure>", lambda e: _fit_label(e.widget), add="+")
+    _WRAPPED[str(frame)] = body
+    job = []
+
+    def resized(ev):
+        if job:
+            frame.after_cancel(job.pop())
+        job.append(frame.after(30, lambda: (job.clear(), _fit_all(body))))
+    frame.bind("<Configure>", resized, add="+")
+
+
+def _fit_all(widget):
+    for c in widget.winfo_children():
+        if isinstance(c, tk.Label):
+            _fit_label(c)
+        _fit_all(c)
+
+
+def _fit_label(w):
+    try:
+        path = str(w)
+        body = next((b for p, b in _WRAPPED.items() if path.startswith(p + ".")), None)
+        if body is None or w.winfo_width() <= 1:  # Not laid out yet: its <Configure> comes
+            return
+        old = int(str(w.cget("wraplength")) or 0)
+        if old <= 0:  # Made without wrapping: it stays one line
+            return
+        width = w.winfo_width()
+        how = w.winfo_manager()
+        fills = (how == "pack" and w.pack_info().get("fill") in ("x", "both")) or (
+            how == "grid" and all(c in str(w.grid_info().get("sticky", "")) for c in "ew"))
+        if fills and width > 20 and width != w.winfo_reqwidth():
+            want = width - 4  # It gets its row's width: wrap to all of it
+        else:
+            # Sized by its own text: wrap where the panel's body ends (measured from where the
+            # label starts, so its own size never feeds back)
+            want = body.winfo_rootx() + body.winfo_width() - w.winfo_rootx() - MARGIN
+            if want <= 40:
+                return
+        if abs(want - old) > 2:
+            w.configure(wraplength=want)
+    except (tk.TclError, ValueError):
+        pass
 
 
 def heading(parent, text):
@@ -118,7 +179,7 @@ class FilesSection(object):
         holder.pack(fill="both", expand=True)
         m = panel.m
         m.manager = calc_manager.Manager(m, mirror_mod.KIT, mirror_mod.prepare_for_nspire,
-                                         parent=holder, about_cb=lambda: panel.show("Info"))
+                                         parent=holder, about_cb=lambda: panel.show(INFO))
         m.manager.win.pack(fill="both", expand=True)
 
 
@@ -141,7 +202,7 @@ class KeysSection(object):
                 tk.Label(r, text="→", bg=th.PANEL, fg=th.DIM).pack(side="left", padx=6)
                 out = tk.Label(r, text=calc, bg=th.PANEL, fg=th.FG, anchor="w", justify="left",
                                wraplength=300)
-                out.pack(side="left", fill="x")
+                out.pack(side="left", fill="x", expand=True)
                 if keysym:
                     self.caps[keysym] = (cap, out)
                     if keysym == "Return":
@@ -169,7 +230,7 @@ class KeysSection(object):
 
 # ---- Symbols ----
 class SymbolsSection(object):
-    COLS = 6
+    COLS = 6  # Columns at the narrowest; more as the panel gets wider (reflow())
 
     def __init__(self, panel, parent):
         self.m = panel.m
@@ -179,8 +240,10 @@ class SymbolsSection(object):
         self.frame = tk.Frame(parent, bg=th.PANEL)
         tk.Label(self.frame, text="Click a symbol to type it on the %s." % calc.title, bg=th.PANEL,
                  fg=th.DIM, anchor="w").pack(fill="x", pady=(0, 8))
-        grid = tk.Frame(self.frame, bg=th.PANEL)
+        grid = self.grid = tk.Frame(self.frame, bg=th.PANEL)
         grid.pack(fill="x")
+        self.buttons = []
+        self.cols = 0
         self.hint = tk.StringVar(master=self.frame, value="")
         for k, (sym, what, keys, near) in enumerate(calc.SYMBOLS):
             if keys is not None:
@@ -190,10 +253,12 @@ class SymbolsSection(object):
                 codes, missing = calc.paste_keys(keys)
                 codes = None if missing else codes
             ok = codes is not None
+            # No fixed width: the grid gives each column its share (a fixed one made the grid
+            # wider than the panel, and the panel couldn't be made narrower than it)
             b = tk.Label(grid, text=sym, bg=th.KEYCAP if ok else th.PANEL, fg=th.FG if ok else th.GREY,
-                         font=(th.FONT, 13), width=4, pady=6, cursor="hand2" if ok else "arrow",
+                         font=(th.FONT, 13), padx=4, pady=6, cursor="hand2" if ok else "arrow",
                          highlightthickness=1, highlightbackground=th.KEYCAP_EDGE)
-            b.grid(row=k // self.COLS, column=k % self.COLS, padx=2, pady=2, sticky="nsew")
+            self.buttons.append(b)
             text = "%s: %s" % (sym, what) + ("" if ok else " (not on the %s: %s)" % (calc.title, near))
             if ok:
                 seq = calc.keys_label(keys) if not isinstance(keys, str) else keys  # ↑×60, not 60 ↑
@@ -202,8 +267,8 @@ class SymbolsSection(object):
             b.bind("<Enter>", lambda e, t=text, s=sym, k=keys, o=ok, n=near: (
                 self.hint.set(t), self.show_card(s, k) if o else self.show_missing(s, n)))
             b.bind("<Leave>", lambda e: (self.hint.set(""), self.show_card(*(self.pinned or (None, None)))))
-        for c in range(self.COLS):
-            grid.columnconfigure(c, weight=1)
+        self.reflow(None)
+        grid.bind("<Configure>", self.reflow)
         tk.Label(self.frame, textvariable=self.hint, bg=th.PANEL, fg=th.FG, anchor="w", justify="left",
                  wraplength=410, height=2).pack(fill="x", pady=(8, 0))
         tk.Label(self.frame, text="Greyed: the calculator has no such symbol; the hint says what "
@@ -224,6 +289,21 @@ class SymbolsSection(object):
         self.card.pack(side="left", fill="both", expand=True)
         style_card(self.card)
         self.show_card(None, None)
+
+    CELL = 64  # Pixels a symbol button wants (the widest, "d/dx", fits)
+
+    def reflow(self, ev):
+        """The buttons in as many columns as the width holds (6 at the narrowest, at most 12),
+        laid out again only when that number changes"""
+        width = ev.width if ev is not None else WIDTH - 24
+        cols = max(self.COLS, min(12, width // self.CELL))
+        if cols == self.cols:
+            return
+        for c in range(max(cols, self.cols)):
+            self.grid.columnconfigure(c, weight=1 if c < cols else 0, uniform="sym" if c < cols else "")
+        self.cols = cols
+        for k, b in enumerate(self.buttons):
+            b.grid(row=k // cols, column=k % cols, padx=2, pady=2, sticky="nsew")
 
     def show_missing(self, sym, near):
         """The card for a symbol this calculator doesn't have"""
@@ -693,13 +773,26 @@ class ProgramsSection(object):
         slug = self.m.calc.slug
         self.items = plib.for_calc(plib.load(), slug)
         self.frame = tk.Frame(parent, bg=th.PANEL)
-        tk.Label(self.frame, text="Picked for engineering work. Downloads happen only when you "
+        tk.Label(self.frame, text="Programs and games by section. Downloads happen only when you "
                  "click, from ticalc.org or GitHub.", bg=th.PANEL, fg=th.DIM, anchor="w",
                  justify="left", wraplength=410).pack(fill="x", pady=(0, 6))
+        # Search: filters the list as you type (name, description, section, category, author)
+        top = tk.Frame(self.frame, bg=th.PANEL)
+        top.pack(fill="x", pady=(0, 6))
+        self.query = tk.StringVar(master=self.frame, value="")
+        self.count = tk.Label(top, text="", bg=th.PANEL, fg=th.DIM)
+        self.count.pack(side="right", padx=(6, 0))
+        tk.Label(top, text="Search", bg=th.PANEL, fg=th.DIM).pack(side="left", padx=(0, 6))
+        self.search = tk.Entry(top, textvariable=self.query, bg=th.PANEL2, fg=th.FG,
+                               insertbackground=th.FG, relief="flat", width=16)
+        self.search.pack(side="left", ipady=3, fill="x", expand=True)
+        self.search.bind("<Return>", lambda e: self.pick_first())
+        self.search.bind("<Down>", lambda e: self.pick_first())
+        self.search.bind("<Escape>", lambda e: self.query.set(""))
         mid = tk.Frame(self.frame, bg=th.PANEL)
         mid.pack(fill="both", expand=True)
         tree = self.tree = ttk.Treeview(mid, columns=("cat",), style="Calc.Treeview",
-                                        selectmode="browse", height=9)
+                                        selectmode="browse", height=12)
         tree.heading("#0", text="Program", anchor="w")
         tree.column("#0", width=270, anchor="w")
         tree.heading("cat", text="Category", anchor="w")
@@ -709,10 +802,10 @@ class ProgramsSection(object):
         tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
         tree.tag_configure("unverified", foreground=th.DIM)
-        for k, i in enumerate(self.items):
-            name = i["name"] + ("" if i.get("verified") else "  (unverified)")
-            tree.insert("", "end", iid=str(k), text=name, values=(i.get("category", ""),),
-                        tags=(() if i.get("verified") else ("unverified",)))
+        tree.tag_configure("section", foreground=th.ACCENT, font=(th.FONT, 9, "bold"))
+        self.closed = set()  # Sections the user folded (kept while the search changes)
+        tree.bind("<<TreeviewOpen>>", lambda e: self.folded(False))
+        tree.bind("<<TreeviewClose>>", lambda e: self.folded(True))
         tree.bind("<<TreeviewSelect>>", lambda e: self.picked())
         tree.bind("<Double-1>", self.double)  # Double click: the same as its button (get it)
         tree.bind("<Return>", lambda e: self.act_on() if self.item and not self.busy else None)
@@ -739,37 +832,104 @@ class ProgramsSection(object):
         self.info_btn.pack(side="left", padx=(6, 0))
         th.button(bar, "Get all...", self.get_all).pack(side="right")
         self.all_dialog = None
-        self.status = tk.StringVar(master=self.frame, value="%d programs for the %s" % (
-            len(self.items), self.m.calc.title))
+        games = sum(1 for i in self.items if plib.section_of(i) == "Games")
+        self.status = tk.StringVar(master=self.frame, value="%d programs and %d games for the %s" % (
+            len(self.items) - games, games, self.m.calc.title))
         tk.Label(self.frame, textvariable=self.status, bg=th.PANEL, fg=th.DIM, anchor="w",
                  justify="left", wraplength=410).pack(fill="x", pady=(6, 0))
         self.item = None
         self.busy = False
+        self.query.trace_add("write", lambda *a: self.refresh())
+        self.refresh()
+
+    def refresh(self):
+        """The list again for what's typed: a row per section (open or folded), its items under it"""
+        tree = self.tree
+        keep = self.item
+        tree.delete(*tree.get_children())
+        q = self.query.get().strip()
+        shown = plib.search(self.items, q)
+        for section, items in plib.by_section(shown):
+            sid = "s:" + section
+            tree.insert("", "end", iid=sid, text="%s (%d)" % (section, len(items)), values=("",),
+                        open=bool(q) or section not in self.closed, tags=("section",))
+            for i in items:
+                name = i["name"] + ("" if i.get("verified") else "  (unverified)")
+                tree.insert(sid, "end", iid=str(self.items.index(i)), text=name,
+                            values=(i.get("category", ""),),
+                            tags=(() if i.get("verified") else ("unverified",)))
+        self.count.configure(text=("%d found" % len(shown)) if q else "")
+        if keep is not None and keep in shown:
+            iid = str(self.items.index(keep))
+            tree.selection_set(iid)
+            tree.see(iid)
+            return
+        self.item = None  # What was picked is filtered out: nothing picked
+        self.act.configure(state="disabled")
+        self.info_btn.configure(state="disabled")
+        if q and not shown:
+            self.show_hint('Nothing matches "%s". Try a shorter word, or a section name (Games, '
+                           'Electrical, Chemistry...).' % q)
+        else:
+            self.show_hint()
+
+    def folded(self, closed):
+        """A section row was folded or opened: remembered (while no search is typed)"""
+        iid = self.tree.focus()
+        if iid.startswith("s:") and not self.query.get().strip():
+            (self.closed.add if closed else self.closed.discard)(iid[2:])
+
+    def pick_first(self):
+        """Enter or Down in the search box: the first program shown"""
+        for sid in self.tree.get_children():
+            kids = self.tree.get_children(sid)
+            if kids:
+                self.tree.item(sid, open=True)
+                self.tree.focus_set()
+                self.tree.selection_set(kids[0])
+                self.tree.focus(kids[0])
+                self.tree.see(kids[0])
+                break
+        return "break"
+
+    def shown(self):
+        self.search.focus_set()
 
     def double(self, ev):
         row = self.tree.identify_row(ev.y)
         if not row or self.busy:
+            return "break"
+        if row.startswith("s:"):  # A section: fold or open it, like its arrow
+            now_open = not self.tree.item(row, "open")
+            self.tree.item(row, open=now_open)
+            self.tree.focus(row)
+            self.folded(not now_open)
             return "break"
         self.tree.selection_set(row)
         self.picked()
         self.act_on()
         return "break"
 
-    def show_hint(self):
+    def show_hint(self, text=None):
         """What the description box says while no program is picked"""
         d = self.detail
         d.configure(state="normal")
         d.delete("1.0", "end")
-        d.insert("end", "Pick a program in the list to see what it does, who made it, its licence "
-                 "and how it gets onto the calculator.\n\nDouble-click it (or the button below) to "
-                 "download it and send it, or to open its page when CalcSuite can't send it itself. "
-                 "Get all... lists everything CalcSuite can send at once.", "hint")
+        d.insert("end", text or "Pick a program in the list to see what it does, who made it, its "
+                 "licence and how it gets onto the calculator. Type in the box above to search.\n\n"
+                 "Double-click it (or the button below) to download it and send it, or to open its "
+                 "page when CalcSuite can't send it itself. Get all... lists every program CalcSuite "
+                 "can send at once (games go one by one, from the list).", "hint")
         d.configure(state="disabled")
 
     def picked(self):
         sel = self.tree.selection()
-        if not sel:
-            self.show_hint()
+        if not sel or sel[0].startswith("s:"):  # Nothing, or a section's row
+            self.item = None
+            self.act.configure(state="disabled")
+            self.info_btn.configure(state="disabled")
+            self.show_hint("%s: %d. Pick one to see what it does; double-click the section to fold "
+                           "it." % (sel[0][2:], len(self.tree.get_children(sel[0]))) if sel else None)
             return
         i = self.item = self.items[int(sel[0])]
         d = self.detail
@@ -777,8 +937,11 @@ class ProgramsSection(object):
         d.delete("1.0", "end")
         d.insert("end", i["name"] + "\n", "b")
         d.insert("end", (i.get("description") or "") + "\n")
-        d.insert("end", "%s  ·  by %s  ·  licence: %s\n" % (
-            i.get("category", ""), i.get("author") or "not checked", i.get("license") or "not stated"), "dim")
+        d.insert("end", "%s  ·  %s  ·  by %s  ·  licence: %s\n" % (
+            plib.section_of(i), i.get("category", ""), i.get("author") or "not checked",
+            i.get("license") or "not stated"), "dim")
+        if i.get("os_notes"):
+            d.insert("end", "Runs on: %s\n" % i["os_notes"], "dim")
         d.insert("end", "Source: %s%s\n" % (i.get("source_site") or "", "" if i.get("verified")
                                              else "  (unverified: from a directory listing)"), "dim")
         flag, note = plib.needs_old_os(i, self.m.calc.slug, self.m.info.get("os"))
@@ -1484,7 +1647,7 @@ class GetAllDialog(object):
         self.ui(done)
 
 
-# ---- Info: About, the clock, Press-to-Test, the connection doctor ----
+# ---- Calculator info: About, the clock, Press-to-Test, the connection doctor ----
 class InfoSection(object):
     def __init__(self, panel, parent):
         import mirror as mirror_mod
@@ -1717,7 +1880,7 @@ class InfoSection(object):
         self.check()
 
 
-# ---- PC copy: the dialog behind Info > Make a PC copy / Open my PC copy ----
+# ---- PC copy: the dialog behind Calculator info > Make a PC copy / Open my PC copy ----
 PC_COPY = {"ti84": {"model": "84", "emulator": "CEmu", "time": "about 2 minutes",
                     "dumper": "ZZDUMP", "rest": "the ROMData AppVars"},
            "ti89": {"model": "89", "emulator": "TiEmu", "time": "about 70 seconds",

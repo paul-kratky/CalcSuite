@@ -91,7 +91,7 @@ CalcSuite). `fresh=True` boots the ROM and sends the files (default: the backup 
 
 ### Suggested UI
 
-- **Info panel:** "Make a PC copy..." (84 CE on OS <= 5.4, 89 Titanium). A confirmation that
+- **Calculator info panel:** "Make a PC copy..." (84 CE on OS <= 5.4, 89 Titanium). A confirmation that
   says: backs up first; about 2 minutes; don't touch the calculator; the ROM stays on this PC.
 - **PC copy tab:** the list of ROMs (`list_roms`), **Open in CEmu** (`get_emulator` then
   `open_in_emulator`), **Show in folder**.

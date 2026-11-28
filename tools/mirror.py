@@ -11,7 +11,7 @@ back.
 A calculator's tab: the live picture (the Nspire about 19 frames a second, the 84 Plus CE about
 1), Screenshot, Copy screen, Paste text, Record, Send program, Keyboard on/off, and a panel
 with Files (the calculator manager, calc_manager.py, with Back up / Restore), Keys, Symbols,
-Guide, Get programs and Info (model, OS, clock, Exit Press-to-Test, the connection doctor).
+Guide, Get programs and Calculator info (model, OS, clock, Exit Press-to-Test, the connection doctor).
 
 Each calculator has one link thread, the only thing that talks to it (Mirror.link_loop):
 keys go first, the picture catches up when you pause, a do-nothing key keeps it awake.
@@ -75,7 +75,7 @@ import py2tns  # noqa: E402
 from calc_models import Nspire, Ti84, Ti89, CALCS  # noqa: E402,F401  (the old names still work)
 
 APP_NAME = "CalcSuite"
-SPONSOR_URL = None  # A sponsor / funding page; the Info panel shows "Support CalcSuite" when set
+SPONSOR_URL = None  # A sponsor / funding page; the Calculator info panel shows "Support CalcSuite" when set
 DOCS = os.path.join(os.path.expanduser("~"), "Documents")
 OLD_KIT = os.path.join(DOCS, "Nspire Mirror")  # Where the app kept its files before 1.0
 
@@ -545,7 +545,7 @@ class Mirror(object):
         self.let_go.clear()
         self.released = True
         self.set_status("CalcSuite has let go of the %s so TI's software can use it. Close that, "
-                        "then press Reconnect (Info)." % self.calc.title)
+                        "then press Reconnect (Calculator info)." % self.calc.title)
 
     def queue(self, line, note=None, done=None, progress=None):
         """A command for the link thread. done(code, lines) is called on the link thread when it
@@ -1088,8 +1088,7 @@ class Tab(object):
         self.left = left
         self.panel = ui_panels.SidePanel(self.frame, app, mirror)
         self.panel.frame.pack(side="right", fill="y", padx=(0, 14), pady=(10, 10))
-        if Tab.panel_width:
-            self.panel.frame.configure(width=Tab.panel_width)
+        self.panel.frame.configure(width=self.panel_width_now())
         # A handle between the screen and the panel: drag it to make the panel wider or narrower
         grip = tk.Frame(self.frame, bg=th.BG, width=8, cursor="sb_h_double_arrow")
         grip.pack(side="right", fill="y", pady=(10, 10))
@@ -1102,20 +1101,63 @@ class Tab(object):
         self.drag_w = None
         grip.bind("<B1-Motion>", self.drag_panel)
         grip.bind("<ButtonRelease-1>", self.drop_panel)
-        grip.bind("<Double-Button-1>", lambda e: self.set_panel_width(self.default_panel_width()))
+        grip.bind("<Double-Button-1>", lambda e: self.set_panel_width(None))
         grip.bind("<Enter>", lambda e: line.configure(bg=th.ACCENT))
         grip.bind("<Leave>", lambda e: self.drag_w is None and line.configure(bg=th.PANEL2))
         left.pack(side="left", fill="both", expand=True, padx=(14, 8), pady=(10, 10))
         mirror.listeners.append(self.key_pressed)
+        # The default width follows the window (a share of it); a dragged width stays put
+        self.fit_job = None
+        self.frame.bind("<Configure>", self.window_resized)
 
-    panel_width = 0  # The width the user dragged the side panel to (every tab, this session)
+    panel_width = 0  # The width the user dragged the side panel to (every tab, this session; 0: the default)
 
     SNAP = 60  # Pixels: a drag this close to the default width snaps to it
+    PANEL_SHARE = 0.47  # The default: the panel gets ~half the window (its left edge at ~1000 of 1920)
 
-    @staticmethod
-    def default_panel_width():
+    def tab_width(self):
+        """The width a calculator's tab has (every tab fills the same space)"""
+        w = self.app.content.winfo_width()
+        if w <= 1:  # Not laid out yet: the window's own width
+            self.app.root.update_idletasks()
+            w = self.app.content.winfo_width()
+            if w <= 1:
+                w = self.app.root.winfo_reqwidth()
+        return w
+
+    def panel_limits(self):
+        """(narrowest, widest) the panel may be: the screen side keeps room for its checkbox
+        row (the 84's has four)"""
         import ui_panels
-        return ui_panels.WIDTH
+        keep = max(360, self.check_row.winfo_reqwidth() + 30)
+        lo = ui_panels.WIDTH - 70
+        return lo, max(lo, self.tab_width() - 36 - keep)  # 36: the paddings and the handle
+
+    def default_panel_width(self):
+        lo, hi = self.panel_limits()
+        return max(lo, min(hi, int(round(self.tab_width() * self.PANEL_SHARE))))
+
+    def panel_width_now(self):
+        """The width the panel should have now: the dragged one (within the limits), else the default"""
+        if Tab.panel_width:
+            lo, hi = self.panel_limits()
+            return max(lo, min(hi, Tab.panel_width))
+        return self.default_panel_width()
+
+    def window_resized(self, ev):
+        """The window changed size: the panel keeps its share (once the resize settles a little:
+        one layout, not one per pixel)"""
+        if self.fit_job is not None:
+            self.frame.after_cancel(self.fit_job)
+        self.fit_job = self.frame.after(40, self.fit_panel)
+
+    def fit_panel(self):
+        self.fit_job = None
+        if self.drag_w is not None:
+            return
+        w = self.panel_width_now()
+        if self.panel.frame.winfo_reqwidth() != w:
+            self.panel.frame.configure(width=w)
 
     def drag_panel(self, ev):
         """Dragging the handle: a guide line shows where the panel's edge will go; near the
@@ -1123,10 +1165,8 @@ class Tab(object):
         f = self.panel.frame
         right = f.winfo_x() + f.winfo_width()  # The panel's right edge in the tab
         default = self.default_panel_width()
-        # The screen side keeps room for its checkbox row (the 84's has four)
-        keep = max(360, self.check_row.winfo_reqwidth() + 30)
-        w = max(default - 70, min(right - (ev.x_root - self.frame.winfo_rootx()),
-                                  self.frame.winfo_width() - keep))
+        lo, hi = self.panel_limits()
+        w = max(lo, min(right - (ev.x_root - self.frame.winfo_rootx()), hi))
         snapped = abs(w - default) <= self.SNAP
         if snapped:
             w = default
@@ -1173,13 +1213,14 @@ class Tab(object):
                 g.withdraw()
         self.grip_line.configure(bg=th.ACCENT)
         if w is not None:
-            self.set_panel_width(w)
+            # Dropped on the default (it snapped there): it follows the window again
+            self.set_panel_width(None if w == self.default_panel_width() else w)
 
     def set_panel_width(self, w):
-        Tab.panel_width = w
+        """The panel's width on every tab; None: the default (a share of the window)"""
+        Tab.panel_width = w or 0
         for t in self.app.tabs.values():
-            if t.panel.frame.winfo_reqwidth() != w:
-                t.panel.frame.configure(width=w)
+            t.fit_panel()
 
     def open_editor(self):
         """The program editor, aimed at this calculator (TI-Basic or Nspire Python)"""
@@ -1630,15 +1671,16 @@ class App(object):
 
     def offer_driver(self, m, d):
         """A calculator is plugged in but Windows has no driver CalcSuite can use: its tab opens
-        on Info, and the same check-then-install the Info panel's button runs starts (it shows
+        on Calculator info, and the same check-then-install that panel's button runs starts (it shows
         what will change; Windows asks for admin rights). Once per calculator per session."""
         tab = self.tabs.get(m.calc.pid)
         if tab is None or self.offered_driver.get(m.calc.pid):
             return
         self.offered_driver[m.calc.pid] = True
         self.show_tab(m.calc.pid)
-        tab.panel.show("Info")
-        info = tab.panel.sections.get("Info")
+        import ui_panels
+        tab.panel.show(ui_panels.INFO)
+        info = tab.panel.sections.get(ui_panels.INFO)
         if info is not None and hasattr(info, "fix"):
             m.set_status("The %s needs a driver CalcSuite can use: setting it up..." % m.calc.title)
             info.fix("install", d)

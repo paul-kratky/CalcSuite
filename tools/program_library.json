@@ -4,8 +4,10 @@
   "source": "docs/dev/program_library_research.md",
   "notes": [
    "action: download = CalcSuite downloads it on a click and sends 'send' (zip member patterns, lower case, fnmatch; Nspire: the folder it goes to); page = open info_url in the browser; ti_page = TI's page (its licence), never downloaded by CalcSuite.",
-   "verified: false means the entry came from a directory listing: its file names were not checked."
-  ]
+   "verified: false means the entry came from a directory listing: its file names were not checked.",
+   "section: the group the item is listed under in Get programs (Games, Electrical, Mechanical, Chemistry, Physics, Math, Computer engineering, Utilities); category is the finer label."
+  ],
+  "updated": "2026-11-28"
  },
  "items": [
   {
@@ -13,6 +15,7 @@
    "name": "Cesium 3.8.0",
    "description": "Program launcher/shell: runs any program (BASIC or ASM, archived or not) from a menu, hides, locks and renames programs.",
    "category": "General / shell",
+   "section": "Utilities",
    "author": "MateoConLechuga",
    "license": "not stated on ticalc page or release page",
    "source_site": "ticalc.org (mirror of GitHub release)",
@@ -41,6 +44,7 @@
    "name": "CE C Libraries (clibs) v15.0",
    "description": "Shared runtime libraries (graphics, keypad, fonts, file I/O) that most C/ASM programs need. Install once.",
    "category": "General / dependency",
+   "section": "Utilities",
    "author": "CE-Programming (mateoconlechuga et al.)",
    "license": "not shown on release page (check repo LICENSE)",
    "source_site": "GitHub (CE-Programming/libraries)",
@@ -69,6 +73,7 @@
    "name": "KhiCAS (χCAS) for TI-84 Plus CE",
    "description": "A full computer algebra system (from Giac/Xcas): symbolic solve, derivatives, integrals, matrices, plus a Python-like language, inside the CE.",
    "category": "Math / CAS",
+   "section": "Math",
    "author": "Bernard Parisse (Giac by B. Parisse and R. De Graeve)",
    "license": "GPL2 (allocator_standard.c is GPL3). The INST installer is closed source but free to run and redistribute for non-commercial use.",
    "source_site": "Bernard Parisse, Univ. Grenoble Alpes (Institut Fourier)",
@@ -101,6 +106,7 @@
    "name": "Converty: The Ultimate Unit Converter",
    "description": "Menu-driven unit converter: 98 units in 12 groups (length, area, volume, mass, force, temperature, energy, density, pressure, speed, time, memory).",
    "category": "Units",
+   "section": "Mechanical",
    "author": "TICalc Arts",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -129,6 +135,7 @@
    "name": "Programmer's Calculator v1.21",
    "description": "RPN programmer's calculator: arithmetic and bitwise AND/OR/XOR/shift in hex, decimal, octal and binary, all shown at once.",
    "category": "Computer engineering / bases",
+   "section": "Computer engineering",
    "author": "Ander D'nar (DrDnar)",
    "license": "LICENSE file inside the zip (terms not on the page)",
    "source_site": "ticalc.org",
@@ -167,6 +174,7 @@
    "name": "LOGiCE",
    "description": "Boolean algebra simplifier (Quine-McCluskey, up to 10 variables) with truth tables and Karnaugh maps.",
    "category": "Computer engineering / digital logic",
+   "section": "Computer engineering",
    "author": "Megami Tensei (atomicra1n)",
    "license": "MIT (GitHub repo)",
    "source_site": "ticalc.org (also GitHub atomicra1n/LOGiCE)",
@@ -197,6 +205,7 @@
    "name": "Graph3CE v2.0 (3D graphing)",
    "description": "Plots up to 6 surfaces z=f(x,y) in 3D with rotation, zoom, window settings and trace.",
    "category": "Graphing",
+   "section": "Math",
    "author": "not checked (port of a Casio Prizm app)",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -231,6 +240,7 @@
    "name": "Complex Math",
    "description": "Complex-number arithmetic (add, subtract, multiply, divide, power, root, exp, ln) shown in rectangular and polar form; handy for phasors.",
    "category": "Math / complex numbers",
+   "section": "Math",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -263,6 +273,7 @@
    "name": "Resistor Color Code",
    "description": "Converts resistor colour bands to value and tolerance and back (3 to 6 bands), and draws the resistor.",
    "category": "Electronics",
+   "section": "Electrical",
    "author": "Osias Hernandez",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -291,6 +302,7 @@
    "name": "Ohm's Law Calculator",
    "description": "From any two known values, works out voltage, current, resistance, power and reactance.",
    "category": "Electronics",
+   "section": "Electrical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -323,6 +335,7 @@
    "name": "555 Astable Multivibrator",
    "description": "Designs and analyses 555 timer astable circuits: frequency, high/low times, duty cycle.",
    "category": "Electronics",
+   "section": "Electrical",
    "author": "not checked (same tool exists for the 89 as ast555.zip)",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -355,6 +368,7 @@
    "name": "Capacitor Value Finder",
    "description": "Decodes a ceramic disc capacitor's printed code (e.g. 104) into its capacitance.",
    "category": "Electronics",
+   "section": "Electrical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -387,6 +401,7 @@
    "name": "Cross-Section Properties and Stresses v1.03",
    "description": "Polygon cross-sections: area, centroid, moments of inertia, and stresses under combined loads (mechanics of materials).",
    "category": "Statics / mechanics of materials",
+   "section": "Mechanical",
    "author": "not checked (likely same author as the Nspire 'Cross-Section Properties v2.0')",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -419,6 +434,7 @@
    "name": "CEdit (text editor)",
    "description": "Text editor for notes and formula sheets stored as AppVars, with cut/copy/paste.",
    "category": "Notes / reference",
+   "section": "Utilities",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -453,6 +469,7 @@
    "name": "Control System Toolbox r1.3",
    "description": "Control-systems suite: transfer functions, Bode, Nyquist, root locus, step response, margins, Routh, lead/lag and PID design.",
    "category": "Electrical / control",
+   "section": "Electrical",
    "author": "Loreto Parisi",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -481,6 +498,7 @@
    "name": "Laplace and Z transform (LZT)",
    "description": "Forward and inverse Laplace and Z transforms, plus shells for simulating circuits and block diagrams.",
    "category": "Math / signals and transforms",
+   "section": "Math",
    "author": "Jiri Bazant",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -509,6 +527,7 @@
    "name": "FluidTI (IAPWS-IF97 steam tables)",
    "description": "Water and steam properties (h, s, v, u, cp and more) from the industrial IAPWS-IF97 standard, so you don't need printed steam tables.",
    "category": "Thermodynamics / fluids",
+   "section": "Mechanical",
    "author": "Roman Krause, Hans-Joachim Kretzschmar (Zittau/Görlitz)",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -537,6 +556,7 @@
    "name": "Logical Suite v1.34",
    "description": "Karnaugh-map editor and simplifier, logic-circuit drawing, and 4-bit synchronous counter design.",
    "category": "Computer engineering / digital logic",
+   "section": "Computer engineering",
    "author": "Thiernesse Vincent",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -569,6 +589,7 @@
    "name": "Table of Elements v1.2 (English)",
    "description": "Periodic table app: 3 views, 14 sort orders, 10 properties per element.",
    "category": "Reference / chemistry",
+   "section": "Chemistry",
    "author": "Eric Marion, Jake Poznanski",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -625,6 +646,7 @@
    "name": "BE (Basic Extensions)",
    "description": "Flash app adding 175+ functions for maths, EE and DSP/statistics, and exposing ROM calls to TI-BASIC.",
    "category": "Math / library",
+   "section": "Math",
    "author": "Ralph Schenn",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -681,6 +703,7 @@
    "name": "Statics (2D) and Statics (3D)",
    "description": "Solves 2D equilibrium/truss problems (up to 9 equations) and 3D equilibrium with vector input, with worked examples.",
    "category": "Statics",
+   "section": "Mechanical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -737,6 +760,7 @@
    "name": "Resistencia de Materiales v2.01",
    "description": "Mechanics of materials: stresses, Mohr's circle (English and Spanish).",
    "category": "Mechanics of materials",
+   "section": "Mechanical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -793,6 +817,7 @@
    "name": "Numerica v1.0 (numerical methods suite)",
    "description": "Root finding, interpolation, numerical integration and ODEs (Euler, Runge-Kutta).",
    "category": "Numerical methods",
+   "section": "Math",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -849,6 +874,7 @@
    "name": "Ecuacion (equations manager)",
    "description": "About 900 engineering/science equations with a solver, equation-system tools, and a 1st/2nd-order ODE solver (EN/ES).",
    "category": "Formula reference / solver",
+   "section": "Math",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -905,6 +931,7 @@
    "name": "Multiloop DC and AC Circuits",
    "description": "Mesh-current analysis of multi-loop DC and AC circuits: currents, voltages, charges, impedances, with examples.",
    "category": "Electrical / circuits",
+   "section": "Electrical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -961,6 +988,7 @@
    "name": "tlines89 v1.1",
    "description": "Transmission-line analysis, Smith chart plotting and stub matching.",
    "category": "Electrical / RF",
+   "section": "Electrical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1017,6 +1045,7 @@
    "name": "Chemistry v1.00 (Flash app)",
    "description": "Periodic and solubility tables, thermodynamic data, chemistry equations and a molar-mass converter.",
    "category": "Reference / chemistry",
+   "section": "Chemistry",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1073,6 +1102,7 @@
    "name": "FormulaPro 1.42b (EE*Pro for Nspire)",
    "description": "Electrical-engineering equation solver: 700+ equations in 16 categories plus a reference section. Enter known values in any units and it solves the rest.",
    "category": "Electrical / formula solver",
+   "section": "Electrical",
    "author": "Jim Bauwens, Adrien Bertrand (Adriweb), TI-Planet / Inspired-Lua",
    "license": "LGPL-3 (README); TI's page also says free and open source, LGPL",
    "source_site": "GitHub (adriweb/EEPro-for-Nspire); also hosted by TI Education and ticalc.org",
@@ -1101,6 +1131,7 @@
    "name": "Math Equations Library 4.0 (CAS)",
    "description": "Searchable formula sheets and programs for calculus I-III, linear algebra, differential equations, statistics and vector analysis (e.g. fetch(\"trig identity\")).",
    "category": "Formula reference / math",
+   "section": "Math",
    "author": "Rachel Bush",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1133,6 +1164,7 @@
    "name": "Chemistry Library",
    "description": "Balances chemical equations and computes molar masses, e.g. balance(\"H2+O2=H2O\"), mass(\"H2SO4\"); element names/symbols/numbers.",
    "category": "Reference / chemistry",
+   "section": "Chemistry",
    "author": "Nelson Sousa",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1161,6 +1193,7 @@
    "name": "Multilingual Periodic Table",
    "description": "Periodic table with full element data and 3D crystal-structure animation.",
    "category": "Reference / chemistry",
+   "section": "Chemistry",
    "author": "Nick Steen",
    "license": "not stated (source included)",
    "source_site": "ticalc.org",
@@ -1189,6 +1222,7 @@
    "name": "bodeplot v2.1.1",
    "description": "Draws Bode magnitude and phase plots from a transfer function you type in.",
    "category": "Electrical / control",
+   "section": "Electrical",
    "author": "najiji",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1217,6 +1251,7 @@
    "name": "Electrical Engineering Tools",
    "description": "Four documents of tools for DSP, RLC circuits, power, and electromagnetics (work in progress).",
    "category": "Electrical",
+   "section": "Electrical",
    "author": "Asil Poyraz Yongaci",
    "license": "LICENSE file in zip (terms not on the page)",
    "source_site": "ticalc.org",
@@ -1245,6 +1280,7 @@
    "name": "Runge-Kutta v2.05",
    "description": "Numerical solutions and plots for systems of 1st- and 2nd-order ODEs.",
    "category": "Numerical methods / ODE",
+   "section": "Math",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1273,6 +1309,7 @@
    "name": "Number Base Converter",
    "description": "Converts between binary, octal, decimal and hexadecimal, including fractional parts.",
    "category": "Computer engineering / bases",
+   "section": "Computer engineering",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1301,6 +1338,7 @@
    "name": "Laguerre (polynomial roots)",
    "description": "Finds up to 9 complex zeros of a polynomial (and of its derivative) with Laguerre's method, shown graphically.",
    "category": "Math / polynomials",
+   "section": "Math",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1329,6 +1367,7 @@
    "name": "Truss 2-D and 3-D v1.01",
    "description": "Member and reaction forces in 2D and 3D trusses by nodal equilibrium.",
    "category": "Statics",
+   "section": "Mechanical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1357,6 +1396,7 @@
    "name": "Cross-Section Properties v2.0",
    "description": "Section properties of polygon cross-sections and stresses under combined axial and bending loads.",
    "category": "Mechanics of materials",
+   "section": "Mechanical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1385,6 +1425,7 @@
    "name": "Two Port Network Solver (CX CAS)",
    "description": "Converts between two-port parameter sets (Z, Y, h, ABCD...), evaluates circuit performance, and combines networks in series, parallel or cascade.",
    "category": "Electrical / circuits",
+   "section": "Electrical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1413,6 +1454,7 @@
    "name": "Complex Analysis Functions",
    "description": "CAS functions for poles, residues, contour integrals, and Laplace/inverse Laplace transforms.",
    "category": "Math / complex and transforms",
+   "section": "Math",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1441,6 +1483,7 @@
    "name": "Advanced Regression for TI-Nspire CAS",
    "description": "Nonlinear regression with ANOVA, standard errors, R² and parameter tests.",
    "category": "Statistics",
+   "section": "Math",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1469,6 +1512,7 @@
    "name": "Darcy-Weisbach Application",
    "description": "Pipe flow: friction factor, head loss, Reynolds number and water viscosity.",
    "category": "Fluids",
+   "section": "Mechanical",
    "author": "not checked",
    "license": "not stated",
    "source_site": "ticalc.org",
@@ -1497,6 +1541,7 @@
    "name": "Science Tools 5.6",
    "description": "Unit converter, significant-figures calculator, data/graph wizard and vector calculator.",
    "category": "Units / science",
+   "section": "Physics",
    "author": "Texas Instruments",
    "license": "TI licence, implied acceptance on download; no login",
    "source_site": "education.ti.com",
@@ -1529,6 +1574,7 @@
    "name": "Polynomial Root Finder and Simultaneous Equation Solver (PlySmlt2) 5.5",
    "description": "Roots of polynomials up to degree 10 and linear systems up to 10x10, including complex results.",
    "category": "Math / solvers",
+   "section": "Math",
    "author": "Texas Instruments",
    "license": "TI licence, implied acceptance; no login",
    "source_site": "education.ti.com",
@@ -1561,6 +1607,7 @@
    "name": "Periodic Table 5.5",
    "description": "Periodic table with element properties and graphs of trends.",
    "category": "Reference",
+   "section": "Chemistry",
    "author": "Texas Instruments",
    "license": "TI licence, implied acceptance; no login",
    "source_site": "education.ti.com",
@@ -1593,6 +1640,7 @@
    "name": "CellSheet 5.1.1",
    "description": "Spreadsheet on the calculator.",
    "category": "General",
+   "section": "Utilities",
    "author": "Texas Instruments",
    "license": "TI licence, implied acceptance; no login",
    "source_site": "education.ti.com",
@@ -1617,6 +1665,1527 @@
     [
      "*.8xv",
      null
+    ]
+   ]
+  },
+  {
+   "id": "ce-oiram",
+   "name": "Oiram",
+   "description": "Mario-style platformer with many enemies and power-ups; a level editor for the PC is linked in its readme.",
+   "category": "Game / platformer",
+   "section": "Games",
+   "author": "MateoConLechuga",
+   "license": "not stated (source on the author's GitHub; images copyright Nintendo)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/468/46851.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/oiram.zip",
+   "alt_download_url": null,
+   "size": "42,570 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (needs the CE C libraries)"
+   ],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "oiram/*.8x?",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-pacman",
+   "name": "Pac-Man CE",
+   "description": "The arcade Pac-Man with smooth graphics, plus a hidden extra map set (press 5 on the title screen).",
+   "category": "Game / arcade",
+   "section": "Games",
+   "author": "MateoConLechuga",
+   "license": "source included; the readme says 'Feel free to use it in any way you see fit'",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/464/46430.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/pacmance.zip",
+   "alt_download_url": null,
+   "size": "295,766 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "pacman.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-celeste",
+   "name": "CEleste (Celeste Classic)",
+   "description": "A port of the platformer Celeste Classic: climb the mountain, dash and wall-jump through 30 screens.",
+   "category": "Game / platformer",
+   "section": "Games",
+   "author": "commandblockguy",
+   "license": "MIT (LICENSE in the zip)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/477/47767.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/celeste.zip",
+   "alt_download_url": null,
+   "size": "103,112 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (needs the CE C libraries)"
+   ],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "celeste.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-tetrica",
+   "name": "Tetric A (Tetris)",
+   "description": "A fast falling-blocks game in assembly with five modes: Marathon, High Speed, Touchdown, Sadistic and Collapse.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Kerm Martian",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/465/46530.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/tetris_ce.zip",
+   "alt_download_url": null,
+   "size": "7,006 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [],
+   "special_handling": "Run prgmATETRIS. ATETRIS and TETRICA must stay in RAM (not archived).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-2048",
+   "name": "2048 CE",
+   "description": "The 2048 sliding-tile game, with and without undo; the game is saved in an archived appvar.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Pi_Runner",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/472/47225.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/2048ce.zip",
+   "alt_download_url": null,
+   "size": "10,524 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (needs the CE C libraries)"
+   ],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "ce2048.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-blockdude",
+   "name": "Block Dude CE v1.3",
+   "description": "The classic Block Dude puzzle game: move and stack blocks to reach the exit, 11 levels, with undo.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Shaun McFall",
+   "license": "code: The Unlicense; graphics: their own licence (readme)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/478/47805.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/blockdudece.zip",
+   "alt_download_url": null,
+   "size": "208,928 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (needs the CE C libraries)"
+   ],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "blokdude.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-wordle",
+   "name": "Wordle",
+   "description": "The word-guessing game: six tries to find the five-letter word of the day (uses the calculator's clock).",
+   "category": "Game / words",
+   "section": "Games",
+   "author": "commandblockguy",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/477/47768.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/wordle.zip",
+   "alt_download_url": null,
+   "size": "61,411 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (needs the CE C libraries)"
+   ],
+   "special_handling": "Set the calculator's clock first (it picks the word of the day from the date).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "wordle_classic.8xp",
+     null
+    ],
+    [
+     "words.8xv",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-chess",
+   "name": "Chess CE",
+   "description": "Chess against a fairly strong computer player (H.G. Muller's engine) or a friend, with autosave.",
+   "category": "Game / board",
+   "section": "Games",
+   "author": "MateoConLechuga",
+   "license": "not stated (source included)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/468/46800.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/games/chessce.zip",
+   "alt_download_url": null,
+   "size": "21,800 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (needs the CE C libraries)"
+   ],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "chessce/chess.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-chemhelper",
+   "name": "Tom's Lab chemistry helper 1.2.2",
+   "description": "Electron configurations, VSEPR shapes, gas laws, free energy, acids and bases, equilibrium constants, a pH solver, polyatomic ions and organic naming.",
+   "category": "Chemistry / solvers",
+   "section": "Chemistry",
+   "author": "Liam Piper",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/475/47514.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/atomslab.zip",
+   "alt_download_url": null,
+   "size": "6,012 B zip",
+   "os_notes": "TI-Basic; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-physics",
+   "name": "Physics V.1.2.0",
+   "description": "Menu of physics formula solvers: kinematics, forces, energy, momentum, circular motion, waves and circuits.",
+   "category": "Physics / formula solvers",
+   "section": "Physics",
+   "author": "Andrew Pipo",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/476/47613.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/physics1.2.0cedone.zip",
+   "alt_download_url": null,
+   "size": "5,781 B zip",
+   "os_notes": "TI-Basic; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-doppler",
+   "name": "Doppler Effect",
+   "description": "The observed or the emitted frequency for a moving source, a moving observer, or both.",
+   "category": "Physics / waves",
+   "section": "Physics",
+   "author": "Alex Lountzis",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/468/46822.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/doppler.zip",
+   "alt_download_url": null,
+   "size": "1,186 B zip",
+   "os_notes": "TI-Basic; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "doppler.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-forcedvibr",
+   "name": "Forced Vibrations v1.11",
+   "description": "Exact solution of a forced, damped vibration m*y'' + d*y' + c*y = F0*cos(wt) and/or F0*sin(wt) for given initial conditions.",
+   "category": "Mechanical / vibrations",
+   "section": "Mechanical",
+   "author": "Claus Martin Dachselt",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/470/47038.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/science/forcedvibr.zip",
+   "alt_download_url": null,
+   "size": "26,415 B zip",
+   "os_notes": "TI-Basic; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Run prgmFORCDVIB (it calls the other three).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-triangle",
+   "name": "Triangle Solver (with graphics)",
+   "description": "Solves a triangle from three known sides and angles and draws it (no ambiguous SSA case).",
+   "category": "Math / geometry",
+   "section": "Math",
+   "author": "Bob Smith",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/477/47780.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/math/triangle.zip",
+   "alt_download_url": null,
+   "size": "2,704 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [
+    "ce-clibs (needs the CE C libraries)"
+   ],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "triangle.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-newton",
+   "name": "Newton-Raphson",
+   "description": "Newton-Raphson root finding from a starting guess, showing each step.",
+   "category": "Math / numerical methods",
+   "section": "Math",
+   "author": "Anders Tiberg",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/470/47075.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/math/newton.zip",
+   "alt_download_url": null,
+   "size": "1,253 B zip",
+   "os_notes": "TI-Basic; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "newton.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-homdeq2",
+   "name": "Homogeneous Diff. Equation 2nd Order v1.03",
+   "description": "General solution of y'' + A*y' + B*y = 0, and the constants C1, C2 for given initial conditions.",
+   "category": "Math / differential equations",
+   "section": "Math",
+   "author": "Claus Martin Dachselt",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/470/47029.html",
+   "download_url": "https://www.ticalc.org/pub/84pluscse/basic/math/homog_diff_equation2.zip",
+   "alt_download_url": null,
+   "size": "20,200 B zip",
+   "os_notes": "TI-Basic; any CE OS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "ce-commas",
+   "name": "Commas",
+   "description": "Thousands separators (commas or spaces) for numbers on the home screen; can also change the decimal separator.",
+   "category": "Utilities / display",
+   "section": "Utilities",
+   "author": "commandblockguy",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/477/47774.html",
+   "download_url": "https://www.ticalc.org/pub/84plusce/asm/programs/commas.zip",
+   "alt_download_url": null,
+   "size": "3,197 B zip",
+   "os_notes": "ASM/C. Runs directly on OS 5.4.0 (from the prgm menu, or Asm( on older OSes). On OS 5.5+ it needs arTIfiCE first.",
+   "needs_asm": true,
+   "dependencies": [],
+   "special_handling": "Run COMMAS, SPACES or DOTS once to pick the separator.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti84",
+   "action": "download",
+   "send": [
+    [
+     "*.8xp",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-tichess",
+   "name": "TI-Chess v4.11",
+   "description": "A full chess program from the TICT team: all the rules, opening book, puzzles, take-backs and a strong computer player.",
+   "category": "Game / board",
+   "section": "Games",
+   "author": "Thomas Nussbaumer, Marcos Lopez (TICT)",
+   "license": "copyleft, source included (readme: 'Copyright (read: Copyleft)')",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/116/11606.html",
+   "download_url": "https://www.ticalc.org/pub/89/asm/games/board/tichess.zip",
+   "alt_download_url": null,
+   "size": "840,912 B zip",
+   "os_notes": "Nostub ASM (no kernel), with TI-89 Titanium support.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Start it with ticstart (the Titanium launcher is sent).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "bin89/english/ticstart-titanium.89z",
+     null
+    ],
+    [
+     "bin89/english/tichess.89y",
+     null
+    ],
+    [
+     "bin89/puzzles0.89y",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-blockdude",
+   "name": "Block Dude 89",
+   "description": "Port of Brandon Sterner's Block Dude: carry blocks to climb your way to the exit.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Matt Baker (port; game by Brandon Sterner)",
+   "license": "GPL-2.0 (gpl.txt in the zip)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/206/20666.html",
+   "download_url": "https://www.ticalc.org/pub/89/asm/games/puzzle/bd.zip",
+   "alt_download_url": null,
+   "size": "72,682 B zip",
+   "os_notes": "Nostub ASM (no kernel), with TI-89 Titanium support.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "bd/ti89/bd.89z",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-timiner",
+   "name": "TI-Minesweeper v1.31",
+   "description": "Minesweeper almost exactly like the Windows one, from the TICT team.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Thomas Nussbaumer, Marcos Lopez (TICT)",
+   "license": "not stated (full C source included)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/138/13841.html",
+   "download_url": "https://www.ticalc.org/pub/89/asm/games/puzzle/timiner.zip",
+   "alt_download_url": null,
+   "size": "113,395 B zip",
+   "os_notes": "Nostub ASM (no kernel), with TI-89 Titanium support.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "bin89/timiner-titanium.89z",
+     null
+    ],
+    [
+     "bin89/timidata.89y",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-ztetris",
+   "name": "zTetris",
+   "description": "The ZTetris falling-blocks game in grayscale, with two-player link play (even against an 83/85/86).",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Jimmy Mårdell (original), Greg Dietsche (nostub port)",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/245/24589.html",
+   "download_url": "https://www.ticalc.org/pub/89/asm/games/puzzle/nostub_tetris.zip",
+   "alt_download_url": null,
+   "size": "73,096 B zip",
+   "os_notes": "Nostub ASM (no kernel), with TI-89 Titanium support.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "tetris89.89z",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-drmario",
+   "name": "Dr. Mario",
+   "description": "Stack pills of the same colour to clear the viruses.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Greg Dietsche",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/348/34892.html",
+   "download_url": "https://www.ticalc.org/pub/89/asm/games/puzzle/nostub_drmario.zip",
+   "alt_download_url": null,
+   "size": "37,095 B zip",
+   "os_notes": "Nostub ASM (no kernel), with TI-89 Titanium support.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "drmario-titanium.89z",
+     null
+    ],
+    [
+     "drmario.89y",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-bomberdude",
+   "name": "Bomber Dude v0.95",
+   "description": "A Bomberman-like game against a computer player, many maps and bonuses, and a two-calculator mode.",
+   "category": "Game / arcade",
+   "section": "Games",
+   "author": "Jean-Francois Geyelin",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/357/35795.html",
+   "download_url": "https://www.ticalc.org/pub/89/asm/games/arcade/bomberdude.zip",
+   "alt_download_url": null,
+   "size": "110,736 B zip",
+   "os_notes": "Nostub ASM; the author says it runs on the Titanium unpatched.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "bomber dude/bomberdude.89z",
+     null
+    ],
+    [
+     "bomber dude/bomberdude.89y",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-insane",
+   "name": "Insane Game",
+   "description": "The classic sliding puzzle-and-action game, with puzzle mode, action mode and two-player link play.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Greg Dietsche",
+   "license": "not stated (full source included)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/211/21155.html",
+   "download_url": "https://www.ticalc.org/pub/89/asm/games/puzzle/insanegame.zip",
+   "alt_download_url": null,
+   "size": "23,818 B zip",
+   "os_notes": "Nostub ASM (no kernel), with TI-89 Titanium support.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "insane-titanium.89z",
+     null
+    ],
+    [
+     "insane.89y",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-molarmass",
+   "name": "Molar Mass Calculator",
+   "description": "Molar mass of a formula to three or four decimals (about 4 KB).",
+   "category": "Chemistry / molar mass",
+   "section": "Chemistry",
+   "author": "Tristan Halvorson",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/337/33789.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/chemistry/masscalc.zip",
+   "alt_download_url": null,
+   "size": "9,023 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-elements",
+   "name": "Elements v5.1",
+   "description": "Periodic table with mass, valence, electronegativity, radii, ionization, enthalpies, heat capacity, density, melting/boiling points, conductivity and electron configuration; plus a molar mass calculator.",
+   "category": "Chemistry / periodic table",
+   "section": "Chemistry",
+   "author": "not checked",
+   "license": "not stated (the readme asks not to republish it under another name)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/234/23491.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/chemistry/elements.zip",
+   "alt_download_url": null,
+   "size": "17,271 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89g",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-liqvap",
+   "name": "Liq-Vap Equilibrium",
+   "description": "Vapour-liquid equilibrium of a binary mixture: bubble and dew points (P and T) and azeotropes.",
+   "category": "Chemical engineering / VLE",
+   "section": "Chemistry",
+   "author": "Eric DiStefano",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/364/36412.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/chemistry/liqvapequlibrium.zip",
+   "alt_download_url": null,
+   "size": "11,316 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Goes to the folder s_vn; run s_vn\\elv().",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-cpcalc",
+   "name": "CP Calculator v1.3",
+   "description": "Enthalpy change of a compound or a mixture from heat-capacity polynomials, including phase changes.",
+   "category": "Chemical engineering / energy balances",
+   "section": "Chemistry",
+   "author": "Luis Eduardo Gomez y Gomez",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/377/37735.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/chemistry/cpcalc13.zip",
+   "alt_download_url": null,
+   "size": "34,705 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-phsolver",
+   "name": "Physics Solver v1.2",
+   "description": "140 physics equations in 24 subjects (motion, forces, energy, fields, circuits, optics, waves, quantum...), each solved for any variable.",
+   "category": "Physics / formula solvers",
+   "section": "Physics",
+   "author": "Morgan Davies",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/241/24172.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/kinematics/phsolver.zip",
+   "alt_download_url": null,
+   "size": "234,809 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Large (about 120 KB): every subject is its own program; delete the ones you don't need.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-nist",
+   "name": "TI89 NIST Physical Constants v1.0",
+   "description": "Over 70 NIST physical constants with units and uncertainties, stored as variables; viewcons finds a constant by name or symbol.",
+   "category": "Physics / constants",
+   "section": "Physics",
+   "author": "not stated on its page",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/124/12441.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/units/ti89nist.zip",
+   "alt_download_url": null,
+   "size": "9,584 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Run setcons() once to create the constants.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "*.89p",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-motion3d",
+   "name": "3D Motion with Time-Dependent Acceleration",
+   "description": "1-, 2- or 3-D motion with constant or time-dependent acceleration: enter 10 of the 16 quantities, it solves for the other 6.",
+   "category": "Mechanical / kinematics",
+   "section": "Mechanical",
+   "author": "Don Benson",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/408/40822.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/science/kinematics/motion3d.zip",
+   "alt_download_url": null,
+   "size": "42,796 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "motion3d/*.89?",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "89-ipcalc",
+   "name": "IP: a subnet calculator",
+   "description": "IPv4 subnetting: subnet masks, number of subnets and hosts, network and broadcast addresses.",
+   "category": "Utilities / networking",
+   "section": "Utilities",
+   "author": "Raf Cas",
+   "license": "GPL-2.0 (License.txt in the zip)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/416/41636.html",
+   "download_url": "https://www.ticalc.org/pub/89/basic/programs/ip.zip",
+   "alt_download_url": null,
+   "size": "18,980 B zip",
+   "os_notes": "TI-Basic; runs on the TI-89 Titanium (any AMS).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "ti89",
+   "action": "download",
+   "send": [
+    [
+     "ip-en.89p",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "nsp-colortetris",
+   "name": "ColorTetris",
+   "description": "Falling-blocks game in colour: Marathon, 40 Lines and Time Trial, each with high scores.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "nick steen",
+   "license": "not stated (Lua source included)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/443/44354.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/games/colortetris.zip",
+   "alt_download_url": null,
+   "size": "34,519 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*colortetris.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-actionsnake",
+   "name": "ActionSnake 2.0.1",
+   "description": "Snake in full colour with difficulty levels and settings (touchpad or Tab/Enter).",
+   "category": "Game / arcade",
+   "section": "Games",
+   "author": "Karl Noss",
+   "license": "not stated (Lua source included)",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/441/44183.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/games/actionsnake.zip",
+   "alt_download_url": null,
+   "size": "90,809 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "actionsnake 2.0.1/actionsnake 2.0.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-bobby",
+   "name": "Bobby Carrot",
+   "description": "Puzzle game: guide Bobby the rabbit to eat every carrot past spikes, rotating paths and mazes.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Chockosta",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/440/44058.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/games/bobby.zip",
+   "alt_download_url": null,
+   "size": "46,196 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "bobby.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-minesweeper",
+   "name": "Minesweeper",
+   "description": "Minesweeper with three difficulty levels; play with the arrows or the touchpad pointer.",
+   "category": "Game / puzzle",
+   "section": "Games",
+   "author": "Chockosta",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/440/44077.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/games/minesweeper.zip",
+   "alt_download_url": null,
+   "size": "5,331 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "minesweeper.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-aliens",
+   "name": "Alien Invaders",
+   "description": "Space Invaders in Lua: shoot the aliens before they land.",
+   "category": "Game / arcade",
+   "section": "Games",
+   "author": "Chockosta",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/440/44059.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/games/aliens.zip",
+   "alt_download_url": null,
+   "size": "4,754 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "aliens.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-pixelescape",
+   "name": "Pixel Escape",
+   "description": "A copter-style game: fly through the cave without touching the walls.",
+   "category": "Game / arcade",
+   "section": "Games",
+   "author": "Christoffer Rehn",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/439/43923.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/games/pixel_escape.zip",
+   "alt_download_url": null,
+   "size": "37,313 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "pixel escape.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-minecraft2d",
+   "name": "Jens' Minecraft 2D 0.13",
+   "description": "A 2D Minecraft: generated worlds with caves and ores, day and night, survival and creative modes, mobs, crafting and five save slots.",
+   "category": "Game / sandbox",
+   "section": "Games",
+   "author": "Jens Kolbinger",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/457/45729.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/games/minecraft2d.zip",
+   "alt_download_url": null,
+   "size": "101,469 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "Sends the game, its world container (saves) and its texture pack.",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "*.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-mastermind",
+   "name": "Mastermind (Python)",
+   "description": "Guess the five-digit code from the right/close hints, in the handheld's Python.",
+   "category": "Game / logic",
+   "section": "Games",
+   "author": "Preston Ward",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/475/47557.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/python/games/mastermind.zip",
+   "alt_download_url": null,
+   "size": "2,208 B zip",
+   "os_notes": "Python (OS 5.2+), fine on the CX II.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "mastermind.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-beamdiagram",
+   "name": "Beam Shear-Moment Diagram",
+   "description": "Shear and moment diagrams for beams under distributed loads, point forces and moments, with the piecewise functions and their maxima.",
+   "category": "Mechanical / beams",
+   "section": "Mechanical",
+   "author": "Andrew Pennachi",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/457/45726.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/beamdiagram.zip",
+   "alt_download_url": null,
+   "size": "96,903 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "The zip's BeamDiagram.docx explains the inputs (Info page).",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "beamdiagram.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-mohr",
+   "name": "Mohr's Circle v2.00",
+   "description": "Plane stress: principal stresses and angle from Sx, Sy and Txy (and back), with Mohr's circle drawn.",
+   "category": "Mechanical / stress",
+   "section": "Mechanical",
+   "author": "Claus Martin Dachselt",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/469/46930.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/mohrcircle_cx.zip",
+   "alt_download_url": null,
+   "size": "12,666 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "mohrcircle_cx.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-singlespan",
+   "name": "Single-Span Beam v1.2",
+   "description": "Support reactions, end moments and the maximum field moment of a single-span beam with trapezoidal and point loads, elastic restraints or support moments.",
+   "category": "Mechanical / beams",
+   "section": "Mechanical",
+   "author": "Claus Martin Dachselt",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/453/45346.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/singlespan.zip",
+   "alt_download_url": null,
+   "size": "252,275 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "single-span/single_span.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-oscillation",
+   "name": "Oscillation v2.0",
+   "description": "Solves the damped or undamped, forced or free oscillation equation for given initial conditions and graphs the result.",
+   "category": "Physics / vibrations",
+   "section": "Physics",
+   "author": "Claus Martin Dachselt",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/463/46388.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/oscillation.zip",
+   "alt_download_url": null,
+   "size": "15,296 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x). Uses the CAS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "oscillation.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-motion3d",
+   "name": "Two- or Three-Dimensional Motion v1.1",
+   "description": "2- or 3-D motion of a body or projectile with constant or time-dependent acceleration: solves for up to six unknowns.",
+   "category": "Physics / kinematics",
+   "section": "Physics",
+   "author": "Claus Martin Dachselt",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/470/47059.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/motion3d_cas.zip",
+   "alt_download_url": null,
+   "size": "30,779 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x). Needs the CAS.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "motion3d_cas/motion3d_cas.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-idealgas",
+   "name": "Ideal Gas",
+   "description": "An animated piston full of molecules showing P*V = N*k*T as you change the temperature, volume and number of molecules.",
+   "category": "Physics / thermodynamics",
+   "section": "Physics",
+   "author": "Rolf Puetter",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/471/47120.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/science/idealgas.zip",
+   "alt_download_url": null,
+   "size": "9,969 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "ideal gas.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-molarmass",
+   "name": "Molar Mass",
+   "description": "Type a chemical formula and get its molar mass.",
+   "category": "Chemistry / molar mass",
+   "section": "Chemistry",
+   "author": "Alfredo Natale",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/467/46705.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/science/molarmasscalc.zip",
+   "alt_download_url": null,
+   "size": "3,776 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "molarmasscalc.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-totalres",
+   "name": "Total Resistance",
+   "description": "Draw a resistor network and get the total resistance between any two nodes.",
+   "category": "Electrical / circuits",
+   "section": "Electrical",
+   "author": "Rolf Puetter",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/479/47968.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/lua/science/totalresistance.zip",
+   "alt_download_url": null,
+   "size": "8,852 B zip",
+   "os_notes": "Lua. Made for OS 3.x; Lua documents also open on the CX II (OS 6.x). Not tested by CalcSuite on OS 6.",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "total resistance.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-vecop",
+   "name": "Vector Operations v1.3.2",
+   "description": "Resolve vectors into components and add several of them; includes a projectile calculator.",
+   "category": "Math / vectors",
+   "section": "Math",
+   "author": "Wyatt Kieffner",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/450/45043.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/science/vecop.zip",
+   "alt_download_url": null,
+   "size": "8,267 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "vec.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-charmap",
+   "name": "Complete TI-Nspire Character Map 2.2",
+   "description": "Every character the Nspire can show, with a program to type the hidden symbols that aren't in the Catalog.",
+   "category": "Utilities / reference",
+   "section": "Utilities",
+   "author": "Bob Jones",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/437/43709.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/programs/charmap2.2.zip",
+   "alt_download_url": null,
+   "size": "26,209 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "charmap.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-dateconv",
+   "name": "Calendar Date Conversion v1.1",
+   "description": "Julian and Gregorian dates both ways, the day of the week, days between two dates, and a date plus or minus some days.",
+   "category": "Utilities / dates",
+   "section": "Utilities",
+   "author": "Claus Martin Dachselt",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/459/45906.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/programs/dateconversion.zip",
+   "alt_download_url": null,
+   "size": "6,453 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "dateconversion.tns",
+     "/"
+    ]
+   ]
+  },
+  {
+   "id": "nsp-stopwatch",
+   "name": "Stopwatch 1.1",
+   "description": "A simple stopwatch.",
+   "category": "Utilities / time",
+   "section": "Utilities",
+   "author": "Matt Oslan",
+   "license": "not stated",
+   "source_site": "ticalc.org",
+   "info_url": "https://www.ticalc.org/archives/files/fileinfo/447/44784.html",
+   "download_url": "https://www.ticalc.org/pub/nspire/basic/programs/stopwatch.zip",
+   "alt_download_url": null,
+   "size": "4,105 B zip",
+   "os_notes": "TI-Nspire document (TI-Basic); opens on the CX II (OS 6.x).",
+   "needs_asm": false,
+   "dependencies": [],
+   "special_handling": "",
+   "verified": true,
+   "official": false,
+   "archive": true,
+   "calculator": "nspire",
+   "action": "download",
+   "send": [
+    [
+     "stop watch 1.1.tns",
+     "/"
     ]
    ]
   }

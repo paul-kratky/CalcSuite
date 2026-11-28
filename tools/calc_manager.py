@@ -767,7 +767,7 @@ class Manager(object):
 
     # ---- About this calculator ----
     def about(self):
-        if self.about_cb is not None:  # In the tab: the Info panel
+        if self.about_cb is not None:  # In the tab: the Calculator info panel
             self.about_cb()
             return
         if self.about_win is not None:
@@ -785,7 +785,7 @@ class Manager(object):
 
     def build_about(self, w):
         """The calculator's model, OS, free space, the OS update check, the clock and Exit
-        Press-to-Test, built into w (a window, or the Info panel's frame)"""
+        Press-to-Test, built into w (a window, or the Calculator info panel's frame)"""
         for c in w.winfo_children():
             c.destroy()
         self.about_win = w
@@ -876,7 +876,7 @@ class Manager(object):
         self.job("setclock now", done, late_s=25,
                  late=lambda text: self.clock_text.set("Setting the clock... %s" % text))
 
-    # ---- Delete all programs, reset (Info) ----
+    # ---- Delete all programs, reset (Calculator info) ----
     # 84: Program and locked Program; 89: Program and Function; Nspire: every document (.tns/.py)
     PROGRAM_TYPES = {"ti84": (0x05, 0x06), "ti89": (0x12, 0x13)}
     # The calculator's own reset menus, one key at a time. TI-84 Plus CE (checked on OS 5.4):
@@ -1065,7 +1065,7 @@ class Manager(object):
                     "handheld out of Press-to-Test.\n\nOnly one program can use the handheld, so "
                     "CalcSuite lets go of it now and opens TI's page: connect the handheld there and "
                     "choose Exit Press-to-Test. When you're done, close TI's page and press Reconnect "
-                    "(the %s tab, Info)." % self.calc.title, parent=self.about_win or self.win):
+                    "(the %s tab, Calculator info)." % self.calc.title, parent=self.about_win or self.win):
                 return
             self.m.release()
             webbrowser.open(NSPIRE_CONNECT)

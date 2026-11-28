@@ -46,6 +46,23 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   symbol palette, ° ± as themselves. Pasted `∫(`, `Σ(`, `∂(` with their arguments stay TI's
   function form (`integral(`...), shown as ∫ Σ d after Enter; a lone ∫ or Σ is the template. A
   long paste is cut into commands between symbols, never inside one.
+### Added
+- **Get programs in sections** for each calculator: Electrical, Mechanical, Chemistry, Physics,
+  Math, Computer engineering, Utilities and **Games** (8 for the TI-84 Plus CE, 7 for the TI-89
+  Titanium, 8 for the TI-Nspire CX II), with a **Search** box that filters as you type. 51 new
+  entries from ticalc.org, each downloaded and opened to check what it sends. Get all leaves the
+  games out (send them one by one).
+
+### Changed
+- **The side panel starts at about half the window** (it was a fixed 450 pixels) and keeps that
+  share when the window changes size; a width you drag to stays for the session, double-click
+  the handle for the default again.
+- **Info is now "Calculator info".**
+
+### Fixed
+- **Resizing the side panel:** Symbols couldn't get narrower than its buttons (the grid now
+  reflows, 6 to 12 columns), and the Keys and Calculator info text kept a fixed width (cut off in a
+  narrow panel, a narrow column in a wide one): it wraps to the panel now.
 
 ## [1.0.2] - 2026-11-28
 

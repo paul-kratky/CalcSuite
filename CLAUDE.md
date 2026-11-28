@@ -15,9 +15,9 @@ and the **TI-89 Titanium**, several at once. Plus a command-line kit for TI-Nspi
 | Where | What |
 | --- | --- |
 | `tools/mirror.py` | The app: `App` (the window, tab strip, USB scan, the message pump), `Mirror` (one calculator's link thread), `Tab`, `AllScreens` |
-| `tools/ui_panels.py` | The side panel: Files, Keys, Symbols, Functions, Guide, Get programs, Info |
+| `tools/ui_panels.py` | The side panel: Files, Keys, Symbols, Functions, Guide, Get programs, Calculator info |
 | `tools/editor.py`, `tools/code_check.py` | The Program editor (a tab of the main window; `python tools/editor.py` opens it alone) and its strict checkers |
-| `tools/calc_manager.py` | Files, backup/restore, Info (clock, OS check, Exit Press-to-Test, Delete all programs, Reset) |
+| `tools/calc_manager.py` | Files, backup/restore, Calculator info (clock, OS check, Exit Press-to-Test, Delete all programs, Reset) |
 | `tools/calc_models.py` | Each calculator's keys, symbols, paste rules |
 | `tools/calc_files.py`, `calc_backup.py`, `tns_writer.py`, `py2tns.py` | TI file formats, backups, the .tns writer (MPL-1.1, a port of Luna: must stay byte-identical, the self-test compares) |
 | `tools/paths.py` | Where things are saved: `CalcSuite files` beside the exe (the zip), else Documents/LOCALAPPDATA from the source |
