@@ -176,8 +176,11 @@ def build_cli(tc, force):
                             "GPL-3.0-or-later; includes libnspire (GPL-3.0-or-later)"))
     run([os.path.join(tc, "g++.exe")] + objs +
         [os.path.join(usb, "MinGW64", "static", "libusb-1.0.dll.a"),
-         "-static-libgcc", "-static-libstdc++", "-Wl,-Bstatic", "-lwinpthread",
-         "-Wl,-Bdynamic", "-lws2_32", "-o", out], tc)
+         # -static: the whole runtime inside, winpthread too. "-Wl,-Bstatic -lwinpthread" alone
+         # still left an import of libwinpthread-1.dll (the toolchain links it again on its own),
+         # so the exe only started where that DLL happened to be found (on MSYS2's PATH, or in
+         # the packaged app's _internal): from the source tree it failed with 0xC0000135.
+         "-static", "-lws2_32", "-o", out], tc)
 
 
 def build_ti84(tc, force):
