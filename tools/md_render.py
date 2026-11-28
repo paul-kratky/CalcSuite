@@ -69,7 +69,7 @@ def _cells(line):
         line = line[1:]
     if line.endswith("|") and not line.endswith("\\|"):
         line = line[:-1]
-    cells, cur, in_code = [], "", False
+    cells, cur, in_code = [], "", 0  # in_code: the length of the backtick run that opened a code span
     i = 0
     while i < len(line):
         c = line[i]
@@ -78,7 +78,16 @@ def _cells(line):
             i += 2
             continue
         if c == "`":
-            in_code = not in_code
+            # A run of backticks opens a code span; only a run as long closes it (``  ` `` is a
+            # code span holding one backtick, as on GitHub)
+            n = len(line[i:]) - len(line[i:].lstrip("`"))
+            if not in_code:
+                in_code = n
+            elif n == in_code:
+                in_code = 0
+            cur += line[i:i + n]
+            i += n
+            continue
         if c == "|" and not in_code:
             cells.append(cur.strip())
             cur = ""

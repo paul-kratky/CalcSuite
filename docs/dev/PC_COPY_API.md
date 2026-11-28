@@ -112,36 +112,27 @@ CalcSuite). `fresh=True` boots the ROM and sends the files (default: the backup 
 - `ti84-cli` gained `home`, `exec prgm|asm FOLDERHEX NAMEHEX` and `romdump LOCAL` (our own code
   after libticalcs' `calc_89t.cc` and `romdump.cc`, GPL-3.0-or-later like the rest of it).
 
-## Phase 2: CEmu inside a CalcSuite tab
+## In the window: the "(PC copy)" tab
 
-Feasible, and simpler than it looked: CEmu's core (`core/`, plain C, GPL-3.0) builds as a
-static library with its own `core/Makefile` (no Qt), and upstream already has a headless
-front end, `tests/autotester/headless_cli.cpp` (`cemu-headless`, added 2026), with a line
-protocol on stdin/stdout like our link helpers: `run <ms>`, `key <name>`, `keys <seq>`,
-`screenshot <path>`, `send-file ram|archive <path>`, `save-state`, `reset`, `quit`
-(`tests/autotester/headless_protocol.md`).
+The emulators stay separate programs (CEmu GPL-3.0, TiEmu GPL-2.0): CalcSuite starts them with
+their command line and hosts their finished window in a tab (Win32 `SetParent`); nothing of
+theirs is imported or linked. People's guide: [docs/EMULATORS.md](../EMULATORS.md).
 
-Plan:
+| Module | What |
+| --- | --- |
+| `tools/emu_host.py` | `EmuSession`: one emulator process and its window (find it, `child_style`, `SetParent` into the frame, keep it in place, pop out / dock, close with WM_CLOSE then end only that process). No Tk: driven by `poll()` from Tk's thread; `Win32` is the only part that calls Windows. |
+| `tools/emu_tabs.py` | `EmuTab` (the tab: bar, host frame, messages, the PC copy being made), `EmuPanel` (Keys, Guide), CEmu's own settings file for the tab (`-g`, in `cache_dir("emulators", "CEmu", "calcsuite")`: the minimal layout as Qt's saved state, no update check, no remembered transfers). |
+| `tools/emulator_keys.py` | CEmu's and TiEmu's key tables: the Keys panel and the guide's tables (the self-test compares). |
+| `tools/pc_test.py`, `tools/pc_test_ui.py` | Test in PC copy: CEmu's autotester (`-t test.json --no-test-dialog`) in a second CEmu (`--id CalcSuiteTest`), its stdout read, `--screenshot`. |
 
-1. Build `tools/bin/cemu-helper.exe` (GPL-3.0) with MinGW from a pinned CEmu commit in
-   `third_party/CEmu/`: `libcemucore.a` plus our own small C front end (not the C++ one: we need
-   frames, not BMP files). Its loop: `emu_run` in real time on its own thread
-   (`emu_set_run_rate`), and `emu_set_lcd_callback` to get each frame.
-2. Frames at 60 per second: 320 x 240 RGB565 is 150 KB a frame, 9 MB/s, too much for a text
-   pipe. Use a shared-memory section (`CreateFileMapping`, name passed on the command line)
-   with a frame counter; the pipe carries only commands and "FRAME n". Python maps it with
-   `mmap` and hands it to Tk as a `PhotoImage` (the mirror's existing path). Fallback: binary
-   frames on stdout, RLE-compressed (the home screen compresses to a few KB).
-3. Keys: `emu_keypad_event(row, col, press)`; a table from our key names (the 84's
-   `ti84_keys.NAMED`) to CEmu's row/column (`gui/qt/keypad/keycode.h`).
-4. Send program: `emu_send_variables(files, n, LINK_FILE, ...)` while running.
-5. The tab: a third kind of calculator in the window ("TI-84 Plus CE (PC copy)"), same panels;
-   **Send to the real calculator** takes the program from the copy (`emu_receive_variable`) and
-   sends it with ti84-cli.
-6. State: `emu_save(EMU_DATA_IMAGE, ...)` on close into `%LOCALAPPDATA%\CalcSuite\emulators\`,
-   loaded next time.
+`App.pc_copy_tab(section, mode)` (Calculator info's buttons) and `App.open_emulator_tab(slug,
+rom, backup)`; the tab keys are `"emu:ti84"` / `"emu:ti89"` in `App.emus`. Making the copy runs
+`PcCopyDialog` embedded in the tab (`parent=`, `on_made=`, `on_close=`): the same worker,
+inbox, watchdogs and Cancel as the window it was; when it's made the bar is full and green
+("Done: 100%") and `on_made` starts the emulator in the tab.
 
-Risks: CEmu's core runs one emulator per process (globals), which is fine for one helper per
-copy; the real-time pacing and audio-free core are well tested upstream (the Qt and SDL front
-ends use the same calls). Size: about 1 MB for the helper. The TI-89 would need TiEmu's core
-(GPL-2.0, GTK-era, UAE-based 68k): a much bigger job, not planned.
+CEmu's commands to the running copy go through its own IPC: a second `CEmu.exe --id CalcSuite
+--send FILE --no-reset` / `--screenshot PNG` hands them over and exits (CEmu 2.0 `main.cpp`).
+
+The headless-core alternative (building CEmu's `core/` into our own helper with frames over
+shared memory) isn't needed for this and isn't planned.

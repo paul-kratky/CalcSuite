@@ -32,6 +32,9 @@ GUIDES = {"nspire": ("docs", "PYTHON_NSPIRE_GUIDE.md"), "ti84": ("docs", "TIBASI
 PDF_GUIDES = {"nspire": "CalcSuite - TI-Nspire CX II Python guide.pdf",
               "ti84": "CalcSuite - TI-84 Plus CE TI-Basic guide.pdf",
               "ti89": "CalcSuite - TI-89 Titanium TI-Basic guide.pdf"}
+# The PC copies guide (docs/EMULATORS.md): the emulator tab's Guide (emu_tabs.py) and Calculator info
+EMULATOR_GUIDE = ("docs", "EMULATORS.md")
+EMULATOR_GUIDE_PDF = "CalcSuite - PC copies (CEmu and TiEmu) guide.pdf"
 PDF_FUNCTIONS = {"nspire": "CalcSuite - TI-Nspire CX II functions reference.pdf",
                  "ti84": "CalcSuite - TI-84 Plus CE functions reference.pdf",
                  "ti89": "CalcSuite - TI-89 Titanium functions reference.pdf"}
@@ -652,10 +655,18 @@ class FunctionsSection(object):
 
 # ---- Guide: the calculator's guide, rendered ----
 class GuideSection(object):
+    """The calculator's guide (GUIDES), or the panel's own (panel.guide: (folder, name, PDF),
+    the emulator tab's docs/EMULATORS.md)"""
+
     def __init__(self, panel, parent):
         import mirror as mirror_mod
         self.panel, self.m = panel, panel.m
         self.mirror_mod = mirror_mod
+        own = getattr(panel, "guide", None)
+        if own:
+            self.guide_file, self.pdf = (own[0], own[1]), own[2]
+        else:
+            self.guide_file, self.pdf = GUIDES[self.m.calc.slug], PDF_GUIDES[self.m.calc.slug]
         self.frame = tk.Frame(parent, bg=th.PANEL)
         top = tk.Frame(self.frame, bg=th.PANEL)
         top.pack(fill="x", pady=(0, 6))
@@ -669,7 +680,7 @@ class GuideSection(object):
         self.search.bind("<Return>", lambda e: self.find())
         th.button(top, "Find", self.find, pady=2).pack(side="left")
         th.button(top, "Save as PDF", lambda: save_pdf(
-            self.frame, PDF_GUIDES[self.m.calc.slug], self.note.set), pady=2).pack(side="right")
+            self.frame, self.pdf, self.note.set), pady=2).pack(side="right")
         self.found = tk.Label(top, text="", bg=th.PANEL, fg=th.DIM)
         self.found.pack(side="left", padx=6)
         mid = tk.Frame(self.frame, bg=th.PANEL)
@@ -692,7 +703,7 @@ class GuideSection(object):
             self.frame.after(10, self.load)
 
     def load(self):
-        folder, name = GUIDES[self.m.calc.slug]
+        folder, name = self.guide_file
         path = self.mirror_mod.resource(folder, name)
         try:
             with open(path, encoding="utf-8") as f:
@@ -715,7 +726,8 @@ class GuideSection(object):
             menu.add_command(label=("    " if level == 3 else "") + text_,
                              command=lambda a=anchor: self.box.yview("h_" + a))
         self.contents.configure(menu=menu)
-        self.note.set("%s. Examples with a name have Send to calculator." % name)
+        self.note.set("%s. Examples with a name have Send to calculator." % name if self.m is not None
+                      else name)
 
     def find(self):
         q = self.search.get().strip()
@@ -750,6 +762,9 @@ class GuideSection(object):
         self.note.set("Copied")
 
     def send(self, name, info, text):
+        if self.m is None:
+            self.note.set("Copy it instead: this guide isn't for one calculator")
+            return
         m, slug = self.m, self.m.calc.slug
         if not m.connected():
             self.note.set("The %s isn't connected" % m.calc.title)
@@ -1085,6 +1100,19 @@ class ProgramsSection(object):
             self.act.configure(state="normal")
 
 
+def open_bundled_pdf(name, widget=None):
+    """Opens one of the bundled PDFs (docs/pdf/) in the PC's PDF viewer"""
+    import mirror as mirror_mod
+    src = mirror_mod.resource("docs", "pdf", name)
+    try:
+        os.startfile(src)
+    except (OSError, AttributeError) as e:
+        log_error("opening %s" % name)
+        if widget is not None:
+            messagebox.showinfo("CalcSuite", "The guide couldn't be opened: %s" % short_error(e),
+                                parent=widget.winfo_toplevel())
+
+
 def save_pdf(widget, name, say):
     """Save as PDF (Guide, Functions): copies the bundled PDF (docs/pdf/) to a folder the user
     picks, CalcSuite files by default, and offers to open it"""
@@ -1156,11 +1184,14 @@ def short_error(e):
     return text if len(text) < 90 else text[:87] + "..."
 
 
-def progress_style(widget):
+def progress_style(widget, done=False):
+    """The progress bars' style: orange while it runs, green (MINT) for done"""
     style = ttk.Style(widget)
-    style.configure("Calc.Horizontal.TProgressbar", background=th.ACCENT, troughcolor=th.PANEL2,
-                    bordercolor=th.PANEL, lightcolor=th.ACCENT, darkcolor=th.ACCENT)
-    return "Calc.Horizontal.TProgressbar"
+    name, colour = ("CalcDone.Horizontal.TProgressbar", th.MINT) if done else \
+        ("Calc.Horizontal.TProgressbar", th.ACCENT)
+    style.configure(name, background=colour, troughcolor=th.PANEL2, bordercolor=th.PANEL,
+                    lightcolor=colour, darkcolor=colour)
+    return name
 
 
 GET_ALL_LIMIT = None  # Test hook: only the first n items in Get all (or CALCSUITE_GET_ALL_LIMIT=n)
@@ -1736,9 +1767,19 @@ class InfoSection(object):
             th.button(row, "Open my PC copy", lambda: self.pc_copy("open")).pack(side="left", padx=(6, 0))
             tk.Label(self.pcc, text="Latest: %s" % rom_line(roms[0]), bg=th.PANEL, fg=th.DIM,
                      anchor="w", justify="left", wraplength=400).pack(fill="x", pady=(4, 0))
+        a = tk.Label(self.pcc, text="The PC copies guide (CEmu's keys, sending files, TiEmu)", bg=th.PANEL,
+                     fg=th.MINT, cursor="hand2", anchor="w", font=(th.FONT, 9, "underline"))
+        a.pack(fill="x", pady=(6, 0))
+        a.bind("<Button-1>", lambda e: open_bundled_pdf(EMULATOR_GUIDE_PDF, self.pcc))
         bind_wheel(self.pcc, self.inner)
 
     def pc_copy(self, mode):
+        """Make a PC copy / Open my PC copy: in the calculator's "(PC copy)" tab of the main window
+        (emu_tabs.EmuTab.make_copy), or a window of its own where there are no such tabs"""
+        app = self.panel.app
+        if hasattr(app, "pc_copy_tab"):
+            app.pc_copy_tab(self, mode)
+            return
         d = self.pc_dialog
         if d is not None and d.alive():
             d.win.lift()
@@ -1981,10 +2022,15 @@ class PcCopyDialog(object):
     a progress bar (Cancel between steps), takes the link back, then offers the emulator.
     open: the newest ROM and the emulator."""
 
-    def __init__(self, section, mode):
+    def __init__(self, section, mode, parent=None, on_made=None, on_close=None):
+        """parent: a frame to fill (the "(PC copy)" tab, emu_tabs.EmuTab) instead of a window of
+        its own; on_made(rom, backup, auto): the copy is made (or Open is pressed) and the
+        emulator should start (auto: by itself, nothing to read first); on_close(): Close."""
         import pc_copy
         self.pc = pc_copy
         self.sec, self.m = section, section.m
+        self.embedded = parent is not None
+        self.on_made, self.on_close = on_made, on_close
         self.slug, self.title = self.m.calc.slug, self.m.calc.title
         self.spec = PC_COPY[self.slug]
         self.cancel = threading.Event()
@@ -1997,12 +2043,16 @@ class PcCopyDialog(object):
         self.cancelled_at = None  # When Cancel was pressed (time.time())
         self.shown_end = False    # finished() has run (a late answer is then ignored)
         self.last_stage = "connect"
-        w = self.win = tk.Toplevel(section.frame)
-        w.title("PC copy of the %s" % self.title)
-        w.configure(bg=th.BG)
-        w.geometry("640x560")
-        w.minsize(520, 420)
-        w.protocol("WM_DELETE_WINDOW", self.close)
+        if self.embedded:
+            w = self.win = tk.Frame(parent, bg=th.BG)
+            w.pack(fill="both", expand=True)
+        else:
+            w = self.win = tk.Toplevel(section.frame)
+            w.title("PC copy of the %s" % self.title)
+            w.configure(bg=th.BG)
+            w.geometry("640x560")
+            w.minsize(520, 420)
+            w.protocol("WM_DELETE_WINDOW", self.close)
         self.gone = False
         w.bind("<Destroy>", self.destroyed, add="+")
         self.body = None
@@ -2092,6 +2142,8 @@ class PcCopyDialog(object):
             self.win.destroy()
         except tk.TclError:
             pass
+        if self.on_close is not None:
+            self.on_close()
 
     # ---- Make: what happens, then Start ----
     def intro(self):
@@ -2278,6 +2330,13 @@ class PcCopyDialog(object):
         th.button(row, "Close", self.close).pack(side="left")
 
     def made(self, b, res):
+        # Done, and it says so: the bar full and green, "Done" in green (the owner: "make sure
+        # when dumping the ROM it marks as complete when finished")
+        self.bar_value = BAR_MAX
+        self.done_bar = ttk.Progressbar(b, style=progress_style(b, done=True), mode="determinate",
+                                        maximum=BAR_MAX, value=BAR_MAX)
+        self.done_bar.pack(fill="x", pady=(0, 2))
+        self.text(b, "Done: 100%", fg=th.MINT, bold=True, pady=(0, 8))
         self.text(b, "Your PC copy is made", bold=True)
         self.text(b, "In %d s. ROM: %s (%s, OS %s)." % (res.get("seconds") or 0, res["rom"],
                                                          human(res.get("size") or 0), res.get("os") or "?"))
@@ -2294,6 +2353,10 @@ class PcCopyDialog(object):
                       fg=th.ACCENT)
         self.text(b, "The mirror is connecting again.", fg=th.DIM)
         self.emulator(b, res["rom"], res.get("backup"), restore=res.get("backup") if lost else None)
+        if self.embedded and self.on_made is not None and not lost and not any(res.get("notes") or []):
+            # In its tab: the copy starts there by itself in a moment
+            self.status.set("Starting your PC copy here in a moment...")
+            self.win.after(2500, lambda: self.alive() and self.on_made(res["rom"], res.get("backup"), True))
 
     # ---- Open: the newest ROM ----
     def open_mode(self):
@@ -2318,15 +2381,17 @@ class PcCopyDialog(object):
         self.rom, self.backup = rom, backup
         if self.slug == "ti84":
             have = pc.cemu_path()
-            self.text(b, "CEmu (GPL-3.0, from its makers on GitHub) runs the copy and gets your "
-                      "programs and variables from the backup.%s" % (
+            self.text(b, "CEmu (GPL-3.0, from its makers on GitHub) runs the copy in a tab of the main "
+                      "window, \"TI-84 Plus CE (PC copy)\", and gets your programs and variables from "
+                      "the backup.%s" % (
                           "" if have else " The first time, CalcSuite downloads CEmu 2.0 (about "
                           "19 MB) and checks it against its SHA-256."), fg=th.DIM, pady=(10, 6))
             first = ("Open in CEmu", self.open_cemu)
         elif pc.tiemu_path():
-            self.text(b, "TiEmu is installed: it opens the copy. Your programs aren't sent for you "
-                      "(TiEmu takes one file at a time: use its own Send file; the backup is in "
-                      "CalcSuite files\\backups).", fg=th.DIM, pady=(10, 6))
+            self.text(b, "TiEmu is installed: it opens the copy in a tab of the main window, \"TI-89 "
+                      "Titanium (PC copy)\". Your programs aren't sent for you (TiEmu takes one file at "
+                      "a time: right-click it, Send file to TiEmu; the backup is in CalcSuite "
+                      "files\\backups).", fg=th.DIM, pady=(10, 6))
             first = ("Open in TiEmu", self.open_tiemu)
         else:
             self.text(b, "TiEmu, the TI-89 emulator, was last released in 2010 (3.03), and its "
@@ -2335,6 +2400,8 @@ class PcCopyDialog(object):
                       "its checksums) and show it to you; you run it, then come back to Open my "
                       "PC copy.", fg=th.DIM, pady=(10, 6))
             first = ("Download TiEmu's installer", self.get_tiemu)
+        if self.embedded and self.on_made is not None:  # In its tab: the tab runs the emulator
+            first = ("Open the PC copy here", lambda: self.on_made(rom, backup, False))
         tk.Label(b, textvariable=self.status, bg=th.BG, fg=th.ACCENT, anchor="w", justify="left",
                  wraplength=590).pack(fill="x")
         row = tk.Frame(b, bg=th.BG)
@@ -2371,7 +2438,23 @@ class PcCopyDialog(object):
                 text = "%s (%d%%)" % (text, 100 * min(done, total) // total)
             self.ui(self.status.set, text)
 
+    def tab_app(self):
+        """The main window, when it has emulator tabs (App.open_emulator_tab), else None"""
+        app = getattr(getattr(self.sec, "panel", None), "app", None)
+        return app if hasattr(app, "open_emulator_tab") else None
+
+    def open_tab(self):
+        """The emulator in a tab of the main window (emu_tabs.py); the tab gets CEmu ready itself"""
+        app = self.tab_app()
+        app.open_emulator_tab(self.slug, self.rom, self.backup)
+        self.status.set("%s opens in its own tab of the main window: %s (PC copy)." % (
+            self.spec["emulator"], self.title))
+
     def open_cemu(self):
+        if self.tab_app() is not None:
+            self.open_tab()
+            return
+
         def go():
             self.pc.get_emulator("84", self.dl_report)
             self.pc.open_in_emulator("84", self.rom, self.backup)
@@ -2380,6 +2463,10 @@ class PcCopyDialog(object):
         self.emu_work(go)
 
     def open_tiemu(self):
+        if self.tab_app() is not None:
+            self.open_tab()
+            return
+
         def go():
             self.pc.open_in_emulator("89", self.rom)
             return "TiEmu is opening the copy."
@@ -2389,6 +2476,9 @@ class PcCopyDialog(object):
         def go():
             emu = self.pc.get_emulator("89", self.dl_report)
             if emu.get("ready"):
+                if self.tab_app() is not None:
+                    self.ui(self.open_tab)
+                    return "TiEmu is installed: it opens in its own tab of the main window."
                 self.pc.open_in_emulator("89", self.rom)
                 return "TiEmu is opening the copy."
             show_in_folder(emu["path"])

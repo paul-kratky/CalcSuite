@@ -13,6 +13,9 @@ A calculator's tab: the live picture (the Nspire about 19 frames a second, the 8
 with Files (the calculator manager, calc_manager.py, with Back up / Restore), Keys, Symbols,
 Guide, Get programs and Calculator info (model, OS, clock, Exit Press-to-Test, the connection doctor).
 
+The PC copy's tabs ("TI-84 Plus CE (PC copy)", "TI-89 Titanium (PC copy)": emu_tabs.py) make
+the copy and then host the emulator's own window (CEmu, TiEmu: separate programs).
+
 Each calculator has one link thread, the only thing that talks to it (Mirror.link_loop):
 keys go first, the picture catches up when you pause, a do-nothing key keeps it awake.
 The keys each PC key presses: calc_models.py (and the Keys panel, made from the same table).
@@ -68,6 +71,7 @@ import send_ti  # noqa: E402
 import calc_models  # noqa: E402
 import key_strip  # noqa: E402
 import ui_theme as th  # noqa: E402
+from emu_tabs import is_emu_key  # noqa: E402
 
 import check_nspire  # noqa: E402
 import py2tns  # noqa: E402
@@ -1404,7 +1408,8 @@ class App(object):
         self.offered_driver = {}  # pid -> True once the driver setup was offered (offer_driver)
         self.editor = None        # The Program editor tab's Editor, while it's open
         self.editor_frame = None
-        self.current = "all"  # "all" or a pid
+        self.emus = {}        # "emu:ti84" / "emu:ti89" -> emu_tabs.EmuTab (the PC copy in its emulator)
+        self.current = "all"  # "all", a pid, "editor" or an emulator tab's key
         self.target = None    # The keyboard target on All screens (a pid)
 
         strip = tk.Frame(self.root, bg=th.PANEL)
@@ -1470,10 +1475,15 @@ class App(object):
             dot.pack(side="left", padx=(0, 6))
         name = tk.Label(inner, text=text, bg=th.PANEL, fg=th.FG, font=(th.FONT, 10, "bold"))
         name.pack(side="left")
-        if key == "editor":  # The editor's tab closes (asking about unsaved changes first)
+        if key == "editor" or is_emu_key(key):
+            # The editor's tab closes (asking about unsaved changes first); an emulator's tab
+            # closes the emulator (CEmu saves its state)
             shut = tk.Label(inner, text="✕", bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9), cursor="hand2")
             shut.pack(side="right", padx=(10, 0))
-            shut.bind("<Button-1>", lambda e: (self.editor and self.editor.close(), "break")[-1])
+            if key == "editor":
+                shut.bind("<Button-1>", lambda e: (self.editor and self.editor.close(), "break")[-1])
+            else:
+                shut.bind("<Button-1>", lambda e, k=key: (self.close_emulator_tab(k), "break")[-1])
             shut.bind("<Enter>", lambda e: shut.configure(fg=th.ACCENT))
             shut.bind("<Leave>", lambda e: shut.configure(fg=th.DIM))
         fps = tk.Label(inner, text="", bg=th.PANEL, fg=th.DIM, font=(th.FONT, 9))
@@ -1501,17 +1511,26 @@ class App(object):
                 w[part].configure(bg=th.PANEL2 if sel else th.PANEL)
             w["line"].configure(bg=th.ACCENT if sel else th.PANEL)
         frames = [self.all.frame] + [t.frame for t in self.tabs.values() if not t.popped]
+        frames += [e.frame for e in self.emus.values()]
         if self.editor is not None:
             frames.append(self.editor_frame)
         if key == "editor":
             want = self.editor_frame
+        elif key in self.emus:
+            want = self.emus[key].frame
         else:
             want = self.all.frame if key == "all" else self.tabs[key].frame
         for f in frames:
             if f is not want:
                 f.pack_forget()
         want.pack(fill="both", expand=True)
-        self.pop_btn.configure(state="normal" if key in self.tabs else "disabled")
+        self.pop_btn.configure(state="normal" if key in self.tabs or key in self.emus else "disabled")
+        if old in self.emus and old != key:
+            self.emus[old].hidden()  # The keyboard back to CalcSuite from the emulator's window
+        if key in self.emus:
+            self.emus[key].shown()
+            self.all.update()
+            return
         if key == "editor":
             try:
                 self.editor.text.focus_set()
@@ -1570,8 +1589,72 @@ class App(object):
         except (KeyError, tk.TclError):
             pass
 
+    # ---- The PC copy's emulator, a tab of this window (emu_tabs.py) ----
+    def open_emulator_tab(self, slug, rom, backup=None):
+        """Opens (or shows) the emulator tab of that model's PC copy: "TI-84 Plus CE (PC copy)"
+        (CEmu) or "TI-89 Titanium (PC copy)" (TiEmu), with that ROM. A tab already open with
+        another ROM keeps running: close it first to switch."""
+        import emu_tabs
+        key = emu_tabs.key_of(slug)
+        tab = self.emus.get(key)
+        if tab is None:
+            self.make_tab_button(key, emu_tabs.SPECS[slug]["title"])
+            tab = emu_tabs.EmuTab(self, slug, rom, backup)
+            self.emus[key] = tab
+            self.show_tab(key)
+            tab.start()
+            return tab
+        if tab.session is None or not tab.session.running():
+            tab.rom, tab.backup = rom, backup or tab.backup
+            tab.start()
+        self.show_tab(key)
+        if tab.session is not None and tab.session.state == "own window":
+            tab.raise_own()
+        return tab
+
+    def pc_copy_tab(self, section, mode):
+        """Calculator info > Make a PC copy / Open my PC copy: the calculator's "(PC copy)" tab.
+        make: the dump runs in it (steps, one overall bar, Cancel, "Your PC copy is made"), then
+        the emulator starts there; open: the newest copy in its emulator (made first if none)."""
+        import emu_tabs
+        import ui_panels
+        slug = section.m.calc.slug
+        key = emu_tabs.key_of(slug)
+        roms = ui_panels.existing_roms(slug)
+        newest = roms[0] if roms else None
+        if mode == "open" and newest is not None:
+            tab = self.open_emulator_tab(slug, newest["path"], (newest.get("info") or {}).get("backup"))
+            tab.section = section
+            return tab
+        tab = self.emus.get(key)
+        if tab is None:
+            self.make_tab_button(key, emu_tabs.SPECS[slug]["title"])
+            tab = emu_tabs.EmuTab(self, slug, newest["path"] if newest else None,
+                                  (newest.get("info") or {}).get("backup") if newest else None)
+            self.emus[key] = tab
+        self.show_tab(key)
+        tab.make_copy(section)
+        return tab
+
+    def close_emulator_tab(self, key):
+        tab = self.emus.get(key)
+        if tab is not None:
+            tab.close_tab()
+
+    def emulator_tab_closed(self, tab):
+        """EmuTab.close_tab: the tab's button goes; All screens is shown if it was current"""
+        self.emus.pop(tab.key, None)
+        w = self.tab_widgets.pop(tab.key, None)
+        if w:
+            w["frame"].destroy()
+        if self.current == tab.key:
+            self.show_tab("all")
+
     def pop_out(self):
         key = self.current
+        if key in self.emus:  # The emulator's own window back as a normal window
+            self.emus[key].pop_out()
+            return
         if key == "all" or key not in self.tabs:
             return
         tab = self.tabs[key]
@@ -1737,6 +1820,17 @@ class App(object):
                 return
         except ImportError:
             pass
+        # The emulators this window started (only those processes): given back hidden and asked
+        # to close (CEmu saves its state); ended below if they don't within CLOSE_WAIT_S
+        emus = []
+        for e in list(self.emus.values()):
+            try:
+                s = e.stop_for_quit()
+                if s is not None:
+                    emus.append(s)
+            except Exception:
+                log_error("closing the %s" % e.name)
+        emus_t0 = time.time()
         mirrors = list(self.mirrors.values())
         for m in mirrors:  # Tk's part first, on Tk's thread
             m.running = False
@@ -1764,6 +1858,12 @@ class App(object):
                     s.p.kill()
                 except OSError:
                     pass
+        if emus:
+            import emu_host
+            while any(s.running() for s in emus) and time.time() - emus_t0 < emu_host.CLOSE_WAIT_S:
+                time.sleep(0.05)
+            for s in emus:
+                s.kill()  # Only the process its tab started; a no-op once it has closed
         self.root.destroy()
 
     def run(self):

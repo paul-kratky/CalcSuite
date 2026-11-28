@@ -829,14 +829,52 @@ def cemu_path():
     return path if os.path.isfile(path) else None
 
 
+def _tiemu_registered():
+    """Where Windows says TiEmu is installed: its installer (Inno Setup) registers
+    App Paths\\tiemu.exe and an uninstall entry with InstallLocation. [paths to try]"""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out = []
+    views = [(winreg.HKEY_LOCAL_MACHINE, winreg.KEY_WOW64_32KEY), (winreg.HKEY_LOCAL_MACHINE, winreg.KEY_WOW64_64KEY),
+             (winreg.HKEY_CURRENT_USER, 0)]
+    for root, view in views:
+        try:
+            with winreg.OpenKey(root, r"Software\Microsoft\Windows\CurrentVersion\App Paths\tiemu.exe", 0,
+                                winreg.KEY_READ | view) as k:
+                out.append(winreg.QueryValueEx(k, "")[0])
+        except OSError:
+            pass
+        try:
+            with winreg.OpenKey(root, r"Software\Microsoft\Windows\CurrentVersion\Uninstall", 0,
+                                winreg.KEY_READ | view) as k:
+                for i in range(winreg.QueryInfoKey(k)[0]):
+                    try:
+                        name = winreg.EnumKey(k, i)
+                        if "tiemu" not in name.lower():
+                            continue
+                        with winreg.OpenKey(k, name) as sub:
+                            loc = winreg.QueryValueEx(sub, "InstallLocation")[0]
+                        out += [os.path.join(loc, "tiemu.exe"), os.path.join(loc, "bin", "tiemu.exe")]
+                    except OSError:
+                        continue
+        except OSError:
+            pass
+    return [p.strip('"') for p in out if p]
+
+
 def tiemu_path():
-    """tiemu.exe where TiEmu's own installer puts it (or under emulators\\TiEmu), or None"""
-    cands = [os.path.join(emulators_folder(), "TiEmu", "bin", "tiemu.exe"),
-             os.path.join(emulators_folder(), "TiEmu", "tiemu.exe")]
+    """tiemu.exe where TiEmu's own installer put it (the registry, then Program Files and
+    emulators\\TiEmu), or None"""
+    cands = _tiemu_registered()
+    cands += [os.path.join(emulators_folder(), "TiEmu", "bin", "tiemu.exe"),
+              os.path.join(emulators_folder(), "TiEmu", "tiemu.exe")]
     for env in ("ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"):
         base = os.environ.get(env)
         if base:
-            cands += [os.path.join(base, "TiEmu", "bin", "tiemu.exe"), os.path.join(base, "TiEmu", "tiemu.exe")]
+            for d in ("TiEmu", "TiEmu3", "TiEmu3-gdb"):
+                cands += [os.path.join(base, d, "bin", "tiemu.exe"), os.path.join(base, d, "tiemu.exe")]
     for c in cands:
         if os.path.isfile(c):
             return c
@@ -927,23 +965,24 @@ def backup_files(folder):
             if os.path.isfile(os.path.join(folder, i["file"].replace("/", os.sep)))]
 
 
-def emulator_command(model, rom, files=(), emulator=None, fresh=True):
+def emulator_command(model, rom, files=(), emulator=None, fresh=True, extra=()):
     """The command line that opens the ROM (and sends the files) in the emulator. CEmu:
     --rom ROM, --reload-rom when fresh (boot the ROM, not CEmu's saved state of the last
-    session), --send FILE for each file (CEmu v2.0 options, gui/qt/main.cpp)."""
+    session), --send FILE for each file (CEmu v2.0 options, gui/qt/main.cpp). TiEmu: -rom=ROM
+    (its man page). extra: more options, after the program (the emulator tab's --id, -g)."""
     slug = cb.slug_of(model)
     if slug == "ti84":
         exe = emulator or cemu_path()
         if not exe:
             raise PcCopyError("open", "CEmu isn't downloaded yet (get_emulator(\"84\"))")
-        cmd = [exe, "--rom", rom] + (["--reload-rom"] if fresh else [])
+        cmd = [exe] + list(extra) + ["--rom", rom] + (["--reload-rom"] if fresh else [])
         for f in files:
             cmd += ["--send", f]
         return cmd
     exe = emulator or tiemu_path()
     if not exe:
         raise PcCopyError("open", "TiEmu isn't installed (get_emulator(\"89\") downloads its installer)")
-    cmd = [exe, "-rom=" + rom]
+    cmd = [exe] + list(extra) + ["-rom=" + rom]
     return cmd
 
 

@@ -221,6 +221,8 @@ def main():
     failures += editor_checks.main()
     import pc_copy_checks  # Make a PC copy never hangs: faked links, the dialog, the after() queue
     failures += pc_copy_checks.main()
+    import emu_checks  # The PC copy's emulator tab, its guide, Test in PC copy: faked windows and CEmu
+    failures += emu_checks.main()
     import info_checks  # Info always ends: the doctor's queries, a silent link, waiting requests
     failures += info_checks.main()
     import backup_macro_checks  # Backup compare, single restore, key macros: faked links

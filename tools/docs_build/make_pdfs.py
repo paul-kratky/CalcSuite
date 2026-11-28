@@ -31,6 +31,7 @@ GUIDES = [
     ("CalcSuite - TI-89 Titanium TI-Basic guide.pdf", "docs/TIBASIC_89.md", None),
     ("CalcSuite - TI-Nspire CX II Python guide.pdf", "docs/PYTHON_NSPIRE_GUIDE.md", None),
     ("CalcSuite - TI-Nspire Python kit.pdf", "docs/PYTHON_KIT.md", None),
+    ("CalcSuite - PC copies (CEmu and TiEmu) guide.pdf", "docs/EMULATORS.md", None),
 ]
 # slug -> PDF file name of its Functions reference
 FUNCTIONS = {

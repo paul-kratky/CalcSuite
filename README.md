@@ -357,12 +357,13 @@ Both are in **Calculator info**, and both back up the whole calculator first (in
 <details>
 <summary>Your own calculator running in an emulator on the PC, from its own ROM</summary>
 
-`python -I tools/pc_copy.py make 84` (or `89`) backs the calculator up, copies its ROM to
-`CalcSuite files\backups\roms\`, removes what it put on the calculator, and opens the copy
-in CEmu with your programs and variables (the 84 Plus CE, OS 5.4 or older). For the TI-89
-Titanium it makes the ROM; its emulator, TiEmu, you install yourself. The ROM is TI's software
-from your own calculator: it stays on your PC and is never uploaded. In the window: Calculator info >
-**Make a PC copy...**. Details: [docs/PC_COPY.md](docs/PC_COPY.md).
+Calculator info > **Make a PC copy...** backs the calculator up, copies its ROM to
+`CalcSuite files\backups\roms\`, removes what it put on the calculator, and runs the copy in its
+own tab, "TI-84 Plus CE (PC copy)" in CEmu with your programs and variables (OS 5.4 or older),
+or "TI-89 Titanium (PC copy)" in TiEmu (which you install yourself). The Program editor's
+**Test in PC copy** runs a TI-84 Plus CE program there first. The ROM is TI's software from your
+own calculator: it stays on your PC and is never uploaded. Guide (keys, sending files,
+screenshots, TiEmu): [docs/EMULATORS.md](docs/EMULATORS.md); the dump: [docs/PC_COPY.md](docs/PC_COPY.md).
 
 </details>
 

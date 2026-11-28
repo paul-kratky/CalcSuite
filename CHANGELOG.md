@@ -37,6 +37,27 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
 - TI's number formats in `calc_files.py`: 84 reals, complex numbers, lists, matrices and OS 5's
   exact forms; 89 integers, fractions, floats, complex numbers, lists and matrices, with
   round-trip self-tests and three new fuzz targets.
+- **Your PC copy in a tab of the window.** "TI-84 Plus CE (PC copy)" runs CEmu with your own
+  ROM, "TI-89 Titanium (PC copy)" TiEmu: the emulator's own window inside the tab, just the
+  calculator (screen and keypad; **CEmu's panels** brings CEmu's docks and menus back), with
+  **Send files...**, **Screenshot**, **Start again from the backup**, **Open in its own window**
+  (and back), **Close**. Click into it to type; other tabs get the keyboard back. Closing
+  CalcSuite closes the emulators it started (CEmu saves its state), never others. CEmu runs with
+  its own settings and state inside `CalcSuite files`, apart from a CEmu you start yourself.
+  TiEmu, which has only an installer, is found where you installed it; if its window can't go
+  into the tab it opens beside the window.
+- **Make a PC copy happens in that tab** (no separate window): the steps, one overall bar,
+  Cancel, and when it's done the bar full and green, "Done: 100%", "Your PC copy is made", then
+  the copy starts there. **Open my PC copy** opens the tab.
+- **Test in PC copy** (Program editor, TI-84 Plus CE): builds the program and runs it in a
+  CEmu of its own with your ROM (CEmu's autotester): the keys you give, then the screen it ended
+  on, and passed or failed against the screen you said to expect. The calculator isn't touched.
+  Also `python -I tools/pc_test.py PROGRAM.8xp --keys "..." --expect CRC`.
+- **The PC copies guide** (`docs/EMULATORS.md`, the tab's Guide, `CalcSuite - PC copies (CEmu
+  and TiEmu) guide.pdf`): making a copy, the tab, CEmu's complete key table (from CEmu's wiki),
+  its shortcuts, sending and getting files, screenshots and recordings, speed, its saved state,
+  the command line CalcSuite uses, Test in PC copy, TiEmu (installing, its keys and menu, what's
+  not checked yet), where everything is kept, common problems.
 
 ### Fixed
 - Sending several TI files in a row (Restore, Get all, Make a picture) can no longer lose its

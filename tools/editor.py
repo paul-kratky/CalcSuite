@@ -317,6 +317,7 @@ class Editor(object):
         self.name_var.trace_add("write", lambda *a: self.schedule_check())
         self.lang_label = th.label(top, "", fg=th.DIM, bg=PANEL_BG)
         for text, cmd in (("Copy AI instructions", self.copy_ai_instructions),
+                          ("Test in PC copy", self.test_in_pc_copy),
                           ("Build (Ctrl+B)", self.build),
                           ("Send (F6)", lambda: self.send(run=False)),
                           ("Send and run (F5)", lambda: self.send(run=True)),
@@ -1475,6 +1476,25 @@ class Editor(object):
             self.set_status("Built %s (%s)%s" % (out, cf.human_size(os.path.getsize(out)),
                                                   "; %d warning(s)" % c["warning"] if c["warning"] else ""), th.MINT)
         return self.built
+
+    def test_in_pc_copy(self):
+        """Test in PC copy: build, then run it in CEmu with the user's own ROM (pc_test.py): the
+        keys to press, the screen it ends on, passed or failed. TI-84 Plus CE programs only."""
+        if self.lang != "ti84":
+            self.set_status("Test in PC copy is for TI-84 Plus CE programs (CEmu runs them)",
+                            SEV_COLOUR["warning"])
+            return None
+        import pc_copy
+        if not pc_copy.list_roms("84"):
+            self.set_status("There's no PC copy of the TI-84 Plus CE yet: make one in its tab's Calculator "
+                            "info (Make a PC copy...)", SEV_COLOUR["warning"])
+            return None
+        built = self.build(quiet=True)
+        if built is None:
+            return None
+        import pc_test_ui
+        self.set_status("Testing %s in the PC copy (a window of its own)" % built["name"])
+        return pc_test_ui.PcTestDialog(self.win, built["file"], built["name"])
 
     def show_build_buttons(self):
         self.copy_file_button.pack(side="right", padx=(0, 6), pady=2)
