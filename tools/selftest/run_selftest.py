@@ -227,6 +227,8 @@ def main():
     failures += backup_macro_checks.main()
     import solver_checks  # The Solver builder: rearranging, the three programs, run on PC, its frame
     failures += solver_checks.main()
+    import picture_checks  # Make a picture: the formats byte for byte, colours, the window (faked)
+    failures += picture_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 

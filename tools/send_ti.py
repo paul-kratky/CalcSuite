@@ -225,6 +225,16 @@ def send_prepared(mirror, files, finish):
             finish(False, "Not sent")
             return
         state = {"left": len(files), "errors": [], "sent": []}
+
+        def report():  # Defined first: a quick link can answer before the loop ends
+            if state["errors"]:
+                finish(not state["sent"] and False, "Sent %d, not sent: %s" % (
+                    len(state["sent"]), "; ".join(state["errors"][:3])))
+            elif len(state["sent"]) == 1:
+                base, wanted = state["sent"][0]
+                finish(True, "Sent %s. %s" % (base, how_to_run(slug, wanted)))
+            else:
+                finish(True, "Sent %d files" % len(state["sent"]))
         for ti, wanted in files:
             base = os.path.basename(ti)
 
@@ -242,15 +252,6 @@ def send_prepared(mirror, files, finish):
                     root.after(0, report)
             mirror.queue("send " + os.path.abspath(ti), None, sent, progress)
 
-        def report():
-            if state["errors"]:
-                finish(not state["sent"] and False, "Sent %d, not sent: %s" % (
-                    len(state["sent"]), "; ".join(state["errors"][:3])))
-            elif len(state["sent"]) == 1:
-                base, wanted = state["sent"][0]
-                finish(True, "Sent %s. %s" % (base, how_to_run(slug, wanted)))
-            else:
-                finish(True, "Sent %d files" % len(state["sent"]))
     mirror.queue("ls", None, listed)
 
 
