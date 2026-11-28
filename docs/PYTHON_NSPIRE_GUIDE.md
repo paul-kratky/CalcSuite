@@ -6,25 +6,25 @@ manual route through TI's software, is [PYTHON_KIT.md](PYTHON_KIT.md).
 
 ## Contents
 
-- What the calculator's Python is
-- Rules for the code
-- Write, check, send
-- Run it on the handheld
-- Input and output
-- Cookbook: input checks
-- Cookbook: menus
-- Cookbook: lists
-- Cookbook: matrices
-- Cookbook: solving equations
-- Cookbook: units
-- Cookbook: complex numbers
-- Cookbook: number bases and bits
-- Cookbook: integrals and derivatives
-- Cookbook: graphs
-- Cookbook: results for the CAS
-- Problems and fixes
-- Example programs
-- Sources
+- [What the calculator's Python is](#what-the-calculators-python-is)
+- [Rules for the code](#rules-for-the-code)
+- [Write, check, send](#write-check-send)
+- [Run it on the handheld](#run-it-on-the-handheld)
+- [Input and output](#input-and-output)
+- [Cookbook: input checks](#cookbook-input-checks)
+- [Cookbook: menus](#cookbook-menus)
+- [Cookbook: lists](#cookbook-lists)
+- [Cookbook: matrices](#cookbook-matrices)
+- [Cookbook: solving equations](#cookbook-solving-equations)
+- [Cookbook: units](#cookbook-units)
+- [Cookbook: complex numbers](#cookbook-complex-numbers)
+- [Cookbook: number bases and bits](#cookbook-number-bases-and-bits)
+- [Cookbook: integrals and derivatives](#cookbook-integrals-and-derivatives)
+- [Cookbook: graphs](#cookbook-graphs)
+- [Cookbook: results for the CAS](#cookbook-results-for-the-cas)
+- [Problems and fixes](#problems-and-fixes)
+- [Example programs](#example-programs)
+- [Sources](#sources)
 
 ## What the calculator's Python is
 

@@ -5,30 +5,30 @@ them with CalcSuite. This guide is for OS 5.4.0 without Python. The examples are
 
 ## Contents
 
-- What the language is
-- Writing it on the PC
-- PC spellings
-- Traps in the text
-- Send and run
-- Variables and data
-- Input and output
-- Control flow
-- Subprograms
-- Cookbook: input checks
-- Cookbook: menus
-- Cookbook: lists
-- Cookbook: matrices
-- Cookbook: solving equations
-- Cookbook: units
-- Cookbook: complex numbers
-- Cookbook: number bases
-- Cookbook: integrals and derivatives
-- Cookbook: graph screen
-- Errors and fixes
-- Command reference
-- Example programs
-- Limits
-- Sources
+- [What the language is](#what-the-language-is)
+- [Writing it on the PC](#writing-it-on-the-pc)
+- [PC spellings](#pc-spellings)
+- [Traps in the text](#traps-in-the-text)
+- [Send and run](#send-and-run)
+- [Variables and data](#variables-and-data)
+- [Input and output](#input-and-output)
+- [Control flow](#control-flow)
+- [Subprograms](#subprograms)
+- [Cookbook: input checks](#cookbook-input-checks)
+- [Cookbook: menus](#cookbook-menus)
+- [Cookbook: lists](#cookbook-lists)
+- [Cookbook: matrices](#cookbook-matrices)
+- [Cookbook: solving equations](#cookbook-solving-equations)
+- [Cookbook: units](#cookbook-units)
+- [Cookbook: complex numbers](#cookbook-complex-numbers)
+- [Cookbook: number bases](#cookbook-number-bases)
+- [Cookbook: integrals and derivatives](#cookbook-integrals-and-derivatives)
+- [Cookbook: graph screen](#cookbook-graph-screen)
+- [Errors and fixes](#errors-and-fixes)
+- [Command reference](#command-reference)
+- [Example programs](#example-programs)
+- [Limits](#limits)
+- [Sources](#sources)
 
 ## What the language is
 

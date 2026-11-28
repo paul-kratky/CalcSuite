@@ -88,7 +88,7 @@ class Calc(object):
             while j < len(names) and names[j] == names[i]:
                 j += 1
             lab = cls.calc_label(names[i]) if isinstance(names[i], str) else "#%x" % names[i]
-            out.append(lab if j - i < 3 else "%s×%d" % (lab, j - i))
+            out.append(" ".join([lab] * (j - i)) if j - i < 3 else "%s×%d" % (lab, j - i))
             i = j
         return " ".join(out)
 
@@ -162,6 +162,41 @@ class Calc(object):
         return codes, missing
 
 
+class PaletteKeys(list):
+    """The keys for a symbol in the Nspire's symbol palette, from anywhere in it (back to π
+    first); .cell is its (row, column), for the short walk palette_keys() makes"""
+    cell = None
+
+
+def _palette(row, col):
+    """The Nspire's keys for the symbol at row, col of its symbol palette (catalog, tab 4)"""
+    keys = PaletteKeys(["catalog", "4"] + ["up"] * 60 + ["left"] * 10 + ["down"] * row +
+                       ["right"] * col + ["enter"])
+    keys.cell = (row, col)
+    return keys
+
+
+# The short walk (palette_keys) is off until it passes a clean bench test: on 2026-11-27 it
+# typed the right symbols once, then lost an enter and left the palette open (in a Scratchpad
+# that had just shown a syntax error). The long way passed 8 of 8.
+PALETTE_SHORT_WALK = False
+
+
+def palette_keys(keys, at):
+    """A Symbols row's keys, the short way when it's in the palette and `at` (the cell the last
+    pick left the palette on: it remembers) is known: (key names, the cell it leaves).
+    The long way works wherever the palette was left; the short one is ~70 keys fewer
+    (~2 s on a CX II) but types the wrong symbol if someone moved in the palette by hand."""
+    cell = getattr(keys, "cell", None)
+    if cell is None:
+        return list(keys), at
+    if at is None or not PALETTE_SHORT_WALK:
+        return list(keys), cell
+    dr, dc = cell[0] - at[0], cell[1] - at[1]
+    walk = (["down"] * dr if dr > 0 else ["up"] * -dr) + (["right"] * dc if dc > 0 else ["left"] * -dc)
+    return ["catalog", "4"] + walk + ["enter"], cell
+
+
 class Nspire(Calc):
     """The TI-Nspire CX II"""
     pid = 0xE022
@@ -187,34 +222,39 @@ class Nspire(Calc):
     click_help = (("Click", "click (the X: close the document; page tabs: next page)"),)
     extra_keys = (("Editing", "Ctrl+letter", "ctrl+letter"),
                   ("Editing", "Ctrl+Shift+C / V", "the handheld's own copy / paste"))
-    # The Nspire turns these typed spellings into its symbols when the line is entered (TI's
-    # Reference Guide, "keyboard shortcuts"); each tried on a CX II CAS, OS 6.4
+    # Each button types the real symbol (bench, CX II CAS, OS 6.40.74, 2026-11-27):
+    # - ∫ d/dx Σ: the templates from the Calculus menu (menu 4, in a Calculator page or the
+    #   Scratchpad's Calculate)
+    # - the rest: the symbol palette (catalog, tab 4: a grid 11 wide that remembers its last
+    #   pick, so each press goes back to π first: arrows stop at the edges, ~55 rows)
+    # - Latin-1 characters (± °) type themselves: a key code with the character in its top byte
+    # Pasted text (PASTE) still types the spellings, which the Nspire turns into symbols on Enter.
     SYMBOLS = (
-        ("∫", "integral ∫(  (typed integral()", "integral(", None),
-        ("d/dx", "derivative d/dx(  (typed derivative()", "derivative(", None),
-        ("√", "square root √(", "sqrt(", None),
-        ("π", "pi", "pi", None),
-        ("θ", "theta", "theta", None),
-        ("Σ", "sum Σ(  (sumSeq()", "sumSeq(", None),
-        ("∞", "infinity", "infinity", None),
-        ("≤", "less or equal", "<=", None),
-        ("≥", "greater or equal", ">=", None),
-        ("≠", "not equal", "/=", None),
-        ("→", "store", "=:", None),
-        ("i", "imaginary unit", "@i", None),
-        ("e", "e, the constant", "@e", None),
-        ("∠", "angle (polar)", "@<", None),
-        ("°", "degrees", "@d", None),
+        ("∫", "integral template (menu 4 3: Calculus > Integral)", ["menu", "4", "3"], None),
+        ("d/dx", "derivative template (menu 4 1: Calculus > Derivative)", ["menu", "4", "1"], None),
+        ("√", "square root (symbol palette)", _palette(2, 9), None),
+        ("π", "pi (its own key)", ["pi"], None),
+        ("θ", "theta (symbol palette)", _palette(0, 5), None),
+        ("Σ", "sum template (menu 4 5: Calculus > Sum)", ["menu", "4", "5"], None),
+        ("∞", "infinity (symbol palette)", _palette(0, 4), None),
+        ("≤", "less or equal (symbol palette)", _palette(1, 6), None),
+        ("≥", "greater or equal (symbol palette)", _palette(1, 8), None),
+        ("≠", "not equal (symbol palette)", _palette(1, 4), None),
+        ("→", "store (symbol palette)", _palette(0, 6), None),
+        ("i", "imaginary unit (symbol palette)", _palette(0, 2), None),
+        ("e", "e, the constant (symbol palette)", _palette(0, 1), None),
+        ("∠", "angle, polar (symbol palette)", _palette(1, 2), None),
+        ("°", "degrees", ["°"], None),
         ("²", "squared", ["square"], None),
-        ("⁻¹", "inverse", "^-1", None),
+        ("⁻¹", "inverse (symbol palette)", _palette(5, 9), None),
         ("‾", "negative sign", ["neg"], None),
-        ("±", "plus or minus", None, "no ± key: type the two answers"),
+        ("±", "plus or minus (shows; the Nspire can't calculate with it)", ["±"], None),
         ("×", "times", "*", None),
         ("÷", "divide", "/", None),
         ("^", "power", "^", None),
-        ("E", "×10^ (EE)", "@E", None),
+        ("E", "×10^ (symbol palette)", _palette(0, 3), None),
         ("!", "factorial", "!", None),
-        ("►", "convert ►", "@>", None),
+        ("►", "convert ► (symbol palette)", _palette(0, 8), None),
         ("|x|", "absolute value", "abs(", None),
     )
     PASTE = {"∫": "integral(", "√": "sqrt(", "π": "pi", "θ": "theta",
@@ -226,10 +266,13 @@ class Nspire(Calc):
 
     @classmethod
     def code_for(cls, name):
+        if name == "\xa0":  # A no-break space (text copied from the web) is a space
+            name = " "
         code = nspire_keys.code_for(name)
-        if code is None and len(name) == 1 and " " <= name <= "~":
-            # Any other printable ASCII: its character code in the top byte (tried with ! @ _
-            # { [ on a CX II CAS, OS 6.4: each typed itself)
+        if code is None and len(name) == 1 and (" " <= name <= "~" or name in "°±²×÷"):
+            # Any other printable ASCII character, and the Latin-1 ones tried: its code in the
+            # top byte (! @ _ { [ and ° ± ² × ÷ on a CX II CAS, OS 6.4: each typed itself).
+            # Other Latin-1 characters (é, soft hyphen) are untested: paste reports them.
             code = ord(name) << 16
         return code
 

@@ -173,6 +173,8 @@ class SymbolsSection(object):
     def __init__(self, panel, parent):
         self.m = panel.m
         calc = self.m.calc
+        self.ref = reference.load(calc.slug)
+        self.pinned = None  # The symbol whose card stays when the mouse leaves (the last clicked)
         self.frame = tk.Frame(parent, bg=th.PANEL)
         tk.Label(self.frame, text="Click a symbol to type it on the %s." % calc.title, bg=th.PANEL,
                  fg=th.DIM, anchor="w").pack(fill="x", pady=(0, 8))
@@ -191,24 +193,142 @@ class SymbolsSection(object):
             b.grid(row=k // self.COLS, column=k % self.COLS, padx=2, pady=2, sticky="nsew")
             text = "%s: %s" % (sym, what) + ("" if ok else " (not on the %s: %s)" % (calc.title, near))
             if ok:
-                seq = (" ".join(calc.calc_label(x) if isinstance(x, str) and len(x) > 1 else str(x)
-                                for x in keys) if not isinstance(keys, str) else keys)
+                seq = calc.keys_label(keys) if not isinstance(keys, str) else keys  # ↑×60, not 60 ↑
                 text += "   keys: " + seq
                 b.bind("<Button-1>", lambda e, c=codes, s=sym, b=b: self.send(c, s, b))
-            b.bind("<Enter>", lambda e, t=text: self.hint.set(t))
-            b.bind("<Leave>", lambda e: self.hint.set(""))
+            b.bind("<Enter>", lambda e, t=text, s=sym, k=keys, o=ok, n=near: (
+                self.hint.set(t), self.show_card(s, k) if o else self.show_missing(s, n)))
+            b.bind("<Leave>", lambda e: (self.hint.set(""), self.show_card(*(self.pinned or (None, None)))))
         for c in range(self.COLS):
             grid.columnconfigure(c, weight=1)
         tk.Label(self.frame, textvariable=self.hint, bg=th.PANEL, fg=th.FG, anchor="w", justify="left",
-                 wraplength=410, height=3).pack(fill="x", pady=(10, 0))
+                 wraplength=410, height=2).pack(fill="x", pady=(8, 0))
         tk.Label(self.frame, text="Greyed: the calculator has no such symbol; the hint says what "
                  "to use instead. Pasting text with these symbols (Ctrl+V) types them the same way.",
-                 bg=th.PANEL, fg=th.DIM, anchor="w", justify="left", wraplength=410).pack(fill="x", pady=(6, 0))
+                 bg=th.PANEL, fg=th.DIM, anchor="w", justify="left", wraplength=410).pack(
+                     side="bottom", fill="x", pady=(6, 0))
+        # The card: what the symbol's command takes on THIS calculator (its own reference: the
+        # TI-89's integral is not the Nspire's, and the TI-84 integrates with fnInt()
+        box = tk.Frame(self.frame, bg=th.BG)
+        box.pack(fill="both", expand=True, pady=(4, 0))
+        self.card = tk.Text(box, bg=th.BG, fg=th.FG, relief="flat", wrap="word", height=6, padx=8,
+                            pady=6, highlightthickness=0, bd=0, font=(th.FONT, 9), cursor="arrow",
+                            insertwidth=0)
+        csb = ttk.Scrollbar(box, orient="vertical", command=self.card.yview,
+                            style="Calc.Vertical.TScrollbar")
+        self.card.configure(yscrollcommand=csb.set)
+        csb.pack(side="right", fill="y")
+        self.card.pack(side="left", fill="both", expand=True)
+        style_card(self.card)
+        self.show_card(None, None)
+
+    def show_missing(self, sym, near):
+        """The card for a symbol this calculator doesn't have"""
+        d = self.card
+        d.configure(state="normal")
+        d.delete("1.0", "end")
+        d.insert("end", sym, "name")
+        d.insert("end", "\nThe %s has no %s. %s" % (self.m.calc.title, sym, (near or "")[:1].upper() +
+                                                     (near or "")[1:]), "hint")
+        d.configure(state="disabled")
+
+    def show_card(self, sym, keys):
+        """The card for a symbol (None: what the box is for)"""
+        d = self.card
+        title = self.m.calc.title
+        if sym is None:
+            d.configure(state="normal")
+            d.delete("1.0", "end")
+            d.insert("end", "Point at a symbol to see how to use it on the %s: what to write "
+                     "after it, its arguments and an example. Click one to type it; its card "
+                     "stays here." % title, "hint")
+            d.configure(state="disabled")
+            return
+        entry = reference.for_symbol(self.ref, sym)
+        template = (self.m.calc.slug == "nspire" and isinstance(keys, (list, tuple)) and
+                    keys[:1] == ["menu"])
+        lead = ("This button puts in the %s template: fill its boxes (tab moves to the next "
+                "one). Typed as text, it's written:" % sym) if template else None
+        if entry is None:
+            d.configure(state="normal")
+            d.delete("1.0", "end")
+            d.insert("end", sym, "name")
+            d.insert("end", "\nA symbol on its own on the %s: it takes no arguments." % title, "hint")
+            d.configure(state="disabled")
+            return
+        draw_card(d, entry, lead)
 
     def send(self, codes, sym, b):
+        keys = next((k for s, _w, k, _n in self.m.calc.SYMBOLS if s == sym), None)
+        self.pinned = (sym, keys)
+        self.show_card(sym, keys)
+        at = getattr(self.m, "palette_at", None)
+        if getattr(keys, "cell", None) is not None:  # The Nspire's palette: walk from its last place
+            names, at = calc_models.palette_keys(keys, at)
+            codes = calc_models.symbol_codes(self.m.calc, names)
         if self.m.send_codes(codes, sym):
+            self.m.palette_at = at
             b.configure(bg=th.ACCENT, fg="#000000")
             b.after(250, lambda: b.configure(bg=th.KEYCAP, fg=th.FG))
+
+
+# ---- A command's card (the Functions description, the Symbols helper) ----
+def style_card(d):
+    """The text styles a command card uses, on a Text widget"""
+    d.tag_configure("name", font=(th.MONO, 12, "bold"), foreground=th.ACCENT)
+    d.tag_configure("cat", foreground=th.DIM)
+    d.tag_configure("syntax", font=(th.MONO, 10), background="#121317")
+    d.tag_configure("h", font=(th.FONT, 8, "bold"), foreground=th.DIM, spacing1=6)
+    d.tag_configure("arg", font=(th.MONO, 9, "bold"), foreground=th.MINT)
+    d.tag_configure("opt", foreground=th.DIM)
+    d.tag_configure("code", font=(th.MONO, 10))
+    d.tag_configure("dim", foreground=th.DIM)
+    d.tag_configure("warn", foreground=th.ACCENT)
+    d.tag_configure("hint", foreground=th.DIM, font=(th.FONT, 10), spacing1=4)
+
+
+def draw_card(d, e, lead=None):
+    """A reference entry's card into the Text d: how to write it (every form), its arguments,
+    what it gives, an example, its keys, notes. lead: a line above it, in the hint style."""
+    d.configure(state="normal")
+    d.delete("1.0", "end")
+    if lead:
+        d.insert("end", lead + "\n", "hint")
+    d.insert("end", e["name"], "name")
+    d.insert("end", "   " + e.get("category", "") + "\n", "cat")
+    for form in e.get("forms") or [e["syntax"]]:
+        d.insert("end", form + "\n", "syntax")
+    if e.get("summary"):
+        d.insert("end", e["summary"] + "\n")
+    if e.get("args"):
+        d.insert("end", "ARGUMENTS (separated by commas; [ ] = optional)\n", "h")
+        for a in e["args"]:
+            d.insert("end", a["name"], "arg")
+            d.insert("end", "  " + (a.get("meaning") or ""))
+            extra = (["optional"] if a.get("optional") else []) + (
+                ["default " + str(a["default"])] if a.get("default") else [])
+            if extra:
+                d.insert("end", "  (%s)" % ", ".join(extra), "opt")
+            d.insert("end", "\n")
+    if e.get("returns"):
+        d.insert("end", "GIVES  ", "h")
+        d.insert("end", e["returns"] + "\n")
+    if e.get("example"):
+        d.insert("end", "EXAMPLE\n", "h")
+        d.insert("end", e["example"] + "\n", "code")
+    if e.get("key"):
+        d.insert("end", "KEYS  ", "h")
+        d.insert("end", e["key"] + "\n")
+    if e.get("pc_spelling"):
+        d.insert("end", "ON THE PC TYPE  ", "h")
+        d.insert("end", e["pc_spelling"] + "\n", "code")
+    if e.get("notes"):
+        d.insert("end", "NOTE\n", "h")
+        d.insert("end", e["notes"] + "\n", "warn")
+    if not e.get("verified"):
+        d.insert("end", "Not checked against TI's reference guide yet.\n", "dim")
+    d.configure(state="disabled")
+    d.yview_moveto(0)
 
 
 # ---- Functions: every command, its arguments, Insert (tools/reference.py) ----
@@ -273,17 +393,7 @@ class FunctionsSection(object):
         self.detail.configure(yscrollcommand=dsb.set)
         dsb.pack(side="right", fill="y")
         self.detail.pack(side="left", fill="both", expand=True)
-        d = self.detail
-        d.tag_configure("name", font=(th.MONO, 12, "bold"), foreground=th.ACCENT)
-        d.tag_configure("cat", foreground=th.DIM)
-        d.tag_configure("syntax", font=(th.MONO, 10), background="#121317")
-        d.tag_configure("h", font=(th.FONT, 8, "bold"), foreground=th.DIM, spacing1=6)
-        d.tag_configure("arg", font=(th.MONO, 9, "bold"), foreground=th.MINT)
-        d.tag_configure("opt", foreground=th.DIM)
-        d.tag_configure("code", font=(th.MONO, 10))
-        d.tag_configure("dim", foreground=th.DIM)
-        d.tag_configure("warn", foreground=th.ACCENT)
-        d.tag_configure("hint", foreground=th.DIM, font=(th.FONT, 10), spacing1=4)
+        style_card(self.detail)
         self.show_hint()
         bar = tk.Frame(self.frame, bg=th.PANEL)
         bar.pack(fill="x", pady=(6, 0))
@@ -383,42 +493,7 @@ class FunctionsSection(object):
             return
         e = self.item = self.items[int(sel[0])]
         d = self.detail
-        d.configure(state="normal")
-        d.delete("1.0", "end")
-        d.insert("end", e["name"], "name")
-        d.insert("end", "   " + e.get("category", "") + "\n", "cat")
-        for form in e.get("forms") or [e["syntax"]]:
-            d.insert("end", form + "\n", "syntax")
-        if e.get("summary"):
-            d.insert("end", e["summary"] + "\n")
-        if e.get("args"):
-            d.insert("end", "ARGUMENTS (separated by commas; [ ] = optional)\n", "h")
-            for a in e["args"]:
-                d.insert("end", a["name"], "arg")
-                d.insert("end", "  " + (a.get("meaning") or ""))
-                extra = (["optional"] if a.get("optional") else []) + (
-                    ["default " + str(a["default"])] if a.get("default") else [])
-                if extra:
-                    d.insert("end", "  (%s)" % ", ".join(extra), "opt")
-                d.insert("end", "\n")
-        if e.get("returns"):
-            d.insert("end", "GIVES  ", "h")
-            d.insert("end", e["returns"] + "\n")
-        if e.get("example"):
-            d.insert("end", "EXAMPLE\n", "h")
-            d.insert("end", e["example"] + "\n", "code")
-        if e.get("key"):
-            d.insert("end", "KEYS  ", "h")
-            d.insert("end", e["key"] + "\n")
-        if e.get("pc_spelling"):
-            d.insert("end", "ON THE PC TYPE  ", "h")
-            d.insert("end", e["pc_spelling"] + "\n", "code")
-        if e.get("notes"):
-            d.insert("end", "NOTE\n", "h")
-            d.insert("end", e["notes"] + "\n", "warn")
-        if not e.get("verified"):
-            d.insert("end", "Not checked against TI's reference guide yet.\n", "dim")
-        d.configure(state="disabled")
+        draw_card(d, e)
         d.yview_moveto(0)
         kind, _what, why = reference.insert_plan(self.calc.slug, e)
         self.insert_btn.configure(state="normal" if kind else "disabled")

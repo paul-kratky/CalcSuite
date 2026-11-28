@@ -270,15 +270,19 @@ class Mirror(object):
                     continue
                 try:
                     self.session = nspire_link.Session(cli=self.calc.cli)
+                    self.palette_at = None  # Where the symbol palette was left: unknown again
                     code, lines = self.session.cmd("info")
                     d = nspire_link.info_dict(lines)
                     self.info = d
                     name = d.get("name", self.calc.title).replace("_", " ")
                     self.set_status("Connected: %s%s" % (name, ", OS %s" % d["os"] if "os" in d else ""))
-                except nspire_link.LinkError:
+                except nspire_link.LinkError as e:
                     self.session = None
+                    # What the link helper said, so a stuck link says why (not just "looking")
+                    why = [l[4:] if l.startswith("ERR ") else l for l in e.lines if l.strip()]
                     self.set_status("Looking for the %s... (plugged in, switched on, TI's own "
-                                    "software closed)" % self.calc.title)
+                                    "software closed)%s" % (self.calc.title,
+                                                           "\nLink: " + why[-1][:160] if why else ""))
                     if not self.driver_checked:
                         self.driver_checked = True
                         threading.Thread(target=self.check_driver, daemon=True).start()
@@ -289,7 +293,8 @@ class Mirror(object):
             # Key presses that queued up while a picture was coming go out as one command
             merged = []
             for line, note, done, progress in jobs:
-                if line.startswith("key ") and merged and merged[-1][0].startswith("keys "):
+                if line.startswith("key ") and merged and merged[-1][0].startswith("keys ") and \
+                        merged[-1][0].count(" ") < MAX_KEYS_LINE:  # The helper reads 2048 bytes a line
                     merged[-1] = (merged[-1][0] + " " + line[4:], note, None, None)
                 elif line.startswith("key "):
                     merged.append(("keys " + line[4:], note, None, None))
@@ -641,8 +646,10 @@ class Mirror(object):
         if not self.keys_on.get():
             self.set_status("The keyboard is off for the %s (Keyboard)" % self.calc.title)
             return False
-        for i in range(0, len(codes), 64):
-            self.queue("keys " + " ".join(self.calc.key_fmt % c for c in codes[i:i + 64]))
+        # One command for the whole press (a palette symbol is ~80 keys): split in two, a
+        # failed first half would still send the second's arrows and enter into the document
+        for i in range(0, len(codes), MAX_KEYS_LINE):
+            self.queue("keys " + " ".join(self.calc.key_fmt % c for c in codes[i:i + MAX_KEYS_LINE]))
         self.history.append(what)
         del self.history[:-HISTORY]
         self.last_press.set("Last key: " + what)
@@ -895,6 +902,9 @@ class Mirror(object):
             pass
 
 
+MAX_KEYS_LINE = 200  # Key codes in one "keys" command: 7 bytes each, the helper reads 2048 a line
+
+
 class ScreenView(object):
     """A calculator's picture in a Label, scaled by a whole number to fit its space"""
 
@@ -905,6 +915,7 @@ class ScreenView(object):
         self.fit = fit           # () -> (width, height) it may use
         self.zoom = None         # (zoom, subsample) of the shown picture
         self.photo = None
+        self.source = None       # The frame the shown picture was made from
         self.label = tk.Label(parent, bg=bg, bd=0, highlightthickness=0, cursor="crosshair" if big else "hand2")
         mirror.views.append(self)
 
@@ -929,10 +940,22 @@ class ScreenView(object):
         shown = img.zoom(z, z) if z > 1 else (img.subsample(sub, sub) if sub > 1 else img)
         self.zoom = (z, sub)
         self.photo = shown
+        self.source = img
         try:
             self.label.configure(image=shown)
         except tk.TclError:
             pass
+
+    def refit(self):
+        """Its space changed size: draws it again only when the scale changes (a drag sends
+        many of these, and re-zooming the picture on each one smears the window)"""
+        img = self.m.image
+        if img is None:
+            return
+        if self.photo is not None and self.source is img and \
+                self.scale_for(img.width(), img.height()) == self.zoom:
+            return
+        self.show()
 
     def to_calc(self, ev):
         """A mouse event -> (x, y) in the calculator's pixels, or None outside the picture"""
@@ -959,8 +982,8 @@ class Tab(object):
         self.frame = tk.Frame(app.content, bg=th.BG)
         mirror.root = self.frame
         self.popped = False
+        # The screen side takes what's left once the panel has its width (packed last, below)
         left = tk.Frame(self.frame, bg=th.BG)
-        left.pack(side="left", fill="both", expand=True, padx=(14, 8), pady=(10, 10))
         self.screen_box = tk.Frame(left, bg=th.BG, width=640, height=480)
         self.screen_box.pack(fill="both", expand=True)
         self.screen_box.pack_propagate(False)
@@ -972,17 +995,27 @@ class Tab(object):
         lab.bind("<Button-3>", lambda e: mirror.on_button("right"))
         lab.bind("<Button-2>", lambda e: mirror.on_button("middle"))
         lab.bind("<MouseWheel>", lambda e: mirror.on_wheel(e.delta, e.state & 0x1))
-        self.screen_box.bind("<Configure>", lambda e: self.view.show())
+        self.screen_box.bind("<Configure>", lambda e: self.view.refit())
 
         self.strip = tk.Frame(left, bg=th.BG, height=26)  # The key history
         self.strip_on = False
+        # The checkboxes share one row (packed before the last key, so a long key name gets
+        # cut, never a checkbox); the button bar below stays narrow on every calculator
         line = tk.Frame(left, bg=th.BG)
         line.pack(fill="x", pady=(6, 0))
-        tk.Label(line, textvariable=mirror.last_press, bg=th.BG, fg=th.FG, anchor="w",
-                 font=(th.FONT, 10)).pack(side="left")
+        self.check_row = line
         self.hist_var = tk.BooleanVar(master=self.frame, value=False)
-        th.check(line, "Key history", self.hist_var, self.toggle_history).pack(side="right")
+        th.check(line, "Keyboard", mirror.keys_on).pack(side="right")
+        th.check(line, "Key history", self.hist_var, self.toggle_history).pack(side="right", padx=(0, 10))
         th.check(line, "Show keys in recordings", app.burn_keys).pack(side="right", padx=(0, 10))
+        if mirror.calc.slug == "ti84":  # Fast mode (experimental): ~7 frames/s on the home screen
+            self.fast_var = tk.BooleanVar(master=self.frame, value=False)
+            th.check(line, "Fast mode (experimental)", self.fast_var, self.toggle_fast).pack(
+                side="right", padx=(0, 10))
+            mirror.fast_listeners.append(
+                lambda state, note: self.app.root.after(0, self.fast_changed, state, note))
+        tk.Label(line, textvariable=mirror.last_press, bg=th.BG, fg=th.FG, anchor="w",
+                 font=(th.FONT, 10)).pack(side="left", fill="x", expand=True)
         bar = tk.Frame(left, bg=th.BG)
         bar.pack(fill="x", pady=(8, 0))
         th.button(bar, "Screenshot", mirror.screenshot).pack(side="left")
@@ -993,13 +1026,6 @@ class Tab(object):
         th.button(bar, "Send program...", mirror.send_program).pack(side="left", padx=(6, 0))
         th.button(bar, "Reconnect", mirror.reconnect).pack(side="left", padx=(6, 0))
         th.button(bar, "Program editor...", self.open_editor).pack(side="left", padx=(6, 0))
-        th.check(bar, "Keyboard", mirror.keys_on).pack(side="right")
-        if mirror.calc.slug == "ti84":  # Fast mode (experimental): ~7 frames/s on the home screen
-            self.fast_var = tk.BooleanVar(master=self.frame, value=False)
-            th.check(bar, "Fast mode (experimental)", self.fast_var, self.toggle_fast).pack(
-                side="right", padx=(0, 10))
-            mirror.fast_listeners.append(
-                lambda state, note: self.app.root.after(0, self.fast_changed, state, note))
         tk.Label(left, textvariable=mirror.status, bg=th.BG, fg=th.DIM, anchor="w", justify="left",
                  wraplength=640).pack(fill="x", pady=(8, 0))
         self.left = left
@@ -1012,21 +1038,91 @@ class Tab(object):
         grip.pack(side="right", fill="y", pady=(10, 10))
         line = tk.Frame(grip, bg=th.PANEL2, width=2)
         line.place(relx=0.5, rely=0.5, relheight=0.12, anchor="center")
+        self.grip_line = line
+        # While dragging only this guide line moves; the panel changes width once, on release
+        # (laying the window out again on every mouse move is what smeared it)
+        self.guide = None  # The guide line and its "Default width" tag: made on the first drag
+        self.drag_w = None
         grip.bind("<B1-Motion>", self.drag_panel)
+        grip.bind("<ButtonRelease-1>", self.drop_panel)
+        grip.bind("<Double-Button-1>", lambda e: self.set_panel_width(self.default_panel_width()))
         grip.bind("<Enter>", lambda e: line.configure(bg=th.ACCENT))
-        grip.bind("<Leave>", lambda e: line.configure(bg=th.PANEL2))
+        grip.bind("<Leave>", lambda e: self.drag_w is None and line.configure(bg=th.PANEL2))
+        left.pack(side="left", fill="both", expand=True, padx=(14, 8), pady=(10, 10))
         mirror.listeners.append(self.key_pressed)
 
     panel_width = 0  # The width the user dragged the side panel to (every tab, this session)
 
-    def drag_panel(self, ev):
+    SNAP = 60  # Pixels: a drag this close to the default width snaps to it
+
+    @staticmethod
+    def default_panel_width():
         import ui_panels
+        return ui_panels.WIDTH
+
+    def drag_panel(self, ev):
+        """Dragging the handle: a guide line shows where the panel's edge will go; near the
+        default width it jumps there (mint, with a tag)"""
         f = self.panel.frame
-        right = f.winfo_rootx() + f.winfo_width()
-        w = max(ui_panels.WIDTH - 70, min(right - ev.x_root, self.frame.winfo_width() - 360))
+        right = f.winfo_x() + f.winfo_width()  # The panel's right edge in the tab
+        default = self.default_panel_width()
+        # The screen side keeps room for its checkbox row (the 84's has four)
+        keep = max(360, self.check_row.winfo_reqwidth() + 30)
+        w = max(default - 70, min(right - (ev.x_root - self.frame.winfo_rootx()),
+                                  self.frame.winfo_width() - keep))
+        snapped = abs(w - default) <= self.SNAP
+        if snapped:
+            w = default
+        self.drag_w = w
+        x = right - w - 5  # The middle of the handle, left of the panel's new edge
+        color = th.MINT if snapped else th.ACCENT
+        self.grip_line.configure(bg=color)
+        line, tag = self.guide or self.make_guide()
+        # Their own little windows, moved over the tab: Windows composes them, so nothing
+        # under them repaints (a widget moved inside the window left trails)
+        gx, gy = self.frame.winfo_rootx() + x, self.frame.winfo_rooty() + 10
+        h = max(1, self.frame.winfo_height() - 20)
+        line.configure(bg=color)
+        line.geometry("3x%d+%d+%d" % (h, gx, gy))
+        if line.state() == "withdrawn":
+            line.deiconify()
+        if snapped:
+            tag.geometry("+%d+%d" % (gx - tag.winfo_reqwidth() - 6, gy + 4))
+            if tag.state() == "withdrawn":
+                tag.deiconify()
+        elif tag.state() != "withdrawn":
+            tag.withdraw()
+
+    def make_guide(self):
+        def floating():
+            w = tk.Toplevel(self.frame)
+            w.withdraw()
+            w.overrideredirect(True)
+            w.attributes("-topmost", True)
+            return w
+        line = floating()
+        tag = floating()
+        tk.Label(tag, text="Default width", bg=th.MINT, fg="#000000", font=(th.FONT, 8, "bold"),
+                 padx=6, pady=1).pack()
+        tag.update_idletasks()
+        self.guide = (line, tag)
+        return self.guide
+
+    def drop_panel(self, ev):
+        """The drag ended: the panel (on every tab) takes the width the guide showed"""
+        w, self.drag_w = self.drag_w, None
+        if self.guide:
+            for g in self.guide:
+                g.withdraw()
+        self.grip_line.configure(bg=th.ACCENT)
+        if w is not None:
+            self.set_panel_width(w)
+
+    def set_panel_width(self, w):
         Tab.panel_width = w
         for t in self.app.tabs.values():
-            t.panel.frame.configure(width=w)
+            if t.panel.frame.winfo_reqwidth() != w:
+                t.panel.frame.configure(width=w)
 
     def open_editor(self):
         """The program editor, aimed at this calculator (TI-Basic or Nspire Python)"""
@@ -1140,7 +1236,7 @@ class AllScreens(object):
         view.label.pack(fill="both", expand=True, padx=4, pady=4)
         view.label.bind("<Button-1>", lambda e: self.app.set_target(pid))
         view.label.bind("<Double-Button-1>", lambda e: self.app.show_tab(pid))
-        box.bind("<Configure>", lambda e: view.show())
+        box.bind("<Configure>", lambda e: view.refit())
         self.tiles[pid] = dict(frame=outer, view=view, name=name, fps=fps, kb=kb)
         self.layout()
 
