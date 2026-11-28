@@ -93,7 +93,8 @@ def build_luna(tc, force):
         ["-static", "-lz", "-o", out], tc)
 
 
-APP_VERSION = (1, 0, 2)  # The helpers' version info (Windows shows it in Properties > Details)
+sys.path.insert(0, HERE)
+from app_version import VERSION as APP_VERSION  # noqa: E402  The helpers' version info (Properties > Details)
 
 
 def version_res(tc, name, description, licence):

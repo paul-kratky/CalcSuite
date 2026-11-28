@@ -39,6 +39,34 @@ def run(args, stdin_text=""):
     return p.returncode, p.stdout + p.stderr
 
 
+def version_checks():
+    """tools/app_version.py, the driver helper's .rc and the release check agree"""
+    import re
+    from app_version import VERSION, TEXT
+    import release_files
+    fails = 0
+    rc = open(os.path.join(KIT, "tools", "driver_helper", "calcsuite_driver.rc"), encoding="ascii").read()
+    nums = tuple(int(x) for x in re.search(r"FILEVERSION (\d+),(\d+),(\d+)", rc).groups())
+    for ok, what in (
+            (nums == tuple(VERSION), "calcsuite_driver.rc's FILEVERSION is app_version %s" % TEXT),
+            ('"%s"' % TEXT in rc, "calcsuite_driver.rc's version strings are %s" % TEXT)):
+        print("%-4s version: %s" % ("PASS" if ok else "FAIL", what))
+        fails += not ok
+    try:
+        release_files.check_version("v" + TEXT)
+        release_files.check_version("0.0.0")
+        ok = True
+    except SystemExit:
+        ok = False
+    try:
+        release_files.check_version("v9.9.9")
+        ok = False
+    except SystemExit:
+        pass
+    print("%-4s version: a release tag must match app_version" % ("PASS" if ok else "FAIL"))
+    return fails + (not ok)
+
+
 def paths_checks():
     """tools/paths.py as the packaged app sees it: files beside the exe, the inside-the-zip
     case, and the source tree's old places"""
@@ -179,6 +207,7 @@ def main():
             failures += 1
         failures += tns_writer_checks()
         failures += paths_checks()
+        failures += version_checks()
 
     failures += ti_basic_checks()
     sys.path.insert(0, HERE)

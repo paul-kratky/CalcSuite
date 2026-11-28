@@ -1673,8 +1673,13 @@ class InfoSection(object):
         self.doctor = tk.Frame(inner, bg=th.PANEL)
         self.doctor.pack(fill="x")
         th.button(inner, "Check again", self.check).pack(anchor="w", pady=(6, 0))
+        heading(inner, "CalcSuite")
+        ver = tk.Label(inner, text="Version %s: what's new and newer versions" % mirror_mod.APP_VERSION,
+                       bg=th.PANEL, fg=th.MINT, cursor="hand2", font=(th.FONT, 10, "underline"))
+        ver.pack(anchor="w")
+        ver.bind("<Button-1>", lambda e: webbrowser.open(
+            "https://github.com/paul-kratky/CalcSuite/releases"))
         if mirror_mod.SPONSOR_URL:
-            heading(inner, "CalcSuite")
             a = tk.Label(inner, text="Support CalcSuite", bg=th.PANEL, fg=th.MINT, cursor="hand2",
                          font=(th.FONT, 10, "underline"))
             a.pack(anchor="w")

@@ -30,7 +30,17 @@ def version_tuple(v):
     return tuple(nums + [0] * (4 - len(nums)))
 
 
+def check_version(version):
+    """A release's tag must be the version the app shows (tools/app_version.py)"""
+    sys.path.insert(0, os.path.join(KIT, "tools"))
+    from app_version import VERSION
+    if version_tuple(version)[:3] not in (tuple(VERSION), (0, 0, 0)):  # 0.0.0: a build without a tag
+        raise SystemExit("The tag says %s but tools/app_version.py says %s: bump it first"
+                         % (version, ".".join(map(str, VERSION))))
+
+
 def version_info(version):
+    check_version(version)
     t = version_tuple(version)
     text = """# UTF-8
 VSVersionInfo(

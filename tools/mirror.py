@@ -75,6 +75,7 @@ import py2tns  # noqa: E402
 from calc_models import Nspire, Ti84, Ti89, CALCS  # noqa: E402,F401  (the old names still work)
 
 APP_NAME = "CalcSuite"
+from app_version import TEXT as APP_VERSION  # noqa: E402
 SPONSOR_URL = None  # A sponsor / funding page; the Calculator info panel shows "Support CalcSuite" when set
 DOCS = os.path.join(os.path.expanduser("~"), "Documents")
 OLD_KIT = os.path.join(DOCS, "Nspire Mirror")  # Where the app kept its files before 1.0
@@ -1383,7 +1384,8 @@ class App(object):
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title(APP_NAME)
+        self.root.title("%s %s%s" % (APP_NAME, APP_VERSION,
+                                     "" if getattr(sys, "frozen", False) else " (from source)"))
         self.root.configure(bg=th.BG)
         self.root.geometry("1200x780")
         self.root.minsize(900, 600)
@@ -1813,6 +1815,16 @@ def set_app_icon(root):
             try:
                 root._app_icon = tk.PhotoImage(master=root, file=path)
                 root.iconphoto(True, root._app_icon)  # True: every window made later too
+            except tk.TclError:
+                pass
+            break
+    # Windows: the .ico too, so the title bar and taskbar use its own small drawings (16-48 px)
+    # instead of shrinking the 256 px PNG (the calculator came out clipped at 16 px)
+    for path in (os.path.join(os.path.dirname(HERE), "assets", "app.ico"),
+                 os.path.join(HERE, "assets", "app.ico")):
+        if os.path.isfile(path):
+            try:
+                root.iconbitmap(default=path)  # default=: every window made later too
             except tk.TclError:
                 pass
             break

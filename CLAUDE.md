@@ -71,6 +71,11 @@ python tools/mirror.py                                # run the app from the sou
   what to do.
 - **Errors never pass silently** in the window: `mirror.log_error()` writes them to
   `CalcSuite files/logs/errors.log`.
+- **Everything stays in the unzipped folder.** The release build keeps all it makes or downloads
+  (backups, ROMs, captures, programs, emulators and their settings, caches) in `CalcSuite files`
+  beside the exe, through `tools/paths.py` (`files_dir()`, `cache_dir()`): never Documents,
+  AppData, Program Files or the registry. Helper programs it starts (CEmu, TiEmu, ffmpeg) are kept
+  there too. Only a run from the source uses Documents/LOCALAPPDATA.
 - **README:** keep every `##` section folded under `<details><summary>one line</summary>`
   except Get started (the PDF builder prints them unfolded). Point links at `##` headings.
 - No telemetry; go online only when the user asks (SECURITY.md lists every place).
