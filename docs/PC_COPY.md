@@ -11,7 +11,11 @@ python -I tools/pc_copy.py open 84      open the newest ROM again (with the newe
 python -I tools/pc_copy.py list         the ROMs made so far
 ```
 
-A button in the calculator's **Calculator info** panel and a **PC copy** tab are coming.
+In the window: the calculator's **Calculator info** > **Make a PC copy...** opens its **(PC
+copy)** tab, which makes the copy there (the steps, one overall bar, Cancel, "Done: 100%") and
+then runs it in the same tab; **Open my PC copy** opens the newest one. Using the copy (CEmu's
+and TiEmu's keys, sending files, screenshots, Test in PC copy):
+[the PC copies guide](EMULATORS.md).
 
 ## What you need
 
@@ -63,9 +67,14 @@ The 84's ROM holds the boot code, the OS and TI's certificate; your archived fil
   keeps its own saved state when you close it, and starting CEmu by itself carries on from it.
 - **TiEmu** (TI-89 Titanium, GPL-2.0): its last Windows version is 3.03, from 2010, as an
   installer on its SourceForge project. `get-emulator 89` downloads it, checks it, and leaves
-  `setup.exe` in `CalcSuite files\cache\emulators\TiEmu\` for you to run if you want it.
+  `setup.exe` in `CalcSuite files\cache\emulators\TiEmu\` for you to run if you want it (the
+  download holds only that installer: TiEmu has no build that runs from CalcSuite's folder).
   After that, `open 89` starts TiEmu with the ROM (TiEmu turns a `.rom` into its own image the
-  first time). CalcSuite doesn't run the installer for you.
+  first time). CalcSuite doesn't run the installer for you; it finds the installed TiEmu
+  through the registry or in Program Files.
+- In the window, CEmu runs in the PC copy's tab with its own settings and saved state in
+  `CalcSuite files\cache\emulators\CEmu\calcsuite\` (`-g`), apart from a CEmu you start
+  yourself; the command line above keeps using CEmu's own settings.
 
 ## The rules
 

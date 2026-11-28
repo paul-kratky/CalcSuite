@@ -20,7 +20,7 @@ a = Analysis(
     datas=[('assets/app.png', 'assets'), ('assets/app.ico', 'assets'),
            # The Guide panel's guides and the Get programs list
            ('docs/TIBASIC_84.md', 'docs'), ('docs/TIBASIC_89.md', 'docs'),
-           ('docs/PYTHON_NSPIRE_GUIDE.md', 'docs'),
+           ('docs/PYTHON_NSPIRE_GUIDE.md', 'docs'), ('docs/EMULATORS.md', 'docs'),
            # Save as PDF in Guide and Functions (tools/docs_build/make_pdfs.py builds them)
            ('docs/pdf/*.pdf', 'docs/pdf'),
            ('tools/program_library.json', '.'),

@@ -31,6 +31,8 @@ Its screen appears on **All screens** and in its own tab, live.
 | Get ready-made programs | **Get programs** panel; double-click one to download and send it |
 | Save a screenshot or a video | **Screenshot**, **Record** |
 | Back up the calculator | **Files** > **Back up...** |
+| Run your own calculator on the PC (84 Plus CE, 89 Titanium) | **Calculator info** > **Make a PC copy...**: it opens in its own tab (guide: `CalcSuite - PC copies (CEmu and TiEmu) guide.pdf`) |
+| Test a TI-84 Plus CE program before sending it | Program editor > **Test in PC copy** |
 
 Everything CalcSuite saves (captures, programs, backups) is in the `CalcSuite files` folder next
 to `CalcSuite.exe`. The guides are in `Guides`, and in the app (**Guide**, **Functions**).
