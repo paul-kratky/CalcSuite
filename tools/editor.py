@@ -320,7 +320,8 @@ class Editor(object):
                           ("Build (Ctrl+B)", self.build),
                           ("Send (F6)", lambda: self.send(run=False)),
                           ("Send and run (F5)", lambda: self.send(run=True)),
-                          ("Check", self.check_now)):
+                          ("Check", self.check_now),
+                          ("Solver builder...", self.open_solver_builder)):
             b = th.button(top, text, cmd)
             b.pack(side="right", padx=(6, 0))
             if text.startswith("Send and run"):
@@ -488,6 +489,11 @@ class Editor(object):
                       ("Copy problems for the AI", self.copy_problems), None,
                       ("Keys", self.show_keys)]),
         ]
+
+    def open_solver_builder(self):
+        """Equations once -> a solver for each calculator (tools/solver_ui.py)"""
+        import solver_ui
+        return solver_ui.open_builder(self)
 
     # ---- Targets ----
     def _targets(self):

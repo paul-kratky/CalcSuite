@@ -348,6 +348,12 @@ nSolve(x^3-2*x-5=0,x=2)
 - `nSolve(` gives one decimal answer, fastest with a guess (`x=2`) or a range
   (`nSolve(f=0,x)|x>0 and x<3`).
 - Example: `quadc` and `linsolve`.
+- **A solver made for you:** in CalcSuite's Program editor, **Solver builder...** takes your
+  equations (`V = I*R`, `P = V^2/R`, with units) and writes a program with a PopUp for the
+  equation and the unknown and a dialog for the others; the answer shows with its unit.
+  Unknowns are rearranged on the PC where they can be; the rest are found with the secant
+  method from a guess (not `nSolve(`), so it doesn't depend on the CAS. Everything it uses is
+  `Local`; a value that has no answer (a root of a negative, a division by zero) says so.
 
 ## Cookbook: calculus
 

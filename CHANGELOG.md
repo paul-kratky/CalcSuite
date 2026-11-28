@@ -17,6 +17,13 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   typing, with optional waits; edit (rename, reorder, add or remove keys, waits), duplicate,
   delete, import and export. A few harmless examples per calculator. A macro with keys that
   delete, clear or open a reset menu asks before its first replay.
+- **Solver builder** (Program editor > **Solver builder...**): type equations once (with units
+  and descriptions) and get a menu-driven solver for the TI-Nspire (Python), the TI-84 Plus CE
+  and the TI-89 Titanium. Unknowns are rearranged on the PC by CalcSuite's own small rearranger
+  (+ - * / ^, roots, ln/log/exp, trig; linear after clearing fractions, like a divider's R2);
+  the rest are solved in the program from a guess (secant method on the Nspire and the 89, the
+  84's `solve(`). Every program passes the editor's checkers before it can be sent or saved.
+  Eight ready-made engineering sets. A frame that can live in a main-window tab.
 
 ### Fixed
 - **Make a PC copy never stays on "Letting go of the link..."** (TI-84 Plus CE and TI-89

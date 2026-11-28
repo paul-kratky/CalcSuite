@@ -225,6 +225,8 @@ def main():
     failures += info_checks.main()
     import backup_macro_checks  # Backup compare, single restore, key macros: faked links
     failures += backup_macro_checks.main()
+    import solver_checks  # The Solver builder: rearranging, the three programs, run on PC, its frame
+    failures += solver_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 
