@@ -14,6 +14,7 @@ last resort unplug it, wait 3 seconds, plug it back in.
 """
 
 import os
+import queue
 import subprocess
 import sys
 import threading
@@ -23,6 +24,9 @@ CLI = os.path.join(HERE, "bin", "nspire-cli.exe")
 CLI_84 = os.path.join(HERE, "bin", "ti84-cli.exe")  # The TI-84 Plus CE family: same commands
 CLI_89 = os.path.join(HERE, "bin", "ti89-cli.exe")  # The TI-89 Titanium: the same program
 CONNECT_TIMEOUT_S = 25
+# A command whose helper prints nothing this long is stuck (transfers print PROGRESS; the
+# longest quiet command, a long line of typed keys, takes well under a minute)
+IDLE_TIMEOUT_S = 120
 
 REPLUG = ("The handheld didn't answer.\n"
           "  Check it's on (Home screen, no dialog open) and close TI-Nspire CX II Connect /\n"
@@ -37,39 +41,76 @@ class LinkError(Exception):
 
 
 class Session(object):
-    def __init__(self, connect_timeout=CONNECT_TIMEOUT_S, cli=None):
+    """A link helper's `serve` connection. A command whose helper goes quiet for idle_timeout
+    seconds (no line at all: a transfer prints PROGRESS) ends with code 4 and the helper is
+    stopped (`dead`), so a stuck link never holds its caller forever. argv: the program to run
+    instead of `cli serve` (the self-test's fake helper)."""
+
+    def __init__(self, connect_timeout=CONNECT_TIMEOUT_S, cli=None, idle_timeout=IDLE_TIMEOUT_S,
+                 argv=None):
         cli = cli or CLI
-        if not os.path.isfile(cli):
+        if argv is None and not os.path.isfile(cli):
             raise LinkError(1, ["ERR %s is missing: run python -I tools/build_tools.py" % cli])
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        self.p = subprocess.Popen([cli, "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT, text=True, bufsize=1,
+        self.p = subprocess.Popen(argv or [cli, "serve"], stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                  bufsize=1,
                                   # The PC's code page, as fopen in the tools reads paths;
                                   # a handheld's UTF-8 names pass through byte for byte
                                   errors="surrogateescape",
                                   cwd=os.path.dirname(cli), creationflags=flags)
         self.lock = threading.Lock()
+        self.idle_timeout = idle_timeout
+        self.dead = None  # Why the helper was stopped (it stopped answering), or None
+        # Lines come through a queue from a reader thread, so a wait can give up even when the
+        # helper can't be stopped (stuck in a USB call: its pipe stays open)
+        self.lines = queue.Queue()
+        threading.Thread(target=self._reader, daemon=True, name="link-reader").start()
         # The handshake: a handheld that already used its connection never answers, so
         # don't wait libnspire's 10 x 60 s
-        timer = threading.Timer(connect_timeout, self.p.kill)
-        timer.start()
-        try:
-            code, lines = self._read()
-        finally:
-            timer.cancel()
+        code, lines = self._read(timeout=connect_timeout)
         if code:
             self.close()
             raise LinkError(code if code > 0 else 4, lines)
 
-    def _read(self, on_progress=None):
+    def _reader(self):
+        try:
+            for line in self.p.stdout:
+                self.lines.put(line)
+        except (OSError, ValueError):
+            pass
+        self.lines.put("")  # The tool ended
+
+    def alive(self):
+        """The helper runs and answers (not stopped for going quiet)"""
+        return self.dead is None and self.p.poll() is None
+
+    def _stop(self, why):
+        self.dead = why
+        try:
+            self.p.kill()
+        except OSError:
+            pass
+
+    def _read(self, on_progress=None, timeout=None):
         lines = []
+        wait = timeout if timeout is not None else self.idle_timeout
         while True:
-            line = self.p.stdout.readline()
+            try:
+                line = self.lines.get(timeout=wait) if wait else self.lines.get()
+            except queue.Empty:
+                why = "the link helper said nothing for %d s" % wait
+                self._stop(why)
+                return 4, lines + ["ERR no answer from the handheld (%s; it was stopped)" % why]
             if not line:  # The tool ended (killed by the timer, or the cable was pulled)
+                self.lines.put("")  # Every later read sees the end too
                 return 4, lines + ["ERR no answer from the handheld"]
             line = line.rstrip()
             if line.startswith("END "):
-                return int(line[4:]), lines
+                try:
+                    return int(line[4:]), lines
+                except ValueError:
+                    return 4, lines + ["ERR the link helper sent " + line[:60]]
             if line.startswith("PROGRESS "):  # "PROGRESS <bytes> <total>" during a transfer
                 if on_progress is not None:
                     try:
@@ -85,6 +126,8 @@ class Session(object):
         """Send one command; returns (exit code, the lines it printed). on_progress(bytes,
         total) is called for a transfer's progress lines."""
         with self.lock:
+            if self.dead:
+                return 4, ["ERR the link has closed (%s)" % self.dead]
             try:
                 self.p.stdin.write(line + "\n")
                 self.p.stdin.flush()

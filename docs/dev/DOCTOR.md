@@ -50,6 +50,15 @@ remove) or `dry-run`. Run `diagnose()` again afterwards to refresh the screen.
 `dry_run=True` runs the helper without admin rights and changes nothing. Its `steps` list
 what it would do, so the UI can show them in the confirmation dialog.
 
+Time limits: `diagnose()` always returns, normally in about a second and within about 20 s
+at the worst. Each Windows query (the driver helper, `ti84-cli devices`, PowerShell's device
+list, `tasklist`) has its own limit (`QUERY_TIMEOUT_S`, `PROCESSES_TIMEOUT_S`) and runs on a
+daemon thread; a program that doesn't answer is killed and its output pipe given up 2 s
+later, even if it can't be stopped (stuck in a USB call). A query that fails or runs out of
+time is listed in `report["errors"]` ("Not checked: ..." in the panel, and in errors.log),
+and the report is made from the others. Call it from a worker thread, never Tk's: the Info
+panel polls for the report and shows a plain error after `InfoSection.DOCTOR_WAIT_S`.
+
 Two cautions:
 
 - `diagnose(probe=True)` opens each WinUSB calculator for an instant, sends nothing, and

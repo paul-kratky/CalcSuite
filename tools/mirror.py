@@ -91,6 +91,10 @@ else:
 SCALE = 2
 PASTE_MAX = 4000  # Characters one paste may type
 KEEPALIVE_S = 60  # A do-nothing key this often while a calculator is connected and idle (0: never)
+# Seconds after these commands with no screenshot, Fast mode frame or keep-alive key: the
+# TI-84 Plus CE applies a clock write a moment after it acks it, and the live picture's big
+# transfers must not land on it meanwhile (queued commands still run)
+QUIET_AFTER = {"setclock": 3.0}
 HISTORY = 8       # Keys the key-history strip shows
 # Fast mode (TI-84 Plus CE): its calculator program, the typing hold-off when a frame takes
 # ~0.15 s instead of 1.4 s, and after how many fallback frames in a row the status says so
@@ -99,9 +103,10 @@ FAST_HOLDOFF = 0.15
 FAST_MISSES_WARN = 3
 
 
-def log_error(where):
+def log_error(where, detail=None):
     """The current exception, with its traceback, appended to "CalcSuite files/logs/errors.log"
-    (kept under 1 MB): errors inside the window never pass silently"""
+    (kept under 1 MB): errors inside the window never pass silently. detail: a text to log
+    instead, for a problem that isn't an exception (a check that never answered)"""
     import traceback
     try:
         folder = paths.user_path("logs")
@@ -110,7 +115,9 @@ def log_error(where):
             os.replace(path, path + ".old")
         with open(path, "a", encoding="utf-8") as fh:
             fh.write("%s  %s, while %s:\n%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"),
-                                                  APP_NAME, where, traceback.format_exc()))
+                                                  APP_NAME, where,
+                                                  detail if detail is not None else
+                                                  traceback.format_exc()))
     except Exception:
         pass
 
@@ -218,6 +225,17 @@ def prepare_for_nspire(path):
         return None, "Not sent: %s" % e
 
 
+def link_problem_text(calc, why):
+    """A failed connect's plain advice when the helper's answer says what to do, else None.
+    The TI-Nspire answers one connection per plug-in: once another program (or an earlier
+    CalcSuite) has used it, every new one gets "no answer from the handheld" until it's
+    replugged (2026-11-28: the tab said "Connecting..." for good)."""
+    if calc.slug == "nspire" and any("no answer from the handheld" in w for w in why):
+        return ("The %s isn't answering: unplug it, wait 3 seconds, plug it back in (it allows "
+                "one connection per plug-in)" % calc.title)
+    return None
+
+
 class Mirror(object):
     """One calculator: its link thread, its frames, its keys. The views (its tab, its tile in
     All screens) draw what it has."""
@@ -231,6 +249,8 @@ class Mirror(object):
         self.jobs_lock = threading.Lock()
         self.last_key = 0.0     # When a key was last queued (time.time())
         self.last_keepalive = time.time()
+        self.quiet_until = 0.0  # No pictures or keep-alive keys before this (QUIET_AFTER)
+        self.link_problem = None  # What the user must do about the last failed connect, or None
         self.running = True
         self.present = True     # On USB now (the App's scan says)
         self.want_reconnect = False
@@ -286,13 +306,16 @@ class Mirror(object):
                     code, lines = self.session.cmd("info")
                     d = nspire_link.info_dict(lines)
                     self.info = d
+                    self.link_problem = None
                     name = d.get("name", self.calc.title).replace("_", " ")
                     self.set_status("Connected: %s%s" % (name, ", OS %s" % d["os"] if "os" in d else ""))
                 except nspire_link.LinkError as e:
                     self.session = None
                     # What the link helper said, so a stuck link says why (not just "looking")
                     why = [l[4:] if l.startswith("ERR ") else l for l in e.lines if l.strip()]
-                    self.set_status("Looking for the %s... (plugged in, switched on, TI's own "
+                    self.link_problem = link_problem_text(self.calc, why)
+                    self.set_status(self.link_problem or
+                                    "Looking for the %s... (plugged in, switched on, TI's own "
                                     "software closed)%s" % (self.calc.title,
                                                            "\nLink: " + why[-1][:160] if why else ""))
                     if not self.driver_checked:
@@ -317,11 +340,14 @@ class Mirror(object):
                 if note:
                     ok = [l for l in lines if l.startswith(("OK", "ERR"))]
                     self.set_status("%s: %s" % (note, ok[-1] if ok else "exit %d" % code))
+                quiet = QUIET_AFTER.get(line.split(" ", 1)[0])
+                if quiet:  # Nothing else goes to the calculator meanwhile (see QUIET_AFTER)
+                    self.quiet_until = time.time() + quiet
                 if done is not None:
                     try:
                         done(code, lines)  # On this thread: it hands any window work to Tk
                     except Exception:  # A caller's mistake must never stop the link
-                        pass
+                        log_error("handing back the answer to %r" % line.split(" ", 1)[0])
                 if code == 4 and self.link_dead():
                     for _, _, d, _ in merged[k + 1:]:  # Everyone waiting gets an answer
                         if d is not None:
@@ -332,6 +358,9 @@ class Mirror(object):
             # Keep-alive: the calculator switches itself off after a few idle minutes and only a
             # key press counts as use, so while it's connected a key that does nothing goes out
             # once a minute when you haven't typed
+            if time.time() < self.quiet_until:
+                time.sleep(0.05)
+                continue
             ka = getattr(self.calc, "keepalive_key", None)
             if ka and KEEPALIVE_S and time.time() - max(self.last_key, self.last_keepalive) >= KEEPALIVE_S:
                 self.last_keepalive = time.time()
@@ -462,9 +491,16 @@ class Mirror(object):
             self.fast_misses = 0
 
     def link_dead(self):
-        if self.session is not None and self.session.p.poll() is not None:
+        s = self.session
+        if s is not None and not s.alive():
             self.session = None
-            self.set_status("The link closed (cable pulled?). Reconnecting when it's back...")
+            if s.dead:  # It went quiet and was stopped: say so in errors.log too
+                log_error("talking to the %s" % self.calc.title, detail=s.dead)
+                self.set_status("The %s stopped answering (%s). Reconnecting..." %
+                                (self.calc.title, s.dead))
+                s.close(timeout=1)
+            else:
+                self.set_status("The link closed (cable pulled?). Reconnecting when it's back...")
             self.wait_reconnect(2.0)
             return True
         return False
@@ -477,7 +513,10 @@ class Mirror(object):
             import calc_doctor
             report = calc_doctor.diagnose(probe=False)
         except Exception:
+            log_error("checking the %s's driver" % self.calc.title)
             return
+        for e in report.get("errors", []):
+            log_error("checking the %s's driver" % self.calc.title, detail=e)
         pid = "%04x" % self.calc.pid
         for d in report.get("devices", []):
             if d.get("pid") == pid and d.get("present") and d.get("fix") == "install_winusb":

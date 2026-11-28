@@ -19,6 +19,25 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   dump, reading it back, cleaning up): it only moves forward and reaches 100% when it's made,
   with "Overall n% - step n of m" under it. Before, each stage restarted the bar and the waits
   made it bounce back and forth.
+- **Info always ends with an answer.** The same lost queue left **This calculator** on "Asking
+  the calculator...", **Clock** on "reading..." and the **Connection doctor** on "Checking
+  Windows' drivers..." for good, and a tab's status on "Connecting...". Besides that fix: a
+  request still unanswered after 8 s says why it waits (not connected yet, or the link busy or
+  stuck), and the link helper is stopped and restarted when it says nothing for 2 minutes.
+- **The connection doctor always finishes**, normally in about a second and within about 20 s
+  at the worst: each Windows query has its own time limit (a program that couldn't be stopped
+  used to hold the check forever), one that fails or never answers is listed ("Not checked:
+  ...") and written to errors.log, and the report is made from the others.
+- **The TI-Nspire's "one connection per plug-in" is said plainly**: when it doesn't answer a new
+  connection, the tab and Info say "The TI-Nspire isn't answering: unplug it, wait 3 seconds,
+  plug it back in (it allows one connection per plug-in)" instead of "Connecting...".
+- **Set the clock to the PC's time no longer freezes the TI-84 Plus CE.** It wrote each field
+  and then asked for it ten times a second while the CE's clock was still taking it (up to 30
+  requests a field, up to 12 writes). Now each field is written once, the link stays quiet for
+  1.1 s while the clock takes it, then it's read back a few times 0.4 s apart; nothing more is
+  written over a field that hasn't landed (an error instead), the date never passes through an
+  invalid day (31 January to February), and the live picture waits 3 s after the clock is set.
+  About 1.5 s a field changed (the TI-89 Titanium's one write is unchanged).
 
 ## [1.0.2] - 2026-11-28
 

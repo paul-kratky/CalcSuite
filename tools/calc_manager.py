@@ -208,18 +208,47 @@ class Manager(object):
         so a calculator that isn't says so instead of looking stuck"""
         if self.m.session is not None:
             return doing
+        problem = getattr(self.m, "link_problem", None)
+        if problem:  # The last connect failed in a way the user can fix (the Nspire: replug)
+            return "%s %s." % (doing.rstrip("."), problem[0].lower() + problem[1:])
         return ("%s waiting for the %s to connect (plugged in, switched on, no other program using "
                 "it; Reconnect tries again)" % (doing.rstrip("."), self.calc.title))
 
-    def job(self, line, done=None, what=None):
+    LATE_S = 8  # A request not answered by then says why it's still waiting (every 2 s after)
+
+    @staticmethod
+    def log_error(where, detail=None):
+        """mirror.log_error (errors.log); never raises (the self-test swaps it for a fake)"""
+        try:
+            import mirror
+            mirror.log_error(where, detail=detail)
+        except Exception:
+            pass
+
+    def late_text(self, line, waited, logged):
+        """What a request still waiting after `waited` seconds shows; the first time the link is
+        connected but silent, errors.log gets a line too"""
+        if self.m.session is None:
+            return self.waiting_text("Waiting for an answer")
+        if not logged[0]:
+            logged[0] = True
+            self.log_error("waiting for the %s" % self.calc.title,
+                           detail="%r not answered after %d s" % (line.split(" ", 1)[0], waited))
+        return ("No answer yet after %d s: the link is busy or stuck (CalcSuite restarts a link "
+                "that stays silent for 2 minutes; Reconnect does it now)" % waited)
+
+    def job(self, line, done=None, what=None, late=None, late_s=None):
         """One command on the link thread; done(code, lines) back on the window's thread.
-        `what` names a transfer whose progress the status line shows."""
+        `what` names a transfer whose progress the status line shows. late(text): called on the
+        window's thread while the answer is late_s (LATE_S) seconds or more overdue, with why."""
         self.pending += 1
         if self.m.session is None:
             self.status.set("Waiting for the %s to connect..." % self.calc.title)
+        state = {"done": False}
 
         def finished(code, lines):
             def back():
+                state["done"] = True
                 self.pending -= 1
                 if done is not None:
                     done(code, lines)
@@ -237,6 +266,18 @@ class Manager(object):
                 self.say("%s: %d%% (%s of %s)" % (what, min(pct, 100), cf.human_size(n),
                                                    cf.human_size(total)))
         self.m.queue(line, None, finished, progress)
+        if late is not None:
+            t0, logged = time.time(), [False]
+
+            def check():
+                if state["done"] or not self.open:
+                    return
+                try:
+                    late(self.late_text(line, time.time() - t0, logged))
+                    self.win.after(2000, check)
+                except tk.TclError:
+                    pass  # Its window was closed
+            self.win.after(int((late_s or self.LATE_S) * 1000), check)
 
     def run_batch(self, cmds, timeout=900):
         """Runs [(line, progress)] on the link thread and waits for all of them: [(code,
@@ -752,9 +793,11 @@ class Manager(object):
         self.about_rows.pack(fill="x", padx=16, pady=(16, 8))
         self.os_line = tk.Frame(w, bg=BG)
         self.os_line.pack(fill="x", padx=16, pady=(0, 16))
-        tk.Label(self.about_rows, text=self.waiting_text("Asking the calculator..."), bg=BG,
-                 fg=DIM, justify="left", wraplength=380).pack(anchor="w")
-        self.job("info", self.got_info)
+        wait = tk.Label(self.about_rows, text=self.waiting_text("Asking the calculator..."), bg=BG,
+                        fg=DIM, justify="left", wraplength=380)
+        wait.pack(anchor="w")
+        self.job("info", self.got_info, late=lambda text: wait.winfo_exists() and wait.configure(
+            text="Asking the calculator... " + text))
         self.about_extras()
 
     # ---- The clock and Exit Press-to-Test (in About) ----
@@ -776,7 +819,7 @@ class Manager(object):
             self.clock_btn = tk.Button(bar, text="Set the clock to the PC's time", command=self.set_clock,
                                        **BUTTON)
             self.clock_btn.pack(side="left", padx=(0, 6))
-            self.job("clock", self.got_clock)
+            self.job("clock", self.got_clock, late=self.clock_late)
         tk.Button(bar, text="Exit Press-to-Test...", command=self.exit_test_mode, **BUTTON).pack(side="left")
         # Clearing the calculator: both back up the whole calculator first
         erase = tk.Frame(w, bg=BG)
@@ -785,6 +828,9 @@ class Manager(object):
                   command=self.delete_all_programs, **BUTTON).pack(side="left", padx=(0, 6))
         tk.Button(erase, text="Reset the calculator...", command=self.reset_calculator,
                   **BUTTON).pack(side="left")
+
+    def clock_late(self, text):
+        self.clock_text.set("Clock: %s" % text)
 
     def got_clock(self, code, lines):
         if self.about_win is None:
@@ -824,9 +870,11 @@ class Manager(object):
             if code:
                 self.clock_text.set("Clock: not set (%s)" % why(lines))
                 return
-            self.job("clock", self.got_clock)
-        # "now": the PC's time when the link gets to it (a picture may be on its way first)
-        self.job("setclock now", done)
+            self.job("clock", self.got_clock, late=self.clock_late)
+        # "now": the PC's time when the link gets to it (a picture may be on its way first).
+        # The TI-84 Plus CE takes about 1.5 s a field (ti84-cli: clock_write_field)
+        self.job("setclock now", done, late_s=25,
+                 late=lambda text: self.clock_text.set("Setting the clock... %s" % text))
 
     # ---- Delete all programs, reset (Info) ----
     # 84: Program and locked Program; 89: Program and Function; Nspire: every document (.tns/.py)
