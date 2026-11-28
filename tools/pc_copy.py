@@ -60,6 +60,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 import zipfile
@@ -312,8 +313,78 @@ class _Steps(object):
     def say(self, text, done=None, total=None):
         self.report(self.stage, text, done, total)
 
+    def sleep(self, seconds):
+        """time.sleep that Cancel ends at once (raising Cancelled)"""
+        if self.cancel is None:
+            time.sleep(seconds)
+        elif self.cancel.wait(seconds):
+            raise Cancelled(self.stage)
+
     def done(self):
         self.go("done", "Done")
+
+
+CMD_IDLE_S = 120.0  # A link command that prints nothing (no line, no progress) this long has hung
+CMD_POLL_S = 0.2    # How often the watchdog looks (and how soon Cancel ends a command)
+
+
+class _Watched(object):
+    """A link session (nspire_link.Session or a fake) whose commands can't hang the PC copy: one
+    that prints nothing for CMD_IDLE_S seconds, or is running when Cancel is pressed, is ended by
+    ending the link helper (its process; .abort() / .close() for a fake). The calculator itself
+    isn't stopped by that: a dump program running there finishes by itself."""
+
+    def __init__(self, s, steps):
+        self.s, self.steps = s, steps
+        self.p = getattr(s, "p", None)
+
+    def _kill(self):
+        try:
+            if self.p is not None:
+                self.p.kill()
+            else:
+                getattr(self.s, "abort", self.s.close)()
+        except Exception:
+            pass
+
+    def cmd(self, line, progress=None, idle=None):
+        idle = CMD_IDLE_S if idle is None else idle
+        cancel = self.steps.cancel
+        if cancel is not None and cancel.is_set():
+            raise Cancelled(self.steps.stage)
+        seen = [time.time()]
+        why = []
+        over = threading.Event()
+
+        def on_progress(d, t):
+            seen[0] = time.time()
+            if progress is not None:
+                progress(d, t)
+
+        def watch():
+            while not over.wait(CMD_POLL_S):
+                if cancel is not None and cancel.is_set():
+                    why.append("cancel")
+                elif time.time() - seen[0] > idle:
+                    why.append("idle")
+                else:
+                    continue
+                self._kill()
+                return
+        threading.Thread(target=watch, daemon=True).start()
+        try:
+            code, lines = self.s.cmd(line, on_progress)
+        finally:
+            over.set()
+        if why and why[0] == "cancel":
+            raise Cancelled(self.steps.stage)
+        if why:
+            raise PcCopyError(self.steps.stage, "the calculator stopped answering (%s: nothing for %d s); "
+                              "CalcSuite ended the link" % (line.split()[0], idle), lines)
+        return code, lines
+
+    def close(self):
+        self.s.close()
 
 
 def _default_connect(slug):
@@ -329,12 +400,10 @@ def _open(connect, steps, tries=1, wait=3.0):
     last = None
     for k in range(tries):
         if k:
-            if steps.cancel is not None and steps.cancel.wait(wait):
-                raise Cancelled(steps.stage)
-            elif steps.cancel is None:
-                time.sleep(wait)
+            steps.say("The calculator didn't answer yet: trying again (%d of %d)..." % (k + 1, tries))
+            steps.sleep(wait)
         try:
-            return connect()
+            return _Watched(connect(), steps)
         except nspire_link.LinkError as e:
             last = e
     raise PcCopyError(steps.stage, "the calculator didn't answer: %s" % cb.last_err(last.lines if last else []),
@@ -431,7 +500,7 @@ def _dump_84ce(connect, steps, backup_folder):
     steps.go("connect", "Connecting to the TI-84 Plus CE...")
     blob = _check_dumper(CE_DUMPER, CE_DUMPER_SHA256)
     (vtype, _n, version, _arch, prog), = cf.read_ti8x(blob)
-    s = _open(connect, steps)
+    s = _open(connect, steps, tries=3)
     try:
         _c, lines = _cmd(s, "info", "connect")
         import nspire_link
@@ -476,12 +545,18 @@ def _dump_84ce(connect, steps, backup_folder):
             # Quit, Clear, Clear, the prgm token (kExec 0xDA), Z Z D U M P: then Enter
             name_keys = " ".join("%x" % (0x9A + c - ord("A")) for c in CE_PRGM)
             _cmd(s, "keys 40 09 09 da " + name_keys, "run")
-            time.sleep(0.3)
+            steps.sleep(0.3)
             shot = os.path.join(tmp, "typed.ppm")
             s.cmd("shot " + shot)
             # The Enter starts the dumper, which keeps the OS (and its link) busy: the key's
-            # answer may not come, so its error is no failure
-            s.cmd("key 05")
+            # answer may not come, so its error is no failure (nor a silence: 20 s is plenty)
+            steps.say("Pressing Enter: the dump program starts on the calculator...")
+            try:
+                s.cmd("key 05", idle=20)
+            except Cancelled:
+                raise
+            except PcCopyError:
+                pass
         except BaseException:
             shutil.rmtree(tmp, ignore_errors=True)
             raise
@@ -535,16 +610,18 @@ def _garbage_collect(s, steps, limit=180.0):
     of the dump and the dumper ends early (seen twice on OS 5.4). A collection first leaves the
     free archive in one piece. It only moves files within the archive; nothing is deleted."""
     _cmd(s, "keys 40 09 09 fcfc 05", "tidy")
-    time.sleep(0.5)
-    s.cmd("key 90")  # 2:Yes. The answer comes after the collection, so its error is no failure
+    steps.sleep(0.5)
     t0 = time.time()
+    steps.say("Garbage collecting on the calculator...")
+    s.cmd("key 90", idle=limit)  # 2:Yes. The answer comes after the collection: its error is no failure
     while time.time() - t0 < limit:
-        code, _lines = s.cmd("info")
+        code, _lines = s.cmd("info", idle=60)
         if code == 0:
             _cmd(s, "keys 09 09", "tidy")
+            steps.say("The archive is tidy")
             return
         steps.say("Garbage collecting... (%d s)" % (time.time() - t0))
-        time.sleep(2)
+        steps.sleep(2)
     raise PcCopyError("tidy", "the calculator didn't answer after its garbage collection")
 
 
@@ -563,9 +640,8 @@ def _wait_ce_dump(connect, steps, first_wait=None, limit=600.0):
         left = first_wait - (time.time() - t0)
         steps.say("The calculator is dumping its ROM; the link stays quiet (%d s left)..." % left,
                   int(time.time() - t0), int(first_wait))
-        if steps.cancel is not None and steps.cancel.is_set():
-            break  # Nothing to stop on the calculator: the dump goes on; we just stop waiting
-        time.sleep(min(1.0, max(left, 0)))
+        # Cancel: nothing to stop on the calculator (the dump goes on there); we stop waiting
+        steps.sleep(min(1.0, max(left, 0)))
     last_seen = None
     while True:
         elapsed = time.time() - t0
@@ -573,11 +649,12 @@ def _wait_ce_dump(connect, steps, first_wait=None, limit=600.0):
             raise PcCopyError("wait", "the dumper didn't finish in %d minutes (look at the calculator: a "
                               "\"Garbage Collect?\" question wants an answer; its AppVars ROMData* "
                               "stay on it)" % (limit // 60))
+        steps.say("Looking whether the dump has finished (%d s)..." % elapsed)
         try:
-            s = connect()
+            s = _Watched(connect(), steps)
         except nspire_link.LinkError:
             steps.say("The calculator is busy dumping... (%d s)" % elapsed)
-            time.sleep(4)
+            steps.sleep(4)
             continue
         try:
             items = _listing(s, "ti84", "wait")
@@ -608,9 +685,9 @@ def _wait_ce_dump(connect, steps, first_wait=None, limit=600.0):
             s.close()
             raise
         s.close()
-        if steps.cancel is not None and steps.cancel.is_set():
-            raise Cancelled("wait")
-        time.sleep(20)
+        for k in range(20):
+            steps.say("The dump isn't finished yet: looking again in %d s..." % (20 - k))
+            steps.sleep(1)
 
 
 def _fetch_ce(s, steps, have, want):
@@ -652,7 +729,7 @@ def _dump_89t(connect, steps, backup_folder):
     notes = []
     steps.go("connect", "Connecting to the TI-89 Titanium...")
     _check_dumper(T89_DUMPER, T89_DUMPER_SHA256)
-    s = _open(connect, steps)
+    s = _open(connect, steps, tries=3)
     tmp = tempfile.mkdtemp(prefix="calcsuite_romdump_")
     try:
         try:
@@ -671,9 +748,9 @@ def _dump_89t(connect, steps, backup_folder):
             _cmd(s, "send " + T89_DUMPER, "send")
             steps.go("run", "Starting the dumper on the calculator...")
             _cmd(s, "home", "run")
-            time.sleep(1.0)
+            steps.sleep(1.0)
             _cmd(s, "exec asm %s %s" % (T89_FOLDER.hex(), T89_PRGM.hex()), "run")
-            time.sleep(1.5)
+            steps.sleep(1.5)
             steps.go("dump", "Reading the ROM over USB (4 MB)...")
             raw = os.path.join(tmp, "rom.bin")
             _cmd(s, "romdump " + raw, "dump",
@@ -693,7 +770,7 @@ def _dump_89t(connect, steps, backup_folder):
             "backup": folder, "check": check,
             "certificate": "0x10000-0x11FFF is read protected and saved as 0xFF (as TILP does)"})
         steps.go("clean", "Removing the dumper from the calculator...")
-        time.sleep(2.0)
+        steps.sleep(2.0)
         s = _open(connect, steps, tries=5)
         try:
             code, _l = s.cmd("rm %02x %s %s" % (T89_ASM, T89_PRGM.hex(), T89_FOLDER.hex()))

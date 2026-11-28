@@ -190,6 +190,8 @@ def main():
     failures += fast84_checks.main()
     import editor_checks  # The program editor's checkers, colours, completions and hints
     failures += editor_checks.main()
+    import pc_copy_checks  # Make a PC copy never hangs: faked links, the dialog, the after() queue
+    failures += pc_copy_checks.main()
     print("\n%s" %("ALL PASSED" if not failures else "%d FAILURE(S)" % failures))
     return 1 if failures else 0
 
