@@ -330,9 +330,16 @@ class FakeLinkMirror(object):
         for x in cols:
             for y in range(1, 15):
                 dot(x, y)
+        for x in range(160):  # The full line above the entry line
+            dot(x, 83)
         if self.screen == "busy":
             for x in range(10, 60):
                 dot(x, 86)
+        if self.screen == "selected":  # The last entry, highlighted after ENTER (bench, OS 3.10)
+            for x in range(0, 70):
+                for y in range(84, 93):
+                    if not (y in (87, 88) and x % 3 == 1) and not (y == 92 and x in (40, 41)):
+                        dot(x, y)
         return bytes(px)
 
     def keys(self, codes):
@@ -395,6 +402,9 @@ def answer_checks(root):
     m.screen = "busy"
     said, clip = copy(m)
     f += check(clip is None and "entry line" in said, "Copy answer 89: text in the entry line: says so")
+    m.screen, m.ans = "selected", F(1, 3)
+    said, clip = copy(m)
+    f += check(clip == "1/3", "Copy answer 89: the last entry highlighted after ENTER is typed over (%s)" % said)
     m.screen, m.ans = "home", None
     said, clip = copy(m)
     f += check(clip is None and "didn't store" in said, "Copy answer 89: no answer says so (%s)" % said)
