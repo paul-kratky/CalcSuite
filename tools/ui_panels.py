@@ -183,6 +183,8 @@ class SymbolsSection(object):
         grid.pack(fill="x")
         self.hint = tk.StringVar(master=self.frame, value="")
         for k, (sym, what, keys, near) in enumerate(calc.SYMBOLS):
+            if keys is not None:
+                keys = calc.keys_for(sym, getattr(self.m, "info", None))
             codes = calc_models.symbol_codes(calc, keys) if keys is not None else None
             if calc.slug == "nspire" and isinstance(keys, str):
                 codes, missing = calc.paste_keys(keys)
@@ -246,8 +248,7 @@ class SymbolsSection(object):
             d.configure(state="disabled")
             return
         entry = reference.for_symbol(self.ref, sym)
-        template = (self.m.calc.slug == "nspire" and isinstance(keys, (list, tuple)) and
-                    keys[:1] == ["menu"])
+        template = isinstance(keys, calc_models.TemplateKeys)
         lead = ("This button puts in the %s template: fill its boxes (tab moves to the next "
                 "one). Typed as text, it's written:" % sym) if template else None
         if entry is None:
@@ -260,13 +261,22 @@ class SymbolsSection(object):
         draw_card(d, entry, lead)
 
     def send(self, codes, sym, b):
-        keys = next((k for s, _w, k, _n in self.m.calc.SYMBOLS if s == sym), None)
+        calc = self.m.calc
+        # Its keys now: the Nspire's Calculus menu differs between a CAS and the other CX II
+        keys = calc.keys_for(sym, getattr(self.m, "info", None))
         self.pinned = (sym, keys)
         self.show_card(sym, keys)
         at = getattr(self.m, "palette_at", None)
         if getattr(keys, "cell", None) is not None:  # The Nspire's palette: walk from its last place
             names, at = calc_models.palette_keys(keys, at)
-            codes = calc_models.symbol_codes(self.m.calc, names)
+            codes = calc_models.symbol_codes(calc, names)
+        elif isinstance(keys, str):
+            codes, missing = calc.paste_keys(keys)
+            codes = None if missing else codes
+        elif keys is not None:
+            codes = calc_models.symbol_codes(calc, keys)
+        if not codes:
+            return
         if self.m.send_codes(codes, sym):
             self.m.palette_at = at
             b.configure(bg=th.ACCENT, fg="#000000")

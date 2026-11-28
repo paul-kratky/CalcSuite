@@ -126,6 +126,105 @@ def key_checks():
                cm.Nspire.code_for(")") not in codes, "Nspire paste: √(16) closes its box with the arrow")
     codes, missing = cm.Nspire.paste_keys("3!@")
     f += check(not missing and codes[1:] == [0x210000, 0x400000], "Nspire: any ASCII as its code << 16")
+    f += nspire_symbol_checks()
+    return f
+
+
+def nspire_symbol_checks():
+    """The Nspire's Symbols buttons and pasted symbols press its own keys, never a spelling"""
+    import calc_models as cm
+    N = cm.Nspire
+    f = 0
+    c = N.code_for
+    cas = {"name": "TI-Nspire CX II CAS", "hw_type": "0x1c (unknown)"}
+    plain = {"name": "TI-Nspire CX II", "hw_type": "0x1d (unknown)"}
+
+    def keys(sym, info=cas):
+        return list(N.keys_for(sym, info))
+
+    want = {"∫": ["menu", "4", "3"], "d/dx": ["menu", "4", "1"], "Σ": ["menu", "4", "5"],
+            "√": ["ctrl+square"], "π": ["pi"], "→": ["ctrl+var"], "E": ["ee"], "²": ["square"],
+            "‾": ["neg"], "°": ["°"], "±": ["±"], "×": ["*"], "÷": ["/"], "^": ["^"], "!": ["!"]}
+    got = {s: keys(s) for s in want}
+    f += check(got == want, "Nspire Symbols: own keys; templates from menu 4 Calculus (%s)" %
+               [s for s in want if got[s] != want[s]])
+    f += check([keys(s, plain) for s in ("∫", "d/dx", "Σ")] ==
+               [["menu", "4", "2"], ["menu", "4", "1"], ["menu", "4", "3"]] and
+               keys("∫", {"name": "Mine", "hw_type": "0x1c (unknown)"}) == want["∫"] and
+               keys("∫", {}) == want["∫"],
+               "Nspire Symbols: a CX II without CAS gets its own Calculus numbers; unknown is a CAS")
+    cells = {"θ": (0, 5), "∞": (0, 4), "≤": (1, 6), "≥": (1, 8), "≠": (1, 4), "i": (0, 2),
+             "e": (0, 1), "∠": (1, 2), "⁻¹": (5, 9), "►": (0, 8)}
+    f += check(all(getattr(N.keys_for(s), "cell", None) == rc for s, rc in cells.items()) and
+               all(keys(s)[:2] == ["catalog", "4"] and keys(s)[-1] == "enter" for s in cells),
+               "Nspire Symbols: the rest walk the symbol palette (catalog 4) to their cell")
+    absk = keys("|x|")
+    f += check(absk[:2] == ["catalog", "5"] and
+               absk[-6:] == ["down", "right", "right", "right", "right", "enter"] and
+               isinstance(N.keys_for("|x|"), cm.TemplateKeys) and
+               isinstance(N.keys_for("∫"), cm.TemplateKeys),
+               "Nspire Symbols: |x| is the template tab's absolute value (row 2, column 5)")
+    spelled = [s for s, _w, k, _n in N.SYMBOLS if isinstance(k, str) or
+               (k and len(k) == 1 and len(k[0]) > 1 and N.code_for(k[0]) is None)]
+    f += check(not spelled and all(cm.symbol_codes(N, keys(s)) for s, _w, _k, _n in N.SYMBOLS),
+               "Nspire Symbols: every button is key presses with codes, none a spelling (%s)" % spelled)
+    f += check(c("ctrl+square") == 0x009200 and c("ctrl+var") == 0x00A800 and c("ee") == 0x00A400,
+               "Nspire keys: ctrl x², ctrl var and EE are TILP's codes")
+    # Pasted symbols: the same keys; no @ spellings, no <= /= =: infinity
+    at, lt, eq, slash = c("@"), c("<"), c("="), c("/")
+
+    def paste(text, info=cas):
+        codes, missing = N.paste_keys(text, info)
+        return list(codes), missing
+
+    codes, missing = paste("x≤3")
+    walk = cm.symbol_codes(N, keys("≤"))
+    f += check(not missing and codes == [c("x")] + walk + [c("3")] and lt not in codes,
+               "Nspire paste: ≤ walks the palette (no <=)")
+    codes, missing = paste("5→a")
+    f += check(not missing and codes == [c("5"), c("ctrl+var"), c("a")], "Nspire paste: → is ctrl var")
+    codes, missing = paste("2ᴇ3+\U0001d456+ℯ+∠+►+°+∞+≠+θ+π+x²+x⁻¹")
+    f += check(not missing and at not in codes and eq not in codes and slash not in codes and
+               c("ee") in codes and c("pi") in codes and c("square") in codes and
+               c("^") not in codes and 0xB00000 in codes and codes.count(c("catalog")) == 8,
+               "Nspire paste: 𝑖 ℯ ∠ ► ∞ ≠ θ ⁻¹ from the palette, ᴇ π ² ° by their keys, no @ spellings")
+    codes, missing = paste("∫(x^2,x)")
+    f += check(not missing and codes[:9] == [c(ch) for ch in "integral("] and c("menu") not in codes,
+               "Nspire paste: ∫( stays TI's function form integral( (its arguments follow)")
+    codes, missing = paste("∫")
+    f += check(not missing and codes == [c("menu"), c("4"), c("3")], "Nspire paste: a lone ∫ is the template")
+    codes, missing = paste("Σ", plain)
+    f += check(not missing and codes == [c("menu"), c("4"), c("3")], "Nspire paste: Σ on a CX II without CAS")
+    # A long paste is cut into commands between symbols, never inside a palette walk
+    codes, _m = N.paste_keys("1+∞+" * 6 + "x≠2")
+    runs = cm.chunks(codes, 64)
+    spans, i = [], 0
+    while i < len(codes):
+        if codes[i] == c("catalog"):
+            j = codes.index(c("enter"), i)
+            spans.append((i, j))
+            i = j
+        i += 1
+    cuts, n = [], 0
+    for r in runs[:-1]:
+        n += len(r)
+        cuts.append(n)
+    f += check(sum(runs, []) == list(codes) and len(runs) > 1 and all(len(r) <= 200 for r in runs) and
+               len(spans) == 7 and not any(a < k <= b for k in cuts for a, b in spans),
+               "Nspire paste: a long paste is cut between symbols (%d runs)" % len(runs))
+    f += check(cm.chunks(list(range(130)), 64) == [list(range(64)), list(range(64, 128)), [128, 129]],
+               "Paste runs: the 84's and 89's keys are cut every 64 as before")
+    # The switch back to the bench-tested ways
+    old = cm.NSPIRE_UNTRIED_KEYS
+    try:
+        cm.NSPIRE_UNTRIED_KEYS = False
+        f += check(getattr(N.keys_for("√"), "cell", None) == (2, 9) and
+                   getattr(N.keys_for("→"), "cell", None) == (0, 6) and
+                   getattr(N.keys_for("E"), "cell", None) == (0, 3) and N.keys_for("|x|") == "abs(" and
+                   c("ctrl+var") not in N.paste_keys("5→a")[0],
+                   "Nspire: NSPIRE_UNTRIED_KEYS = False goes back to the palette and abs(")
+    finally:
+        cm.NSPIRE_UNTRIED_KEYS = old
     return f
 
 

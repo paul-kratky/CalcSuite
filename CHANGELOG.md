@@ -38,6 +38,14 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   written over a field that hasn't landed (an error instead), the date never passes through an
   invalid day (31 January to February), and the live picture waits 3 s after the clock is set.
   About 1.5 s a field changed (the TI-89 Titanium's one write is unchanged).
+- **TI-Nspire symbols type the real symbol, never a spelling** (1.0.2 typed `integral(`,
+  `infinity`, `/=`, `@i`, `@e`, `@<`, `@d`, `@E`, `@>`, `abs(`; TI's `@` spellings work only from
+  a computer keyboard). The Symbols panel and Ctrl+V press the handheld's own keys: ∫ d/dx Σ the
+  Calculus menu's templates (menu 4; a CX II without CAS gets its own numbers), π x² (-) EE
+  their keys, √ ctrl x², → ctrl var, |x| the catalog's template tab, θ ∞ ≤ ≥ ≠ 𝑖 ℯ ∠ ⁻¹ ► the
+  symbol palette, ° ± as themselves. Pasted `∫(`, `Σ(`, `∂(` with their arguments stay TI's
+  function form (`integral(`...), shown as ∫ Σ d after Enter; a lone ∫ or Σ is the template. A
+  long paste is cut into commands between symbols, never inside one.
 
 ## [1.0.2] - 2026-11-28
 

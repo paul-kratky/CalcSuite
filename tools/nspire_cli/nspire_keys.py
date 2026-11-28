@@ -43,6 +43,11 @@ NAMED = {
     "ctrl+p": 0x10BF00, "ctrl+r": 0x12C100, "ctrl+s": 0x13C200, "ctrl+t": 0x14C300,
     "ctrl+v": 0x16C500, "ctrl+w": 0x17C600, "ctrl+x": 0x18C700, "ctrl+y": 0x19C800,
     "ctrl+z": 0x1AC900,
+    # TILP's CTRL_SQUARE (ctrl x²: the square root template on a CX II), CTRL_VAR (ctrl var:
+    # sto→), CTRL_CATALOG (ctrl catalog: the symbol palette), CTRL_EQUAL (ctrl =: the
+    # relations palette)
+    "ctrl+square": 0x009200, "ctrl+var": 0x00A800, "ctrl+catalog": 0x00EE00,
+    "ctrl+equal": 0x00E900,
 }
 
 

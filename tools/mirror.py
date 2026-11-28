@@ -726,13 +726,16 @@ class Mirror(object):
         if len(text) > PASTE_MAX:
             self.set_status("Too long to paste: %d characters (up to %d)" % (len(text), PASTE_MAX))
             return
-        codes, missing = self.calc.paste_keys(text)
+        codes, missing = self.calc.paste_keys(text, self.info)
         if missing:
             shown = " ".join(sorted(repr(c) for c in missing))
             self.set_status("Can't type %s on the %s: nothing pasted" % (shown, self.calc.title))
             return
-        for i in range(0, len(codes), 64):
-            self.queue("keys " + " ".join(self.calc.key_fmt % c for c in codes[i:i + 64]))
+        # Never cut one symbol's keys (an Nspire palette walk) into two commands: a failed first
+        # half would leave the second's arrows and enter to the document
+        for run in calc_models.chunks(codes, 64):
+            self.queue("keys " + " ".join(self.calc.key_fmt % c for c in run))
+        self.palette_at = None  # A pasted palette symbol moved the palette's remembered place
         self.set_status("Pasting %d characters..." % len(text))
         shown = text.replace("\n", " ↵ ")
         self.pressed(None, None, [], text="paste " + (shown[:24] + "..." if len(shown) > 24 else shown))
