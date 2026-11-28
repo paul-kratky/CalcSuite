@@ -31,3 +31,6 @@ jobs:
 
       - name: The guides' example programs tokenize
         run: python -I tools/docs_build/check_examples.py
+
+      - name: Quick fuzz of the file readers (no atheris; fuzz.yml runs the real one)
+        run: python -I tools/fuzz/fuzz_calc_files.py --quick 50000
