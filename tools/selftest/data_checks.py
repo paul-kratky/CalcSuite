@@ -7,7 +7,7 @@
 - cell text: parse_number / number_text; the grid model; tab-separated and CSV text
 - names, TI files for Send, the TI-Nspire program (passes check_nspire.py)
 - Copy answer and the Data section against a faked link (an 84 with Ans, an 89 that runs
-  main\\zzans, the Nspire's "not possible")
+  typed on the home screen, the Nspire's "not possible")
 
     python -I tools/selftest/data_checks.py            (CALCSUITE_SHOTS=1: also screenshots
                                                        of the faked panel into build/screenshots)
@@ -307,20 +307,54 @@ class FakeLinkMirror(object):
             return 0, ["OK removed"]
         if word == "home":
             return 0, ["OK home"]
-        if word == "exec":  # main\zzans: ans(1) -> zzv, string(zzv) -> zzs
-            if (0x12, b"main", b"zzans") not in self.vars:
-                return 4, ["ERR exec: refused"]
-            if self.ans is not None:
-                self.vars[(0x00, b"main", b"zzv")] = cf.number89_data(self.ans)
-                text = cf.number_text(self.ans).encode("latin-1")
-            else:
-                text = b""
-            self.vars[(0x0C, b"main", b"zzs")] = cf.struct.pack(">H", len(text) + 3) + b"\x00" + text + b"\x00\x2d"
-            return 0, ["OK exec"]
+        if word == "keys":
+            return self.keys([int(k, 16) for k in rest.split()])
+        if word == "shot":  # The 89: a picture of its Home screen (or the Apps desktop)
+            with open(rest, "wb") as fh:
+                fh.write(b"P6\n160 100\n255\n" + self.screen_89())
+            return 0, ["OK shot 160x100"]
         if word == "put":
             self.puts.append(rest)
             return 0, ["OK put"]
         return 4, ["ERR unknown"]
+
+    screen = "home"  # The 89: "home", "busy" (text in the entry line) or "desktop"
+
+    def screen_89(self):
+        px = bytearray(b"\xff" * (160 * 100 * 3))
+
+        def dot(x, y):
+            i = (y * 160 + x) * 3
+            px[i:i + 3] = b"\x00\x00\x00"
+        cols = db.HOME_89_DIVIDERS if self.screen != "desktop" else (20, 21, 124, 125)
+        for x in cols:
+            for y in range(1, 15):
+                dot(x, y)
+        if self.screen == "busy":
+            for x in range(10, 60):
+                dot(x, 86)
+        return bytes(px)
+
+    def keys(self, codes):
+        """The 84: QUIT, then {Ans}→ZZANS or Ans→ZZANS; the 89: ans(1)→zzv:string(zzv)→zzs"""
+        if self.calc.slug == "ti84":
+            from ti84_keys import CHAR, NAMED
+            if codes[-1] != NAMED["enter"] or self.ans is None:
+                return 0, ["OK keys %d" % len(codes)]
+            t, data = self.ans
+            braced = codes[0] == CHAR["{"]
+            if braced and t in (0x00, 0x0C):  # A number: a list of one
+                v = cf.value84(t, data)
+                lt, ld = cf.list84_data([v])
+                self.vars[(lt, b"", b"ZZANS")] = ld
+            elif not braced and t in (0x01, 0x0D):  # A list as it is
+                self.vars[(t, b"", b"ZZANS")] = data
+            return 0, ["OK keys %d" % len(codes)]
+        if self.ans is not None:
+            self.vars[(0x00, b"main", b"zzv")] = cf.number89_data(self.ans)
+            text = cf.number_text(self.ans).encode("latin-1")
+            self.vars[(0x0C, b"main", b"zzs")] = cf.struct.pack(">H", len(text) + 3) + b"\x00" + text + b"\x00\x2d"
+        return 0, ["OK keys %d" % len(codes)]
 
 
 def answer_checks(root):
@@ -337,27 +371,33 @@ def answer_checks(root):
     said, clip = copy(m)
     f += check(clip == "0.33333333333333" and said == "Copied 0.33333333333333 from the TI-84 Plus CE",
                "Copy answer 84: Ans after 1/3 -> %r" % said)
+    f += check(not any(k[2] == b"ZZANS" for k in m.vars), "Copy answer 84: ZZANS removed afterwards")
     m = FakeLinkMirror("ti84", ans=(0x0D, cf.list84_data([C(1, 2), 3])[1]))
     said, clip = copy(m)
-    f += check(clip == "1+2i\r\n3" and m.log[-1].startswith("get 0d"), "Copy answer 84: a complex list in Ans")
-    m = FakeLinkMirror("ti84", ans=(0x00, cf.real84_bytes(1)), refuse_ans=True)
+    f += check(clip == "1+2i\r\n3", "Copy answer 84: a complex list in Ans (Ans→ZZANS) -> %r" % said)
+    m = FakeLinkMirror("ti84", ans=(0x02, cf.matrix84_data([[1, 2], [3, 4]])))
     said, clip = copy(m)
-    f += check(clip is None and "didn't hand over Ans" in said and len(m.log) == len(db.ANS_TYPES_84),
-               "Copy answer 84: a refusal says what to do instead")
+    f += check(clip is None and "isn't a number or a list" in said,
+               "Copy answer 84: a matrix says what to do instead")
     m = FakeLinkMirror("ti89", ans=F(1, 3))
     said, clip = copy(m)
-    sent = [l for l in m.log if l.startswith("send")]
-    f += check(clip == "1/3" and said.endswith("from the TI-89 Titanium") and len(sent) == 1 and
-               (0x12, b"main", b"zzans") in m.vars, "Copy answer 89: zzans sent, run, 1/3 read exactly")
+    f += check(clip == "1/3" and said.endswith("from the TI-89 Titanium") and
+               not [l for l in m.log if l.startswith(("send", "exec"))] and
+               not any(k[2] in (b"zzv", b"zzs") for k in m.vars),
+               "Copy answer 89: typed on Home, 1/3 read exactly, zzv/zzs removed")
     m.ans = D("0.33333333333333")
     said, clip = copy(m)
-    f += check(clip == "0.33333333333333" and len([l for l in m.log if l.startswith("send")]) == 1,
-               "Copy answer 89: the second time zzans is already there; a float in full")
-    prog = cf.program_89_text(m.vars[(0x12, b"main", b"zzans")])
-    f += check(prog is not None and "ans(1)→zzv" in prog and "Try" in prog, "Copy answer 89: zzans's text")
-    m.ans = None
+    f += check(clip == "0.33333333333333", "Copy answer 89: a float in full")
+    m.screen = "desktop"
     said, clip = copy(m)
-    f += check(clip is None and "isn't something that can be stored" in said, "Copy answer 89: no answer says so (%s)" % said)
+    f += check(clip is None and "Home screen first" in said and not [l for l in m.log[-3:] if l.startswith("keys")],
+               "Copy answer 89: on the Apps desktop it types nothing and says so")
+    m.screen = "busy"
+    said, clip = copy(m)
+    f += check(clip is None and "entry line" in said, "Copy answer 89: text in the entry line: says so")
+    m.screen, m.ans = "home", None
+    said, clip = copy(m)
+    f += check(clip is None and "didn't store" in said, "Copy answer 89: no answer says so (%s)" % said)
     m = FakeLinkMirror("nspire")
     said, clip = copy(m)
     f += check(clip is None and "no command" in said and not m.log, "Copy answer Nspire: says it isn't possible")

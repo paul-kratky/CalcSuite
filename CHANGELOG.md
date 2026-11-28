@@ -32,8 +32,9 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   lists can't be read back over the link. Guide: `docs/DATA_BRIDGE.md`.
 - **Copy answer** (the tab's button row and the Data section): the last answer on the PC
   clipboard with every digit the calculator keeps ("Copied 0.33333333333333 from the TI-84 Plus
-  CE"). The 84: its Ans. The 89: through a tiny program, `main\zzans`, run over the link (exact
-  answers stay exact: `1/3`). The Nspire's link has no command for it: the button says so.
+  CE"). Neither calculator hands its answer over the link, so CalcSuite types a store on the home
+  screen and reads it: the 84 `{Ans}→ZZANS`, the 89 `ans(1)→zzv` (only on its Home screen;
+  exact answers stay exact: `1/3`); both are removed after. The Nspire's link has no command for it: the button says so.
 - TI's number formats in `calc_files.py`: 84 reals, complex numbers, lists, matrices and OS 5's
   exact forms; 89 integers, fractions, floats, complex numbers, lists and matrices, with
   round-trip self-tests and three new fuzz targets.
