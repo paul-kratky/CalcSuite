@@ -271,6 +271,11 @@ click. How to write the text: [TI-Basic from the PC](#ti-basic-from-the-pc).
 ### The program editor
 
 Write TI-84 Plus CE TI-Basic, TI-89 Titanium TI-Basic or Nspire Python in CalcSuite itself:
+**No calculator needed to write programs:** **Write a program** (top right of the window, always
+there) or, with nothing plugged in, **Program editor** / **Solver builder** / **Make a picture** on
+All screens. Pick the calculator at the top of the editor (a model not plugged in is listed as
+such): its language's checker, Build, Save, the Guide and Test in PC copy all work; only **Send**
+waits, greyed with "Plug in a TI-84 Plus CE to send", and comes alive when it's plugged in.
 **More ▾ > Program editor...** under a calculator's screen opens the **Program editor** tab, aimed at that
 calculator (`python -I tools/editor.py [file]` opens it as a window of its own). It checks as
 you type, underlines each

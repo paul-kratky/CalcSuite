@@ -1418,10 +1418,27 @@ class AllScreens(object):
         self.frame = tk.Frame(app.content, bg=th.BG)
         self.grid = tk.Frame(self.frame, bg=th.BG)
         self.grid.pack(fill="both", expand=True, padx=14, pady=(14, 6))
-        self.empty = tk.Label(self.grid, bg=th.BG, fg=th.DIM, justify="center", font=(th.FONT, 11),
-                              text="No calculator is plugged in yet.\n\nPlug one in and switch it on: "
-                                   "its screen appears here by itself.\nTI's own software must be "
-                                   "closed. The first time, CalcSuite offers to set up each calculator's driver.")
+        # Nothing plugged in: what to do, and what works without a calculator
+        self.empty = tk.Frame(self.grid, bg=th.BG)
+        tk.Label(self.empty, bg=th.BG, fg=th.DIM, justify="center", font=(th.FONT, 11),
+                 text="No calculator is plugged in yet.\n\nPlug one in and switch it on: "
+                      "its screen appears here by itself.\nTI's own software must be "
+                      "closed. The first time, CalcSuite offers to set up each calculator's driver.").pack()
+        tk.Label(self.empty, bg=th.BG, fg=th.FG, font=th.HEAD,
+                 text="You can still write programs").pack(pady=(28, 4))
+        tk.Label(self.empty, bg=th.BG, fg=th.DIM, font=th.HINT, justify="center",
+                 text="For the TI-Nspire CX II (Python), the TI-84 Plus CE and the TI-89 Titanium "
+                      "(TI-Basic): checked as you type, built and saved;\nsent once the calculator "
+                      "is plugged in. Test in PC copy runs a TI-84 Plus CE program in CEmu.").pack()
+        row = tk.Frame(self.empty, bg=th.BG)
+        row.pack(pady=(12, 0))
+        self.empty_buttons = {}
+        for k, (text, cmd) in enumerate((("Program editor", lambda: app.open_editor_tab()),
+                                         ("Solver builder", lambda: app.open_solver_builder()),
+                                         ("Make a picture", lambda: app.open_picture()))):
+            b = th.button(row, text, cmd)
+            b.pack(side="left", padx=(0 if k == 0 else 8, 0))
+            self.empty_buttons[text] = b
         tk.Label(self.frame, text="Click a screen to type on it. Double click opens its tab.",
                  bg=th.BG, fg=th.DIM, anchor="w").pack(fill="x", padx=14, pady=(0, 10))
         self.tiles = {}  # pid -> (frame, view, name label, fps label, outline)
@@ -1526,6 +1543,9 @@ class App(object):
         self.strip.pack(side="left", fill="y")
         self.pop_btn = th.button(strip, "Open in its own window", self.pop_out, bg=th.PANEL)
         self.pop_btn.pack(side="right", padx=10, pady=6, before=self.strip)  # Many tabs cut a tab, not it
+        # Writing programs needs no calculator: the editor is always one click away
+        self.write_btn = th.button(strip, "Write a program", lambda: self.open_editor_tab(), bg=th.PANEL)
+        self.write_btn.pack(side="right", pady=6, before=self.strip)
         tk.Frame(self.root, bg=th.LINE, height=1).pack(fill="x")
         self.content = tk.Frame(self.root, bg=th.BG)
         self.content.pack(fill="both", expand=True)
@@ -1716,6 +1736,22 @@ class App(object):
                 self.editor.open_path(path)
         self.show_tab("editor")
         return self.editor
+
+    def open_solver_builder(self):
+        """The Solver builder (in a tab), through the Program editor (its Send and Open in the
+        editor); no calculator needed"""
+        ed = self.open_editor_tab()
+        return ed.open_solver_builder()
+
+    def open_picture(self, m=None):
+        """Make a picture: for a calculator's tab (m), or with none plugged in (choose the model
+        in it; Save makes the file)"""
+        import picture_window
+        if m is not None:
+            return picture_window.open_for(m, KIT)
+        key = "picture:pc"
+        return self.open_tool_tab(key, "Make a picture", lambda parent: picture_window.PicturePanel(
+            parent, None, KIT, "ti84", on_close=lambda: self.drop_tool_tab(key)))
 
     def editor_title(self, text):
         """The editor's file name (with a dot while unsaved) beside the tab's name"""
@@ -2034,6 +2070,8 @@ class App(object):
             self.tab_widgets[pid]["frame"].pack(side="left")
         self.tabs[calc.pid] = Tab(self, m)
         self.all.add(m)
+        if self.editor is not None:  # The editor's Send targets follow
+            self.editor.calculators_changed(self.mirrors.values())
         if self.target is None:
             self.target = calc.pid
         self.all.update()
@@ -2060,6 +2098,14 @@ class App(object):
             tab.recording(m.rec_seconds() is not None)
 
     def tick(self):
+        if self.editor is not None:  # A calculator connected or lost: the editor's Send follows
+            sig = tuple((pid, m.connected()) for pid, m in sorted(self.mirrors.items()))
+            if sig != getattr(self, "editor_sig", None):
+                self.editor_sig = sig
+                try:
+                    self.editor.calculators_changed(self.mirrors.values())
+                except Exception:
+                    log_error("updating the editor's calculators")
         for pid, m in self.mirrors.items():
             m.tick()
             w = self.tab_widgets[pid]

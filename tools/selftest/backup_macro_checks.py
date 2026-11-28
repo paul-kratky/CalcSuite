@@ -879,6 +879,36 @@ def app_tab_checks():
         th.set_dot(dot, bg=th.PANEL2)
         f += check(a and b and a != b and b != str(dot.cget("image")) and dot.dot_state == "connecting",
                    "tab dot: a smooth image per state and background")
+        # No calculator at all (the scan found none): writing programs is still one click away
+        import editor as ed
+        saved_programs = ed.PROGRAMS
+        ed.PROGRAMS = tempfile.mkdtemp(prefix="nocalc_app_")
+        try:
+            app.show_tab("all")
+            app.all.layout()  # (the hidden window gets no <Configure> to run it)
+            root.update()
+            f += check(not app.mirrors and app.all.empty.winfo_manager() == "place" and
+                       set(app.all.empty_buttons) == {"Program editor", "Solver builder", "Make a picture"},
+                       "no calculator: All screens offers Program editor, Solver builder, Make a picture")
+            app.write_btn.invoke()
+            root.update()
+            e = app.editor
+            f += check(e is not None and app.current == "editor" and e.target() is None and
+                       str(e.send_button.cget("state")) == "disabled" and "Plug in a" in str(e.send_hint.cget("text")),
+                       "no calculator: Write a program opens the editor; Send greyed with its hint")
+            app.all.empty_buttons["Make a picture"].invoke()
+            root.update()
+            f += check("tool:picture:pc" in app.tools, "no calculator: Make a picture opens in a tab")
+            app.close_tool_tab("picture:pc")
+            app.all.empty_buttons["Solver builder"].invoke()
+            root.update()
+            f += check("tool:solver" in app.tools, "no calculator: the Solver builder opens in a tab")
+            app.close_tool_tab("solver")
+            e.close(force=True)
+            root.update()
+        finally:
+            shutil.rmtree(ed.PROGRAMS, ignore_errors=True)
+            ed.PROGRAMS = saved_programs
     finally:
         mirror.App.scan_loop = saved_scan
         mirror.APP = None

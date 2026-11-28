@@ -29,6 +29,12 @@ What changed in the kit, newest first. Tested on a TI-Nspire CX II CAS, OS 6.40,
   bigger.
 
 ### Added
+- **Write programs with no calculator plugged in.** **Write a program** is always in the tab
+  strip; All screens with nothing plugged in offers **Program editor**, **Solver builder** and
+  **Make a picture**. The editor lists every model (a model not plugged in says so): pick one
+  and its language, checker, Build, Save and Test in PC copy work; **Send** and **Send and run**
+  are greyed with "Plug in a TI-84 Plus CE to send" until that calculator connects, then the
+  editor aims at it by itself.
 - **Go to macros and quick access** (Macros panel): built-in macros that only open a screen or
   a menu (TI-84 Plus CE: Home, Y=, WINDOW, TABLE, MODE, STAT EDIT, MATRIX, PRGM, MEM; TI-89
   Titanium: Home, Y=, WINDOW, GRAPH, TABLE, Var-Link, MODE; TI-Nspire: Home, Scratchpad

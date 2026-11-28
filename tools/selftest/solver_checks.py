@@ -19,6 +19,7 @@ import random
 import re
 import subprocess
 import sys
+import shutil
 import tempfile
 
 for _stream in (sys.stdout, sys.stderr):  # An old console code page can't print every symbol
@@ -427,6 +428,84 @@ def ui_checks(shots=None):
     return f
 
 
+def no_calculator_checks():
+    """Writing programs with no calculator at all (the faked scan found none): every model's
+    language, the checkers, Build and Save work; Send is greyed with a hint, and comes alive
+    once that model is plugged in"""
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        print("SKIP the editor without calculators (no display)")
+        return 0
+    root.withdraw()
+    import editor as ed
+    f = 0
+    saved_programs = ed.PROGRAMS
+    ed.PROGRAMS = tempfile.mkdtemp(prefix="nocalc_builds_")  # Never the user's own folder
+    out = tempfile.mkdtemp(prefix="nocalc_saves_")
+    e = ed.open_editor(root, [], None)
+    try:
+        root.update()
+        labels = [t[0] for t in e.targets]
+        f += check(labels == ["TI-Nspire CX II (not plugged in)", "TI-84 Plus CE (not plugged in)",
+                              "TI-89 Titanium (not plugged in)", "No calculator: save only"],
+                   "no calculator: every model can be chosen (%s)" % "; ".join(labels))
+        programs = {
+            "ti84": ("ti84", "ZZNOC", 'Disp "HI"\n', 'Goto Q\n', "TI-84 Plus CE"),
+            "ti89": ("ti89", "zznoc", 'zznoc()\nPrgm\nDisp "hi"\nEndPrgm\n', 'zznoc()\nPrgm\nIf x>1 Then\n',
+                     "TI-89 Titanium"),
+            "python": ("nspire", "zznoc", 'print("hi")\n', 'print("hi"\nimport numpy\n', "TI-Nspire CX II"),
+        }
+        for lang, (slug, name, good, bad, title) in programs.items():
+            k = next(i for i, t in enumerate(e.targets) if t[2] == lang)
+            e.target_box.current(k)
+            e.set_target(k)
+            e.new(lang, ask=False)
+            e.name_var.set(name)
+            e.set_text(bad)
+            e.run_check()
+            errors = [p for p in e.problems if p["severity"] == "error"]
+            e.set_text(good)
+            e.run_check()
+            clean = not [p for p in e.problems if p["severity"] == "error"]
+            f += check(e.lang == lang and errors and clean,
+                       "no calculator, %s: the checker finds the mistake, the good program is clean" % title)
+            root.update()
+            hint = str(e.send_hint.cget("text"))
+            f += check(str(e.send_button.cget("state")) == "disabled" and str(e.run_button.cget("state")) == "disabled"
+                       and hint.startswith("Plug in a %s to send:" % title),
+                       "no calculator, %s: Send greyed, hint %r" % (title, hint))
+            f += check(e.send() is False and "Plug in a %s" % title in e.status_var.get(),
+                       "no calculator, %s: F5 says to plug it in, sends nothing" % title)
+            built = e.build(quiet=True)
+            f += check(built is not None and os.path.isfile(built["file"]) and
+                       os.path.commonpath([built["file"], ed.PROGRAMS]) == ed.PROGRAMS,
+                       "no calculator, %s: Build makes %s" % (title, os.path.basename(built["file"]) if built else "nothing"))
+            path = os.path.join(out, "zznoc_%s.txt" % lang)
+            e.write(path)
+            with open(path, encoding="utf-8") as fh:
+                f += check(fh.read() == good, "no calculator, %s: Save writes the file" % title)
+        # The 84 is plugged in: the chosen model becomes it, Send comes alive
+        k = next(i for i, t in enumerate(e.targets) if t[2] == "ti84")
+        e.target_box.current(k)
+        e.set_target(k)
+        m = FakeMirror("ti84", "TI-84 Plus CE")
+        e.calculators_changed([m])
+        root.update()
+        f += check(e.target() is m and str(e.send_button.cget("state")) == "normal" and
+                   not e.send_hint.cget("text"), "a TI-84 Plus CE plugged in: Send is ready for it")
+        e.calculators_changed([])
+        f += check(e.target() is None and str(e.send_button.cget("state")) == "disabled",
+                   "unplugged again: Send greyed again")
+    finally:
+        e.close(force=True)
+        root.destroy()
+        ed.PROGRAMS = saved_programs
+        shutil.rmtree(out, ignore_errors=True)
+    return f
+
+
 def grab(win, path):
     try:
         from PIL import ImageGrab
@@ -457,6 +536,7 @@ def main(shots=None):
     f += run_checks(sb)
     f += misc_checks(sb)
     f += ui_checks(shots)
+    f += no_calculator_checks()
     return f
 
 
