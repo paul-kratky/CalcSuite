@@ -69,13 +69,16 @@ talk to a calculator at a time.
 
 ## The window
 
+<details>
+<summary>All screens, a calculator's tab, the Program editor tab and the side panel (Files, Keys, Symbols, Functions, Guide, Get programs, Info)</summary>
+
 **All screens** (the first tab) shows every connected calculator's live screen side by side,
 each with its frame rate, **Screenshot** and **Record**. Click a screen to type on that
 calculator: it gets an orange outline and a **KEYBOARD** tag. Double click a screen to open its
 tab.
 
 **Program editor** (a tab beside the calculators, opened with **Program editor...**) is where
-you write programs: [details](#the-program-editor). Its tab shows the file's name, with a dot
+you write programs: [details](#sending-programs). Its tab shows the file's name, with a dot
 while it has unsaved changes; **✕** closes it (asking first if there's something to save).
 
 **A calculator's tab** shows its screen big, with **Screenshot**, **Copy screen**, **Paste
@@ -98,11 +101,16 @@ The panel on the right of a tab:
 | **Symbols** | ∫ d/dx √ π θ Σ ∞ ≤ ≥ ≠ → i e ∠ ° ² ⁻¹ and more: click one to type it on the calculator. A symbol the calculator doesn't have is greyed out and says what to use instead. |
 | **Guide** | How to write programs for this calculator (TI-Basic for the 84 and the 89, Python for the Nspire), with a contents list and search. Every example has **Copy** and **Send to calculator**. |
 | **Get programs** | Programs picked for engineering work (unit converters, circuit tools, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists everything CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
-| **Info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#clearing-a-calculator)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
+| **Info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#files-backup-and-restore)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
 
 <img src="docs/img/symbols-panel.png" width="49%" alt="The Symbols panel"> <img src="docs/img/guide-panel.png" width="49%" alt="The Guide panel">
 
+</details>
+
 ## Where your files are
+
+<details>
+<summary>Everything CalcSuite saves stays in the folder you unzipped</summary>
 
 Everything stays in the folder you unzipped, in `CalcSuite files`: `captures` (screenshots,
 recordings, GIFs), `programs` (what you write, build and send), `backups` (and `backups\roms`
@@ -112,7 +120,12 @@ folder and CalcSuite is gone (the USB driver stays with Windows: **Info > Restor
 driver...** gives TI's software its driver back). Run from the source instead
 (`python tools/mirror.py`), CalcSuite uses `Documents\CalcSuite` and `%LOCALAPPDATA%\CalcSuite`.
 
+</details>
+
 ## Keys and mouse
+
+<details>
+<summary>Which PC key is which calculator key, and what the mouse does</summary>
 
 What you type goes to the calculator: letters, digits and symbols as themselves (on the 84,
 lower case is the capital). Keys go first: the picture catches up when you pause. The **Keys**
@@ -140,7 +153,12 @@ panel lists every key for the calculator in front of you.
 | Right click | the context menu | CLEAR | ESC |
 | Middle click | menu | | HOME |
 
+</details>
+
 ## Fast mode for the TI-84 Plus CE (experimental)
+
+<details>
+<summary>About 6 to 7 frames a second on the TI-84 Plus CE's home screen instead of under 1</summary>
 
 The TI-84 Plus CE's own screenshot takes 1.2-1.4 s, so its picture moves at under 1 frame a
 second. **Fast mode** (off until you turn it on) puts a small program of ours, CSFAST, on the
@@ -171,14 +189,24 @@ on a still screen and **4-5 while typing**, and a key shows on the PC in about 0
 From the command line: `ti84-cli serve`, then `fast status`, `fast on tools/fast84/CSFAST.8xp`,
 `snap FILE.ppm` (a frame; falls back to `shot` by itself), `fast off tools/fast84/CSFAST.8xp`.
 
+</details>
+
 ## Screenshots and recordings
+
+<details>
+<summary>PNG, GIF and MP4 of the calculator's screen, with the keys you pressed</summary>
 
 **Screenshot** saves a PNG in `CalcSuite files\captures`. **Record** records the screen
 straight from the app, up to 3 minutes: always a GIF, and an MP4 too with
 [ffmpeg](https://ffmpeg.org/). No ffmpeg on your PC? The first time you press Record, CalcSuite
 offers to download it for you (free, about 39 MB, once). Say no to keep the GIF only.
 
+</details>
+
 ## Sending programs
+
+<details>
+<summary>Send program..., the Program editor, and what each calculator accepts</summary>
 
 **Send program...** in a calculator's tab:
 
@@ -206,7 +234,12 @@ answer into an empty editor and **Copy problems for the AI** hands back what the
 **Ctrl+Backspace** and **Ctrl+Delete** delete a word at a time, **Ctrl+/** comments a line out,
 **Ctrl+F** finds.
 
+</details>
+
 ## Files, backup and restore
+
+<details>
+<summary>Browse, download, upload and delete, back up and restore, clear a calculator, OS updates, Press-to-Test</summary>
 
 | | TI-Nspire CX II | TI-84 Plus CE | TI-89 Titanium |
 | --- | --- | --- | --- |
@@ -243,7 +276,12 @@ Both are in **Info**, and both back up the whole calculator first (into
   you. The TI-89 Titanium and the Nspire reset only from the calculator itself: CalcSuite shows
   the steps.
 
+</details>
+
 ## A PC copy of your calculator
+
+<details>
+<summary>Your own calculator running in an emulator on the PC, from its own ROM</summary>
 
 `python -I tools/pc_copy.py make 84` (or `89`) backs the calculator up, copies its ROM to
 `CalcSuite files\backups\roms\`, removes what it put on the calculator, and opens the copy
@@ -252,7 +290,12 @@ Titanium it makes the ROM; its emulator, TiEmu, you install yourself. The ROM is
 from your own calculator: it stays on your PC and is never uploaded. In the window: Info >
 **Make a PC copy...**. Details: [docs/PC_COPY.md](docs/PC_COPY.md).
 
+</details>
+
 ## TI-Basic from the PC
+
+<details>
+<summary>Typing TI-Basic on the PC: the spellings and symbols each calculator takes</summary>
 
 Write the program in any text editor (or take one from the **Guide** panel) and send it with
 **Send program...** (or **Upload** in **Files**, or `python -I tools/send_ti.py --calc 84|89
@@ -289,7 +332,12 @@ The full guides: [TI-84 Plus CE](docs/TIBASIC_84.md), [TI-89 Titanium](docs/TIBA
 As dark PDFs (also **Save as PDF** in the Guide and Functions panels, and on each release): [TI-84 Plus CE guide](docs/pdf/CalcSuite%20-%20TI-84%20Plus%20CE%20TI-Basic%20guide.pdf), [TI-89 Titanium guide](docs/pdf/CalcSuite%20-%20TI-89%20Titanium%20TI-Basic%20guide.pdf), [Nspire Python guide](docs/pdf/CalcSuite%20-%20TI-Nspire%20CX%20II%20Python%20guide.pdf);
 Functions references [TI-84 Plus CE](docs/pdf/CalcSuite%20-%20TI-84%20Plus%20CE%20functions%20reference.pdf), [TI-89 Titanium](docs/pdf/CalcSuite%20-%20TI-89%20Titanium%20functions%20reference.pdf), [TI-Nspire CX II](docs/pdf/CalcSuite%20-%20TI-Nspire%20CX%20II%20functions%20reference.pdf); [user guide](docs/pdf/CalcSuite%20-%20User%20guide.pdf), [quick start](docs/pdf/CalcSuite%20-%20Quick%20start.pdf), [Python kit](docs/pdf/CalcSuite%20-%20TI-Nspire%20Python%20kit.pdf).
 
+</details>
+
 ## If something doesn't work
+
+<details>
+<summary>Fixes for the common problems</summary>
 
 Open the calculator's **Info** panel first: the connection doctor says what Windows has on it
 and what to do.
@@ -303,7 +351,12 @@ and what to do.
 | Something in the window stays on "Asking..." or doesn't react | Look in `CalcSuite files\logs\errors.log`: every error inside the window is written there. Attach it to an [issue](https://github.com/paul-kratky/CalcSuite/issues). |
 | "Windows protected your PC" | **More info**, then **Run anyway** (CalcSuite isn't code-signed yet). Check the download first: [Is it safe?](#is-it-safe) |
 
+</details>
+
 ## Is it safe?
+
+<details>
+<summary>What CalcSuite does and doesn't do, and how to check a download</summary>
 
 - **No telemetry, nothing in the background.** CalcSuite goes online only when you ask: TI's
   site (OS versions), ticalc.org and GitHub (programs you pick), PyPI (ffmpeg, for video) and
@@ -316,7 +369,12 @@ and what to do.
 - **Signed and checked.** Release tags and commits are signed (GitHub shows **Verified**);
   CodeQL scans the code and OpenSSF Scorecard rates the project (the badge at the top).
 
+</details>
+
 ## Writing Python programs
+
+<details>
+<summary>The command-line kit for TI-Nspire Python (developers)</summary>
 
 CalcSuite also has a kit for writing Python programs for the TI-Nspire CX II on the PC, with or
 without an AI assistant: a checker for what the calculator's Python can run, a runner on the PC,
@@ -332,3 +390,5 @@ What's new: [CHANGELOG.md](CHANGELOG.md).
 **Licence:** MIT ([LICENSE](LICENSE)), except the link tools, the driver helper, the .tns
 writer and `third_party/`, which keep their own licences: [LICENSING.md](LICENSING.md). Programs from **Get programs** keep their authors' licences: CalcSuite
 links to them and downloads them only when you ask. Not affiliated with Texas Instruments.
+
+</details>

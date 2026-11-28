@@ -1,96 +1,116 @@
 # CLAUDE.md
 
-This folder holds Python programs for a **TI-Nspire CX II CAS** handheld. They run in TI's
-own Python (built on MicroPython, OS 5.2 or later), not in desktop CPython. Write every
-program for the calculator first. The PC is only for checking.
+Guidance for Claude Code in this repository.
 
-## Workflow for every program
+## The project
 
-1. Write it to `programs/<name>.py`. Use a short lowercase name that starts with a letter
-   and uses only letters, digits and underscores (no spaces). The file name becomes the
-   program name and the .tns name on the handheld.
-2. Run `python -I tools/check_nspire.py programs/<name>.py`. Fix every ERROR. Fix the
-   warnings too unless the user has checked that feature on the handheld (`programs/probe.py`).
-3. Where you can, test the logic on the PC with
-   `python -I tools/run_on_pc.py programs/<name>.py`. Feed input on stdin, and use
-   `--var/--list/--func/--keys` for TI variables and keys (see docs/PYTHON_KIT.md).
-4. Send it or hand it over:
-   - **If the user says "send it" (or "flash it", "put it on my calculator"), or says the
-     calculator is plugged in:** run `python -I tools/flash.py programs/<name>.py`. It
-     re-runs the checker, converts to `build/<name>.tns` and uploads it to My Documents
-     over USB, then reads it back to verify. Add `--folder NAME` if the user wants a
-     folder, `--allow mod` for their PyLib modules. Report the last lines it printed.
-   - **Otherwise:** run `python -I tools/flash.py programs/<name>.py --dry-run`, which
-     checks and builds `build/<name>.tns` without sending. Tell the user it is ready and
-     that "send it" will upload it once the calculator is plugged in.
-   - If flash.py stops, read its message: checker errors mean fix the program and run it
-     again; "No TI-Nspire found" means ask the user to plug in and turn on the handheld;
-     a driver or link error means point the user to docs/PYTHON_KIT.md "Troubleshooting". Do not
-     install or change USB drivers yourself, and never run anything that needs admin.
-   - `python -I tools/send_to_calc.py --list` shows the connected handheld (name, OS,
-     free space); `--ls /` lists My Documents.
-5. Tell the user how to run it on the handheld: [home/on] > My Documents > `<name>.tns`,
-   then menu > Run > Run (ctrl+R). A document that is already open on the handheld keeps
-   the old version until it is closed and reopened.
+**CalcSuite** (`paul-kratky/CalcSuite`, public, MIT): a free Windows app that mirrors TI
+calculators live, types into them from the PC, writes and sends programs, manages their files,
+backs them up and checks for OS updates. For the **TI-Nspire CX II (CAS)**, the **TI-84 Plus CE**
+and the **TI-89 Titanium**, several at once. Plus a command-line kit for TI-Nspire Python
+(`docs/PYTHON_KIT.md`). README.md is the user guide; CHANGELOG.md says what changed.
 
-## The language: TI-Python on the CX II
+## Layout
 
-- **Modules allowed:** `math`, `cmath`, `random`, `time`, `ti_system`, `ti_draw`,
-  `ti_plotlib`, `ti_image`. Use `ti_hub` and `ti_rover` only if the user has the
-  TI-Innovator Hub or Rover. Also allowed: the user's own modules that they installed into PyLib
-  (`--allow name` for the checker). Use only the functions TI documents (the checker
-  lists them). Leave out `sys`, `gc`, `array` and `collections` unless the user asks.
-- **Not available:** numpy, sympy, matplotlib, turtle (unless the user installed TI's
-  add-on), os, re, json, itertools, statistics, typing, dataclasses, and any other import.
-  There is no file I/O (`open()`), no internet, no threads.
-- **Syntax to avoid:** f-strings (use `"{} {}".format(a, b)` or `print("x =", x)`), the
-  walrus `:=`, `match/case`, type hints (`def f(x: int) -> int`, `x: int = 0`),
-  `async/await`, positional-only `/`, `from __future__`, `except*`, and underscores in
-  numbers (`1_000`). Classes, `lambda`, `try/except`, `with`, generators, list/dict
-  comprehensions and `global`/`nonlocal` are fine (they are in TI's keyword list).
-- **String methods:** MicroPython lacks `ljust`, `rjust`, `zfill`, `title`, `partition`
-  and others. Pad by hand.
-- **Plain ASCII only** in the source, comments included. No curly quotes, long dashes,
-  superscripts, `pi` or `<=` symbols. Indent with 4 spaces, never tabs.
-- **Keep it small:** aim for under 20 KB and a few hundred lines. The heap is about 2 MB
-  (community measurement), so keep lists to a few thousand items and loops short. The
-  handheld is much slower than a PC.
-- **Recursion:** the stack is small. Use loops, and keep any recursion depth well
-  under 50.
-- **Input/output:** `input("prompt")` always returns a string, so convert it with
-  `float()`/`int()` inside `try/except ValueError`. `print()` writes to the Shell page,
-  which is a small handheld screen, so keep printed lines short (about 30 characters reads
-  well). Program text
-  output with `print`, not with ti_draw.
+| Where | What |
+| --- | --- |
+| `tools/mirror.py` | The app: `App` (the window, tab strip, USB scan, the message pump), `Mirror` (one calculator's link thread), `Tab`, `AllScreens` |
+| `tools/ui_panels.py` | The side panel: Files, Keys, Symbols, Functions, Guide, Get programs, Info |
+| `tools/editor.py`, `tools/code_check.py` | The Program editor (a tab of the main window; `python tools/editor.py` opens it alone) and its strict checkers |
+| `tools/calc_manager.py` | Files, backup/restore, Info (clock, OS check, Exit Press-to-Test, Delete all programs, Reset) |
+| `tools/calc_models.py` | Each calculator's keys, symbols, paste rules |
+| `tools/calc_files.py`, `calc_backup.py`, `tns_writer.py`, `py2tns.py` | TI file formats, backups, the .tns writer (MPL-1.1, a port of Luna: must stay byte-identical, the self-test compares) |
+| `tools/paths.py` | Where things are saved: `CalcSuite files` beside the exe (the zip), else Documents/LOCALAPPDATA from the source |
+| `tools/calc_doctor.py`, `tools/driver_helper/` | The connection doctor and the WinUSB driver helper (LGPL, its own process) |
+| `tools/nspire_cli/`, `tools/ti84_cli/` | The USB link helpers (GPL, their own processes; built by `tools/build_tools.py`) |
+| `tools/fast84/` | Fast mode for the TI-84 Plus CE (CSFAST.8xp, our eZ80 hook) |
+| `tools/pc_copy.py`, `tools/rom_dumpers/` | Make a PC copy (ROM dump + CEmu/TiEmu) |
+| `tools/reference/`, `docs/*.md` | The Functions reference (JSON) and the guides; `docs/pdf/` their PDFs |
+| `tools/release_files.py`, `app.spec` | The release zip and PyInstaller's folder build |
 
-## Graphics
+## Build, test, release
 
-- **ti_draw**: pixel canvas **318 x 212** (read it with `get_screen_dim()` rather than
-  hard-coding it). (0,0) is the top left and y grows downward; `set_window(xmin, xmax, ymin, ymax)`
-  switches to math coordinates.
-  - Calls: `set_color(r,g,b)`, `set_pen("thin"|"medium"|"thick", "solid"|"dotted"|"dashed")`,
-    `draw_line`, `draw_rect`/`fill_rect(x,y,w,h)`, `draw_circle`/`fill_circle(x,y,r)`,
-    `draw_text(x,y,"text")`, `draw_poly`/`fill_poly(xlist,ylist)`, `clear()`.
-  - For many shapes, wrap the drawing in `use_buffer()` ... `paint_buffer()`.
-  - End a drawing program with `get_key(1)` (from ti_system), so the picture stays up.
-  - ti_draw only works on the handheld or in the software's handheld view.
-- **ti_plotlib** (`import ti_plotlib as plt`): graphs in math coordinates. Always call
-  `plt.window(xmin,xmax,ymin,ymax)`, then `plt.axes("on")`, `plt.grid(...)`, `plt.plot(xs, ys, "o")`,
-  `plt.scatter`, `plt.line`, `plt.lin_reg`, `plt.text_at(row, "text", "left")`, and end with
-  `plt.show_plot()`.
-- Don't mix ti_draw and ti_plotlib in one picture unless you have to.
+```sh
+python -I tools/build_tools.py [--force] [--luna]   # the link helpers into tools/bin/ (MSYS2 UCRT64 gcc; --luna: the .tns test reference)
+python -I tools/selftest/run_selftest.py             # every test; must print ALL PASSED
+python -I tools/docs_build/check_examples.py         # every example program in the guides
+python tools/docs_build/make_pdfs.py [--version vX.Y.Z]  # rebuild docs/pdf/ after changing README, QUICKSTART or docs/
+python tools/mirror.py                                # run the app from the source
+```
 
-## ti_system (talking to the rest of the calculator)
+- **Every change goes through a pull request.** `main` is protected: signed commits, the
+  `selftest` check must pass on an up-to-date branch, squash merges only, no force pushes.
+  Work on a branch, `gh pr create`, wait for the checks, `gh pr merge --squash`.
+- Commits and tags are signed with the owner's SSH key (held by Windows' ssh-agent). Never
+  bypass signing (`--no-gpg-sign`, `-c commit.gpgsign=false`).
+- **Release:** bump `APP_VERSION` in `tools/build_tools.py` and `tools/driver_helper/calcsuite_driver.rc`,
+  add a `## [X.Y.Z] - date` section to CHANGELOG.md (the release notes come from it), rebuild the
+  PDFs, merge, then a signed tag `git tag -s vX.Y.Z` on the merged commit and push it.
+  `.github/workflows/release.yml` builds the zip on GitHub (its own PyInstaller bootloader, no
+  UPX), attests it, scans it on VirusTotal (secret `VT_API_KEY`), publishes it to
+  `ghcr.io/paul-kratky/calcsuite` and drafts the release; check the draft, then publish it.
+- Other workflows: `tests.yml` (selftest), `codeql.yml`, `scorecard.yml`, Dependabot for the
+  pinned actions. Pin every action by commit SHA.
 
-`recall_value("a")`, `store_value("a", x)`, `recall_list("L1")`, `store_list("L1", xs)`,
-`eval_function("f", x)` evaluates a function defined in the calculator (for example in Graphs),
-`get_key()` returns at once and `get_key(1)` waits for a key; the key names are `"esc"`,
-`"enter"`, `"up"`, `"1"` and so on. Also `get_time_ms()`, `get_platform()` ("hh" on the
-handheld, "dt" on the desktop) and `clear_history()`. Use these to hand results back to the
-CAS: Python itself has no symbolic algebra.
+## Rules
+
+- **The user's calculators are real and theirs.** Create and delete only test items named
+  `zz*` (`ZZ*` on the 84/89). Never send backspace or delete keys unless the user confirms. Never
+  press a reset's final confirmation. Don't install or change USB drivers without asking.
+- **Don't fight the user's CalcSuite for the calculators.** A second app instance takes the
+  links away from theirs (their panels then wait forever). With their CalcSuite open, test with
+  the link faked (`nspire_link.Session` raising `LinkError(4, [...])`, the scan returning fixed
+  ids), or ask first. Never `taskkill /IM CalcSuite.exe` (it closes theirs too): stop only the
+  process ids you started.
+- **ROMs** are the user's own: never upload or ship one.
+- **Licences:** the app is MIT. GPL/LGPL code runs only as separate programs (the link helpers,
+  the driver helper, ffmpeg); never import it into the MIT code. Vendored code keeps its licence
+  (`LICENSING.md`). `LICENSE` stays the plain MIT text.
+- **Windows UI:** dark everywhere, dark title bars on every window and dialog
+  (`ui_theme.dark_title_bar_when_shown`). Long panels get scrollbars; empty detail boxes say
+  what to do.
+- **Errors never pass silently** in the window: `mirror.log_error()` writes them to
+  `CalcSuite files/logs/errors.log`.
+- **README:** keep every `##` section folded under `<details><summary>one line</summary>`
+  except Get started (the PDF builder prints them unfolded). Point links at `##` headings.
+- No telemetry; go online only when the user asks (SECURITY.md lists every place).
+
+## Writing TI-Nspire Python (the kit)
+
+Programs for the handheld run in TI's own Python (MicroPython, OS 5.2+), not CPython.
+
+1. Write `programs/<name>.py`: a short lowercase name, letters/digits/underscores.
+2. `python -I tools/check_nspire.py programs/<name>.py`: fix every ERROR (and the warnings,
+   unless the user checked that feature on the handheld with `programs/probe.py`).
+3. Test the logic on the PC: `python -I tools/run_on_pc.py programs/<name>.py`
+   (`--var/--list/--func/--keys`, docs/PYTHON_KIT.md).
+4. "Send it" (calculator plugged in): `python -I tools/flash.py programs/<name>.py` (checks,
+   builds `build/<name>.tns`, uploads to My Documents, reads it back). Otherwise `--dry-run`.
+   "No TI-Nspire found": ask the user to plug in and switch on. Never run anything needing admin.
+5. On the handheld: home > My Documents > `<name>.tns`, then ctrl+R. An open document keeps
+   the old version until it's closed and reopened.
+
+The language:
+- **Modules:** `math`, `cmath`, `random`, `time`, `ti_system`, `ti_draw`, `ti_plotlib`,
+  `ti_image` (`ti_hub`/`ti_rover` only with that hardware; the user's PyLib modules with
+  `--allow`). No numpy, sympy, matplotlib, os, re, json, itertools, file I/O, threads.
+- **Syntax to avoid:** f-strings, `:=`, `match`, type hints, `async`, positional-only `/`,
+  `from __future__`, `except*`, `1_000`. Classes, lambda, try/except, with, generators and
+  comprehensions are fine.
+- MicroPython lacks `ljust`, `rjust`, `zfill`, `title`, `partition`: pad by hand.
+- **Plain ASCII** source, 4-space indents. Keep programs under ~20 KB; the heap is ~2 MB and
+  the stack small (recursion well under 50).
+- `input()` returns a string: convert inside `try/except ValueError`. Keep printed lines
+  ~30 characters.
+- **ti_draw:** 318 x 212 (`get_screen_dim()`), (0,0) top left; `set_window` for math
+  coordinates; `use_buffer()`/`paint_buffer()` for many shapes; end with `get_key(1)`.
+- **ti_plotlib:** `plt.window(...)`, `plt.axes("on")`, `plt.plot/scatter/line/lin_reg`,
+  `plt.show_plot()`. Don't mix it with ti_draw.
+- **ti_system:** `recall_value/store_value`, `recall_list/store_list`, `eval_function("f", x)`,
+  `get_key()`/`get_key(1)`, `get_time_ms()`, `get_platform()`. Python has no CAS: hand results
+  to TI-Basic for symbolic work.
 
 ## Honesty
 
-These programs are for learning and homework the teacher allows. Python documents are
-unavailable in Press-to-Test (exam) mode. Never help hide programs from exam mode or get
-around a teacher's or exam board's rules.
+For learning and homework the teacher allows. Python documents are unavailable in
+Press-to-Test. Never help hide programs from exam mode or get around exam rules.

@@ -257,6 +257,12 @@ class Converter(object):
         """The body HTML. skip_title drops the first # heading (the cover shows the title);
         skip_contents drops a "## Contents" section (the generated table of contents replaces it)"""
         md = re.sub(r"<!--.*?-->", "", md, flags=re.S)  # Notes to the editor (screenshot slots)
+        # GitHub's fold-out sections: printed unfolded, the summary as a bold lead-in
+        md = re.sub(r"(?im)^[ \t]*</?details[^>]*>[ \t]*$", "", md)
+        md = re.sub(r"(?im)^[ \t]*<summary>(.*?)</summary>[ \t]*$",
+                    lambda m: "**%s**" % re.sub(r"</?b>", "", m.group(1)).strip(), md)
+        # HTML images (README's side-by-side ones) as Markdown images
+        md = re.sub(r'<img\s+[^>]*?src="([^"]+)"[^>]*?alt="([^"]*)"[^>]*>', r"![\2](\1)", md)
         lines = md.replace("\r\n", "\n").replace("\t", "    ").split("\n")
         out, para = [], []
         lists = []  # [indent, tag] of the open lists, innermost last

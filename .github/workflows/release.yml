@@ -246,7 +246,8 @@ jobs:
         run: |
           $zip = (Get-ChildItem out/CalcSuite-*-win64.zip).FullName
           if (-not $zip) { throw "No zip in the build artifact" }
-          $sig = (Get-ChildItem out/*.sigstore.json -ErrorAction SilentlyContinue).FullName
+          # An array: splatting one string (@sig) would pass it letter by letter
+          $sig = @(Get-ChildItem out/*.sigstore.json -ErrorAction SilentlyContinue | ForEach-Object FullName)
           gh release create $env:GITHUB_REF_NAME --draft --verify-tag --title $env:GITHUB_REF_NAME `
             --notes-file out/notes.md $zip out/SHA256SUMS.txt @sig
           if ($LASTEXITCODE) { throw "gh release create failed" }
