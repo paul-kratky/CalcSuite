@@ -45,9 +45,9 @@ files on them, and a guide for writing programs. For the **TI-Nspire CX II** (CA
    plugged in later gets its tab by itself.
 3. **The first time only:** Windows needs the WinUSB driver for each calculator, and TI's
    calculators don't bring it. When a calculator has no driver CalcSuite can use, CalcSuite
-   opens its tab on **Info**, shows what it will change and asks **Change the driver?**. Press
+   opens its tab on **Calculator info**, shows what it will change and asks **Change the driver?**. Press
    OK, then **Yes** on Windows' admin prompt. It takes a minute or two, once per calculator.
-   (Later, **Info > Install the WinUSB driver...** does it again, and **Restore TI's driver...**
+   (Later, **Calculator info > Install the WinUSB driver...** does it again, and **Restore TI's driver...**
    gives TI's software its driver back.)
 
 <details>
@@ -83,7 +83,7 @@ talk to a calculator at a time.
 ## The window
 
 <details>
-<summary>All screens, a calculator's tab, the Program editor tab and the side panel (Files, Keys, Symbols, Functions, Guide, Get programs, Info)</summary>
+<summary>All screens, a calculator's tab, the Program editor tab and the side panel (Files, Keys, Symbols, Functions, Guide, Get programs, Calculator info)</summary>
 
 **All screens** (the first tab) shows every connected calculator's live screen side by side,
 each with its frame rate, **Screenshot** and **Record**. Click a screen to type on that
@@ -100,8 +100,10 @@ F5 → GRAPH** so you see what each PC key did. **Key history** shows the last 8
 under the screen; **Show keys in recordings** puts that strip into your GIF and MP4 too.
 **Open in its own window** (top right) pops the calculator out into a window of its own;
 closing that window puts it back as a tab. A calculator that's unplugged greys out ("not
-plugged in") and comes back when you plug it in again. Drag the thin handle between the screen
-and the side panel to make the panel wider; in **Functions**, drag the one under the list.
+plugged in") and comes back when you plug it in again. The side panel starts at about half the
+window and keeps that share when the window changes size; drag the thin handle between the
+screen and the panel to make it wider or narrower (double-click it: back to half), and in
+**Functions**, drag the one under the list.
 
 ![A calculator tab with the Files panel](docs/img/calculator-tab.png)
 
@@ -113,8 +115,8 @@ The panel on the right of a tab:
 | **Keys** | Which PC key presses which calculator key, for this calculator, and the mouse. The key you just pressed lights up. |
 | **Symbols** | ∫ d/dx √ π θ Σ ∞ ≤ ≥ ≠ → i e ∠ ° ² ⁻¹ and more: click one to type it on the calculator. A symbol the calculator doesn't have is greyed out and says what to use instead. |
 | **Guide** | How to write programs for this calculator (TI-Basic for the 84 and the 89, Python for the Nspire), with a contents list and search. Every example has **Copy** and **Send to calculator**. |
-| **Get programs** | Programs picked for engineering work (unit converters, circuit tools, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists everything CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
-| **Info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#files-backup-and-restore)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
+| **Get programs** | Programs and games for this calculator, in sections: Electrical, Mechanical, Chemistry, Physics, Math, Computer engineering, Utilities and Games (unit converters, circuit and beam tools, molar mass and gas laws, a CAS for the 84, control and signals for the 89, formula libraries for the Nspire; Tetris, chess, Minesweeper and more). **Search** filters the list as you type (name, description, section). **Download and send** gets one from ticalc.org or GitHub when you click it and sends it; the rest open their page. TI's own apps open TI's page (their licence). **Get all...** lists every program (not the games) CalcSuite can send by itself, with sizes, notes and what's on the calculator already, and sends it all or saves it all to the PC. |
+| **Calculator info** | Model, OS, free memory, whether TI has a newer OS, the calculator's clock (**Set the clock to the PC's time** on the 84 and 89), **Exit Press-to-Test...**, **Delete all programs...** and **Reset the calculator...** ([details](#files-backup-and-restore)), **Reconnect**, **Make a PC copy...** / **Open my PC copy** (84 and 89), and the connection doctor: whether Windows' driver is right for CalcSuite, with the fix. |
 
 <img src="docs/img/symbols-panel.png" width="49%" alt="The Symbols panel"> <img src="docs/img/guide-panel.png" width="49%" alt="The Guide panel">
 
@@ -129,7 +131,7 @@ Everything stays in the folder you unzipped, in `CalcSuite files`: `captures` (s
 recordings, GIFs), `programs` (what you write, build and send), `backups` (and `backups\roms`
 for the PC copy), `from-calc`, `library` (programs you download) and `cache` (what CalcSuite
 downloads for itself: ffmpeg, the emulators). Move the folder and all of it moves; delete the
-folder and CalcSuite is gone (the USB driver stays with Windows: **Info > Restore TI's
+folder and CalcSuite is gone (the USB driver stays with Windows: **Calculator info > Restore TI's
 driver...** gives TI's software its driver back). Run from the source instead
 (`python tools/mirror.py`), CalcSuite uses `Documents\CalcSuite` and `%LOCALAPPDATA%\CalcSuite`.
 
@@ -270,7 +272,7 @@ and a `.b84` bundle; 89: TI files and a `.89g` group; a `manifest.json`). Apps a
 be read: they're listed as skipped. **Restore...** shows what's in a backup, sends what you
 pick, and asks before replacing anything. It never wipes the calculator.
 
-**Info** checks TI's website once a day for a newer OS and links to TI's download page.
+**Calculator info** checks TI's website once a day for a newer OS and links to TI's download page.
 CalcSuite never downloads or installs an OS itself. (On the 84, OS 5.5 and later no longer run
 assembly programs.) The Nspire's clock can't be read or set over USB: set it on the handheld.
 **Exit Press-to-Test...** uses TI's own way only: for the Nspire, CalcSuite lets go of the
@@ -279,7 +281,7 @@ Press-to-Test.
 
 ### Clearing a calculator
 
-Both are in **Info**, and both back up the whole calculator first (into
+Both are in **Calculator info**, and both back up the whole calculator first (into
 `CalcSuite files\backups`), so **Restore...** can bring things back.
 
 - **Delete all programs...** (Nspire: **Delete all documents...**): every program (the 89: and
@@ -300,7 +302,7 @@ Both are in **Info**, and both back up the whole calculator first (into
 `CalcSuite files\backups\roms\`, removes what it put on the calculator, and opens the copy
 in CEmu with your programs and variables (the 84 Plus CE, OS 5.4 or older). For the TI-89
 Titanium it makes the ROM; its emulator, TiEmu, you install yourself. The ROM is TI's software
-from your own calculator: it stays on your PC and is never uploaded. In the window: Info >
+from your own calculator: it stays on your PC and is never uploaded. In the window: Calculator info >
 **Make a PC copy...**. Details: [docs/PC_COPY.md](docs/PC_COPY.md).
 
 </details>
@@ -352,14 +354,14 @@ Functions references [TI-84 Plus CE](docs/pdf/CalcSuite%20-%20TI-84%20Plus%20CE%
 <details>
 <summary>Fixes for the common problems</summary>
 
-Open the calculator's **Info** panel first: the connection doctor says what Windows has on it
+Open the calculator's **Calculator info** panel first: the connection doctor says what Windows has on it
 and what to do.
 
 | Problem | Fix |
 | --- | --- |
 | The tab says it's looking for the calculator | Switch it on (they sleep after a few minutes), use a data cable (some only charge), close TI's software, try another USB port. |
-| A calculator never connects | Its driver: **Info > Install the WinUSB driver...** (it shows what it will do first, and Windows asks for admin rights). If that fails, the Zadig steps under [Get started](#get-started). |
-| TI's own software no longer sees the calculator | That's the WinUSB driver. **Restore TI's driver...** in **Info** gives it back, or: Device Manager > the calculator > Uninstall device, with "delete the driver" ticked. |
+| A calculator never connects | Its driver: **Calculator info > Install the WinUSB driver...** (it shows what it will do first, and Windows asks for admin rights). If that fails, the Zadig steps under [Get started](#get-started). |
+| TI's own software no longer sees the calculator | That's the WinUSB driver. **Restore TI's driver...** in **Calculator info** gives it back, or: Device Manager > the calculator > Uninstall device, with "delete the driver" ticked. |
 | A key does nothing | Some special keys aren't mapped yet: [open an issue](https://github.com/paul-kratky/CalcSuite/issues) with the key and the calculator. |
 | Something in the window stays on "Asking..." or doesn't react | Look in `CalcSuite files\logs\errors.log`: every error inside the window is written there. Attach it to an [issue](https://github.com/paul-kratky/CalcSuite/issues). |
 | "Windows protected your PC" | **More info**, then **Run anyway** (CalcSuite isn't code-signed yet). Check the download first: [Is it safe?](#is-it-safe) |

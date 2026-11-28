@@ -70,7 +70,7 @@ Everything CalcSuite saves stays in this folder, in "CalcSuite files": screensho
 and GIFs, the programs you write, build and send, backups, ROMs for the PC copy, programs you
 download, and what CalcSuite downloads for itself (ffmpeg, the emulators) in its "cache".
 Moving the folder moves all of it; deleting the folder removes CalcSuite.
-(The USB driver stays with Windows: Info > Restore TI's driver gives TI's software its driver back.)
+(The USB driver stays with Windows: Calculator info > Restore TI's driver gives TI's software its driver back.)
 
 The guides are in "Guides" (also in the app: Guide, Functions, Save as PDF).
 

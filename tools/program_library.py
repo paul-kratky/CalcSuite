@@ -1,6 +1,7 @@
 """Get programs: the curated list in tools/program_library.json, and fetching an item.
 
     items = for_calc(load(), "ti84")          # verified first, then by name
+    groups = by_section(search(items, "beam"))  # [(section, [items])], filtered as typed
     path = download(item["download_url"], progress)   # cached in %LOCALAPPDATA%\\CalcSuite\\library
     files = pick_files(path, item)            # [(name in the archive, bytes, folder or None)]
 
@@ -45,6 +46,39 @@ def load(path=LIBRARY_JSON):
             with open(p, encoding="utf-8") as f:
                 return json.load(f)["items"]
     return []
+
+
+# The sections Get programs lists, in this order (an item's "section"; anything else goes last)
+SECTIONS = ("Electrical", "Mechanical", "Chemistry", "Physics", "Math", "Computer engineering",
+            "Utilities", "Games")
+
+
+def section_of(item):
+    return item.get("section") or "Utilities"
+
+
+def by_section(items):
+    """[(section, [items in their order])], the sections in SECTIONS order, empty ones left out"""
+    groups = {}
+    for i in items:
+        groups.setdefault(section_of(i), []).append(i)
+    order = list(SECTIONS) + sorted(s for s in groups if s not in SECTIONS)
+    return [(s, groups[s]) for s in order if s in groups]
+
+
+def search(items, query):
+    """The items whose name, description, section, category or author has every word of the
+    query (any case, any order); all of them for an empty query"""
+    words = (query or "").lower().split()
+    if not words:
+        return list(items)
+    out = []
+    for i in items:
+        text = " ".join(str(i.get(k) or "") for k in ("name", "description", "section", "category",
+                                                       "author")).lower()
+        if all(w in text for w in words):
+            out.append(i)
+    return out
 
 
 def for_calc(items, slug):
@@ -177,12 +211,14 @@ LARGE = 500 * 1024   # A set's item this big (on the calculator) gets a note
 
 def get_all_plan(items, slug):
     """(sendable, skipped) for the calculator: sendable are its items CalcSuite downloads by
-    itself, in the list's order; skipped is [(item, reason)] for the rest (TI's own apps, and
-    items that open a page: apps, installs with steps on the calculator)."""
+    itself, in the list's order; skipped is [(item, reason)] for the rest (TI's own apps,
+    items that open a page: apps, installs with steps on the calculator, and the games)."""
     sendable, skipped = [], []
     for i in for_calc(items, slug):
         act = i.get("action")
-        if act == "ti_page":
+        if section_of(i) == "Games":  # A set of tools: games go one by one, from the list
+            skipped.append((i, "a game: pick it in the list to send it"))
+        elif act == "ti_page":
             skipped.append((i, "TI's own app: download it from TI's page (its licence)"))
         elif act != "download":
             skipped.append((i, "opens its page: an app, or an install with steps on the calculator"))
