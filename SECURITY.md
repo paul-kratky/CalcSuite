@@ -30,5 +30,14 @@ tagged commit, not on anyone's PC. Check it with the GitHub CLI:
 
     gh attestation verify CalcSuite-<version>-win64.zip -R paul-kratky/CalcSuite
 
+The same signed provenance is also a release file, `<zip>.intoto.jsonl` (and
+`<zip>.sigstore.json`), for SLSA tools.
+
+The releases before 1.0.2 (back to 0.1.0) carry a `.sig` beside each file instead: the owner's
+SSH signature, added on 2026-11-28 after checking each file against its `SHA256SUMS.txt` (0.1.0
+and 0.2.0 had none). The public key is in `.github/allowed_signers`. Check a file with:
+
+    ssh-keygen -Y verify -f allowed_signers -I 199176229+paul-kratky@users.noreply.github.com -n file -s <file>.sig < <file>
+
 Release tags and commits are signed (GitHub shows them as Verified). The source of every part
 of the zip is in this repository; `.github/workflows/release.yml` is the exact build.
